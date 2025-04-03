@@ -1,0 +1,35 @@
+/* Jeans Blue Theme for Active Tabs */
+
+
+.ant-tabs-tab{
+    font-size: 15px !important;
+}
+.custom-billing-tabs .ant-tabs-tab-active {
+    background-color: #1560bd !important; /* Jeans Blue */
+    color: white !important;
+    font-weight: 500;
+    border-radius: 4px;
+  }
+  
+  /* Change inactive tab styles */
+  .custom-billing-tabs .ant-tabs-tab {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  /* Change tab text color on hover */
+  .custom-billing-tabs .ant-tabs-tab:hover {
+    color: #1560bd !important;
+  }
+  
+  /* Ensure the active tab text remains white */
+  .custom-billing-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+    color: white !important;
+    
+  }
+  
+
+  .custom-billing-tabs .five-minutes-tab {
+    color: red !important;
+  }
+  
+  
