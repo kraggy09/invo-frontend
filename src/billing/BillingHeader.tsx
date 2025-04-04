@@ -1,77 +1,52 @@
-import { Card, Tag, Input } from "antd";
+import { Card, Tag } from "antd";
 import {
   ShoppingCartOutlined,
   UserOutlined,
   FileTextOutlined,
-  SearchOutlined,
 } from "@ant-design/icons";
-import { useState, useRef, useEffect } from "react";
+import SearchWithSuggestions from "../components/SearchWithSuggestions";
+import SelectWithSuggestions from "../components/SelectWithSuggestions";
+import data from "../constant";
+import useProductStore, { Product } from "../store/product.store";
+import { useEffect } from "react";
+import useCustomerStore, { Customer } from "../store/customer.store";
+import useCurrentBillStore from "../store/currentBill.store";
 
-const dummyProducts = [
-  { value: "1", label: "Laptop Pro X", price: "$999.99" },
-  { value: "2", label: "Wireless Mouse", price: "$29.99" },
-  { value: "3", label: "4K Monitor", price: "$499.99" },
-  { value: "4", label: "Mechanical Keyboard", price: "$89.99" },
-  { value: "5", label: "USB-C Hub", price: "$49.99" },
-];
+const { productData, customerData } = data;
 
 const BillingHeader = () => {
-  const [productSearch, setProductSearch] = useState("");
-  const [showProductDropdown, setShowProductDropdown] = useState(false);
-  const productInputRef = useRef<HTMLDivElement>(null);
+  const { setProducts, products } = useProductStore();
+  const { setCustomers, customers } = useCustomerStore();
+  const { currentBillingId, setCustomerForBill, bills } = useCurrentBillStore();
 
-  const filteredProducts = dummyProducts.filter((product) =>
-    product.label.toLowerCase().includes(productSearch.toLowerCase())
-  );
-
-  const handleProductSelect = (product: (typeof dummyProducts)[0]) => {
-    // Here you would typically add the product to the bill
+  const handleProductSelect = (product: Product) => {
     console.log("Selected product:", product);
-
-    // Clear the input and focus back
-    setProductSearch("");
-    setShowProductDropdown(false);
-    productInputRef.current?.querySelector("input")?.focus();
   };
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        productInputRef.current &&
-        !productInputRef.current.contains(event.target as Node)
-      ) {
-        setShowProductDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    setProducts(productData as Product[]);
+    setCustomers(customerData as Customer[]);
   }, []);
 
-  const productDropdownContent = (
-    <div className="bg-white rounded-lg shadow-lg border border-gray-100 max-h-60 overflow-y-auto">
-      {filteredProducts.length > 0 ? (
-        filteredProducts.map((product) => (
-          <div
-            key={product.value}
-            className="px-4 py-2 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
-            onClick={() => handleProductSelect(product)}
-          >
-            <span className="text-gray-700">{product.label}</span>
-            <span className="text-gray-500">{product.price}</span>
-          </div>
-        ))
-      ) : (
-        <div className="px-4 py-2 text-gray-500">No products found</div>
-      )}
-    </div>
-  );
+  const handleCustomerSelect = (customer: Customer) => {
+    setCustomerForBill(customer, currentBillingId.toString());
+  };
+
+  const handleCustomerClear = () => {
+    setCustomerForBill(null, currentBillingId.toString());
+  };
+
+  const currentCustomer = bills.filter(
+    (bill) => bill.id === currentBillingId.toString()
+  )[0]?.customer;
+  const customerName = currentCustomer?.name || null;
+
+  console.log(currentCustomer, "This is the current customer");
 
   return (
     <Card
       className="w-full mb-4 shadow-sm hover:shadow-md transition-shadow duration-200"
-      bodyStyle={{ padding: "16px 24px" }}
+      // bodyStyle={{ padding: "16px 24px" }}
     >
       <div className="grid grid-cols-4 gap-6 items-center">
         {/* Bill Information */}
@@ -79,7 +54,9 @@ const BillingHeader = () => {
           <div className="flex items-center gap-2">
             <FileTextOutlined className="text-blue-500" />
             <span className="text-gray-500">Bill ID:</span>
-            <span className="font-semibold text-blue-600">B-001</span>
+            <span className="font-semibold text-blue-600">
+              B-{currentBillingId}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <FileTextOutlined className="text-blue-500" />
@@ -90,39 +67,33 @@ const BillingHeader = () => {
 
         {/* Customer Search */}
         <div className="space-y-1.5">
-          <label className="text-gray-500 text-sm font-medium flex items-center gap-1">
-            <UserOutlined className="text-gray-400" />
-            Customer
-          </label>
-          <Input
-            prefix={<SearchOutlined className="text-gray-400" />}
+          <SelectWithSuggestions<Customer>
+            data={customers}
+            onSelect={handleCustomerSelect}
+            onClear={handleCustomerClear}
+            label="Customer"
+            icon={<UserOutlined className="text-gray-400" />}
             placeholder="Search customer..."
-            className="w-full"
+            searchKeys={["name", "phone"]}
+            displayKeys={["name", "outstanding"]}
+            primaryKey="name"
+            value={customerName}
           />
         </div>
 
         {/* Product Search */}
-        <div className="space-y-1.5 relative" ref={productInputRef}>
-          <label className="text-gray-500 text-sm font-medium flex items-center gap-1">
-            <ShoppingCartOutlined className="text-gray-400" />
-            Product
-          </label>
-          <Input
-            prefix={<SearchOutlined className="text-gray-400" />}
+        <div className="space-y-1.5">
+          <SearchWithSuggestions
+            data={products}
+            onSelect={handleProductSelect}
+            label="Product"
+            icon={<ShoppingCartOutlined className="text-gray-400" />}
             placeholder="Search product..."
-            className="w-full"
-            value={productSearch}
-            onChange={(e) => {
-              setProductSearch(e.target.value);
-              setShowProductDropdown(true);
-            }}
-            onFocus={() => setShowProductDropdown(true)}
+            searchKeys={["name", "barcode"]}
+            autoSelect={true}
+            displayKeys={["name"]}
+            primaryKey="name"
           />
-          {showProductDropdown && productSearch && (
-            <div className="absolute z-10 w-full mt-1">
-              {productDropdownContent}
-            </div>
-          )}
         </div>
 
         {/* Summary Information */}
