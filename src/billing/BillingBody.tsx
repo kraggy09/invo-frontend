@@ -1,0 +1,325 @@
+import { Table, Button, Radio, Select, Input, InputRef } from "antd";
+import {
+  DeleteOutlined,
+  PlusOutlined,
+  CalculatorOutlined,
+} from "@ant-design/icons";
+import useCurrentBillStore, {
+  PurchasedProduct,
+} from "../store/currentBill.store";
+import { ColumnType } from "antd/es/table";
+import { useEffect, useRef, useMemo } from "react";
+import { formatIndianNumber } from "../utils/index";
+
+const BillingBody = () => {
+  const {
+    bills,
+    currentBillingId,
+    removeProductFromBill,
+    updateProductPrice,
+    updateProductQuantities,
+  } = useCurrentBillStore();
+  const paymentInputRef = useRef<InputRef>(null);
+
+  const currentBill = useMemo(() => {
+    return bills.find((bill) => bill.id === currentBillingId.toString());
+  }, [bills, currentBillingId]);
+
+  const dataSource = [...(currentBill?.purchased || [])].reverse();
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === "F9") {
+        e.preventDefault();
+        paymentInputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, []);
+
+  const handleRemove = (productId: string) => {
+    removeProductFromBill(productId, currentBillingId);
+  };
+
+  const handlePriceChange = (
+    record: PurchasedProduct,
+    priceType: "retail" | "wholesale" | "superWholesale"
+  ) => {
+    updateProductPrice(record.id, currentBillingId, priceType);
+  };
+
+  const handleQuantityChange = (
+    productId: string,
+    field: "piece" | "packet" | "box" | "discount",
+    value: string
+  ) => {
+    const numericValue = value === "" ? 0 : parseInt(value, 10);
+    if (!isNaN(numericValue)) {
+      updateProductQuantities(productId, currentBillingId.toString(), {
+        [field]: numericValue,
+      });
+    }
+  };
+
+  const columns: ColumnType<PurchasedProduct>[] = [
+    {
+      title: "Action",
+      key: "action",
+      align: "center",
+      render: (_: unknown, record: PurchasedProduct) => (
+        <Button
+          type="text"
+          danger
+          icon={<DeleteOutlined />}
+          onClick={() => handleRemove(record.id)}
+          tabIndex={-1}
+        />
+      ),
+    },
+    {
+      title: "Stock",
+      dataIndex: "stock",
+      key: "stock",
+      align: "center",
+      render: (_: unknown, record: PurchasedProduct) => (
+        <span className="text-gray-600 text-xs">
+          {record.stock % 1 === 0
+            ? record.stock
+            : record.stock.toFixed(2) + " kg"}
+        </span>
+      ),
+    },
+    {
+      title: "Name",
+      dataIndex: "name",
+      key: "name",
+      width: 200,
+      align: "left",
+      render: (name: string, record: PurchasedProduct) => (
+        <div className="flex items-center gap-2">
+          <p className="capitalize text-start">{name}</p>
+          {record.measuring === "kg" && (
+            <CalculatorOutlined size={20} className="text-blue-500" />
+          )}
+        </div>
+      ),
+    },
+    {
+      title: "Price",
+      dataIndex: "price",
+      key: "price",
+      align: "center",
+    },
+    {
+      title: "Price Type",
+      key: "priceType",
+      align: "center",
+      width: 150,
+      render: (_: unknown, record: PurchasedProduct) => (
+        <div tabIndex={-1}>
+          <Radio.Group
+            size="small"
+            value={record.type}
+            onChange={(e) => handlePriceChange(record, e.target.value)}
+            buttonStyle="outline"
+          >
+            <Radio.Button value="retail">RP</Radio.Button>
+            <Radio.Button value="wholesale">WP</Radio.Button>
+            <Radio.Button value="superWholesale">SWP</Radio.Button>
+          </Radio.Group>
+        </div>
+      ),
+    },
+    {
+      title: "Piece",
+      dataIndex: "piece",
+      key: "piece",
+      align: "center",
+      render: (_: unknown, record: PurchasedProduct) => (
+        <Input
+          size="small"
+          className="w-16 text-right"
+          placeholder="0"
+          style={{ paddingRight: "2px" }}
+          value={record.piece}
+          onChange={(e) =>
+            handleQuantityChange(record.id, "piece", e.target.value)
+          }
+        />
+      ),
+    },
+    {
+      title: "Packet",
+      dataIndex: "packet",
+      key: "packet",
+      align: "center",
+      render: (_: unknown, record: PurchasedProduct) => (
+        <Input
+          size="small"
+          className="w-16 text-right"
+          placeholder="0"
+          style={{ paddingRight: "2px" }}
+          value={record.packet}
+          onChange={(e) =>
+            handleQuantityChange(record.id, "packet", e.target.value)
+          }
+        />
+      ),
+    },
+    {
+      title: "Box",
+      dataIndex: "box",
+      key: "box",
+      align: "center",
+      render: (_: unknown, record: PurchasedProduct) => (
+        <Input
+          size="small"
+          className="w-16 text-right"
+          placeholder="0"
+          style={{ paddingRight: "2px" }}
+          value={record.box}
+          onChange={(e) =>
+            handleQuantityChange(record.id, "box", e.target.value)
+          }
+        />
+      ),
+    },
+    {
+      title: "Discount",
+      dataIndex: "discount",
+      key: "discount",
+      align: "center",
+      render: (_: unknown, record: PurchasedProduct) => (
+        <Input
+          size="small"
+          className="w-16 text-right"
+          placeholder="0"
+          prefix="₹"
+          style={{ paddingRight: "2px" }}
+          value={record.discount}
+          onChange={(e) =>
+            handleQuantityChange(record.id, "discount", e.target.value)
+          }
+        />
+      ),
+    },
+    {
+      title: "Total",
+      dataIndex: "total",
+      key: "total",
+      align: "center",
+      render: (_: unknown, record: PurchasedProduct) => (
+        <span className="font-semibold">
+          {formatIndianNumber(record.total)}₹
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <div
+      className="w-[98%] h-full mb-4 shadow-sm hover:shadow-md transition-shadow duration-200"
+      // bodyStyle={{ padding: "16px 24px" }}
+    >
+      <div className="flex flex-col flex-1 h-full">
+        <div className="h-[70%] flex  overflow-auto">
+          <Table
+            className="h-full"
+            bordered
+            pagination={false}
+            dataSource={dataSource}
+            columns={columns}
+            rowKey="id"
+            size="small"
+            scroll={{ y: "calc(100vh - 450px)" }}
+            tableLayout="fixed"
+          />
+        </div>
+
+        <div className="h-[30%] mr-12 bg-white p-2">
+          <div className="h-full flex flex-col justify-end">
+            <div className="space-y-1 text-right max-w-[250px] ml-auto">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 text-xs">Total Bill</span>
+                <span className="font-semibold text-gray-800 text-sm">
+                  {formatIndianNumber(currentBill?.total || 0)}₹
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 text-xs">Outstanding</span>
+                <span className="font-semibold text-gray-800 text-sm">
+                  {formatIndianNumber(currentBill?.customer?.outstanding || 0)}₹
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 text-xs">Discount</span>
+                <span className="font-semibold text-gray-800 text-sm">
+                  {formatIndianNumber(currentBill?.discount || 0)}₹
+                </span>
+              </div>
+              <div className="flex justify-between items-center border-t border-gray-200 pt-1">
+                <span className="text-gray-600 text-xs font-medium">Total</span>
+                <span className="font-bold text-sm text-gray-900">
+                  {currentBill &&
+                    formatIndianNumber(
+                      currentBill?.total +
+                        (currentBill?.customer?.outstanding || 0) -
+                        currentBill?.discount
+                    )}
+                  ₹
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-600 text-xs">Payment</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-600 font-medium">
+                    F9
+                  </span>
+                </div>
+                <Input
+                  ref={paymentInputRef}
+                  size="small"
+                  className="w-6 text-right h-6"
+                  placeholder="0"
+                  prefix="₹"
+                  style={{
+                    paddingRight: "2px",
+                    textAlign: "right",
+                    width: "90px",
+                  }}
+                />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 text-xs ">Payment Mode</span>
+                <Select
+                  size="small"
+                  defaultValue="cash"
+                  className=" h-6"
+                  options={[
+                    { value: "cash", label: "Cash" },
+                    { value: "online", label: "Online" },
+                  ]}
+                  style={{ width: "100px" }}
+                />
+              </div>
+              <div className="flex justify-end mt-2">
+                <Button
+                  type="primary"
+                  size="middle"
+                  icon={<PlusOutlined />}
+                  className="bg-blue-500 hover:bg-blue-600"
+                >
+                  Create Bill
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BillingBody;

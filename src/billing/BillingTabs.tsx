@@ -5,14 +5,8 @@ import useCurrentBillStore from "../store/currentBill.store";
 
 const BillingTabs = () => {
   const [activeKey, setActiveKey] = useState("1");
-  const {
-    billingId,
-    bills,
-    initialBills,
-    addBill,
-    setCurrentBillingId,
-    removeBill,
-  } = useCurrentBillStore();
+  const { bills, initialBills, addBill, setCurrentBillingId, removeBill } =
+    useCurrentBillStore();
   const [tabs, setTabs] = useState<
     {
       key: string;
@@ -24,13 +18,14 @@ const BillingTabs = () => {
 
   useEffect(() => {
     console.log(bills, "This are the bills");
-    const newKey = bills.length + billingId + 1;
+    const newKey = bills.length + 1;
     const newBill = {
       id: `${newKey}`,
       amount: 0,
       purchased: [],
       customer: null,
       discount: 0,
+      total: 0,
       idx: 0,
     };
     initialBills([newBill]);
@@ -38,7 +33,7 @@ const BillingTabs = () => {
       ...tabs,
       {
         key: `${newKey}`,
-        label: `B-${newKey}`,
+        label: `${newKey}`,
         fiveMinutes: false,
         createdAt: new Date().toLocaleString(),
       },
@@ -50,13 +45,13 @@ const BillingTabs = () => {
   console.log(bills, tabs, "This are the data");
 
   const addTab = () => {
-    const newBillingId = bills.length + billingId + 1;
+    const newBillingId = bills.length + 1;
     const newKey = `${newBillingId}`;
     setTabs([
       ...tabs,
       {
         key: newKey,
-        label: `B-${newKey}`,
+        label: `${newKey}`,
         fiveMinutes: false,
         createdAt: new Date().toLocaleString(),
       },
@@ -68,6 +63,7 @@ const BillingTabs = () => {
       purchased: [],
       customer: null,
       discount: 0,
+      total: 0,
       idx: bills.length,
     };
     addBill(newBill);
@@ -81,7 +77,7 @@ const BillingTabs = () => {
 
     for (let i = idx; i < newTabs.length; i++) {
       newTabs[i].key = key + "";
-      newTabs[i].label = `B-${key}`;
+      newTabs[i].label = `${key}`;
       key++;
     }
 

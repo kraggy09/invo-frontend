@@ -7,25 +7,32 @@ import {
 import SearchWithSuggestions from "../components/SearchWithSuggestions";
 import SelectWithSuggestions from "../components/SelectWithSuggestions";
 import data from "../constant";
-import useProductStore, { Product } from "../store/product.store";
+import useProductStore, { IProduct } from "../store/product.store";
 import { useEffect } from "react";
 import useCustomerStore, { Customer } from "../store/customer.store";
 import useCurrentBillStore from "../store/currentBill.store";
+import useCategoriesStore, { Category } from "../store/categories.store";
 
-const { productData, customerData } = data;
+const { productData, customerData, categoriesData } = data;
 
 const BillingHeader = () => {
   const { setProducts, products } = useProductStore();
   const { setCustomers, customers } = useCustomerStore();
-  const { currentBillingId, setCustomerForBill, bills } = useCurrentBillStore();
+  const { currentBillingId, billingId, setCustomerForBill, bills, addProduct } =
+    useCurrentBillStore();
+  const { setCategories, categories } = useCategoriesStore();
+  const currentBill = bills.find(
+    (bill) => bill.id === currentBillingId.toString()
+  );
 
-  const handleProductSelect = (product: Product) => {
-    console.log("Selected product:", product);
+  const handleProductSelect = (product: IProduct) => {
+    addProduct(product, currentBillingId.toString());
   };
 
   useEffect(() => {
-    setProducts(productData as Product[]);
+    setProducts(productData as IProduct[]);
     setCustomers(customerData as Customer[]);
+    setCategories(categoriesData as Category[]);
   }, []);
 
   const handleCustomerSelect = (customer: Customer) => {
@@ -41,8 +48,6 @@ const BillingHeader = () => {
   )[0]?.customer;
   const customerName = currentCustomer?.name || null;
 
-  console.log(currentCustomer, "This is the current customer");
-
   return (
     <Card
       className="w-full mb-4 shadow-sm hover:shadow-md transition-shadow duration-200"
@@ -54,9 +59,7 @@ const BillingHeader = () => {
           <div className="flex items-center gap-2">
             <FileTextOutlined className="text-blue-500" />
             <span className="text-gray-500">Bill ID:</span>
-            <span className="font-semibold text-blue-600">
-              B-{currentBillingId}
-            </span>
+            <span className="font-semibold text-blue-600">B-{billingId}</span>
           </div>
           <div className="flex items-center gap-2">
             <FileTextOutlined className="text-blue-500" />
@@ -101,7 +104,9 @@ const BillingHeader = () => {
           <div className="flex items-center gap-2">
             <ShoppingCartOutlined className="text-green-500" />
             <span className="text-gray-500">Total Products:</span>
-            <span className="font-semibold text-green-600">33</span>
+            <span className="font-semibold text-green-600">
+              {(currentBill && currentBill?.purchased?.length) || 0}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Tag color="blue" className="px-2 py-0.5 rounded-full">

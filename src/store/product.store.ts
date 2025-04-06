@@ -1,12 +1,12 @@
 import { create } from "zustand";
 
-export interface Product {
+export interface IProduct {
   _id: string;
   name: string;
   mrp: number;
   costPrice: number;
-  measuring: string;
-  category?: string;
+  measuring: "kg" | "pieces";
+  category: string;
   retailPrice: number;
   wholesalePrice: number;
   superWholesalePrice: number;
@@ -15,16 +15,16 @@ export interface Product {
   packet: number;
   box: number;
   minQuantity: number;
-  hi?: string;
+  hi: string;
   __v: number;
 }
 
 interface ProductStore {
-  products: Product[];
+  products: IProduct[];
   loading: boolean;
   error: string | null;
 
-  setProducts: (products: Product[]) => void;
+  setProducts: (products: IProduct[]) => void;
   updateStock: (productId: string, newStock: number) => void;
 }
 
