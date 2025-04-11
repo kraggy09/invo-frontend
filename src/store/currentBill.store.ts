@@ -129,6 +129,12 @@ type BillingStore = {
       discount?: number;
     }
   ) => void;
+  updateProductQuantityForMeasuring: (
+    productId: string,
+    billId: string,
+    price: number,
+    priceType: "superWholesale" | "wholesale" | "retail"
+  ) => void;
 };
 
 const useCurrentBillStore = create<BillingStore>((set) => {
@@ -373,6 +379,44 @@ const useCurrentBillStore = create<BillingStore>((set) => {
           return bill;
         });
         return { bills: updatedBills };
+      });
+    },
+    updateProductQuantityForMeasuring: (
+      productId: string,
+      billId: string,
+      price: number,
+      priceType: "superWholesale" | "wholesale" | "retail"
+    ) => {
+      set((state) => {
+        const billIdx = state.bills.findIndex((bill) => bill.id === billId);
+        const productIdx = state.bills[billIdx].purchased.findIndex(
+          (product) => product.id === productId
+        );
+        if (productIdx === -1) return state;
+
+        const currentProduct = state.bills[billIdx].purchased[productIdx];
+        if (currentProduct.measuring !== "kg") {
+          return state;
+        }
+        let sellingPrice = 0;
+        if (priceType === "superWholesale") {
+          sellingPrice = currentProduct.superWholesalePrice;
+        } else if (priceType === "wholesale") {
+          sellingPrice = currentProduct.wholesalePrice;
+        } else {
+          sellingPrice = currentProduct.retailPrice;
+        }
+
+        const pieces = price / sellingPrice;
+        currentProduct.piece = pieces;
+        currentProduct.total =
+          pieces * sellingPrice - (currentProduct.discount || 0);
+        currentProduct.price = sellingPrice;
+        currentProduct.type = priceType;
+        currentProduct.box = 0;
+        currentProduct.packet = 0;
+
+        return { bills: state.bills };
       });
     },
   };

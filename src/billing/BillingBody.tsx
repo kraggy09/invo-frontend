@@ -1,4 +1,4 @@
-import { Table, Button, Radio, Select, Input, InputRef } from "antd";
+import { Table, Button, Radio, Select, Input, InputRef, message } from "antd";
 import {
   DeleteOutlined,
   PlusOutlined,
@@ -8,8 +8,11 @@ import useCurrentBillStore, {
   PurchasedProduct,
 } from "../store/currentBill.store";
 import { ColumnType } from "antd/es/table";
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { formatIndianNumber } from "../utils/index";
+import WeightCalculatorModal from "./WeightCalculatorModal";
+import BillPrint from "./BillPrint";
+import { useReactToPrint } from "react-to-print";
 
 const BillingBody = () => {
   const {
@@ -20,6 +23,26 @@ const BillingBody = () => {
     updateProductQuantities,
   } = useCurrentBillStore();
   const paymentInputRef = useRef<InputRef>(null);
+  const [selectedProduct, setSelectedProduct] =
+    useState<PurchasedProduct | null>(null);
+  const [showPrint, setShowPrint] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: contentRef as React.RefObject<HTMLDivElement>,
+  });
+
+  const handlePrintClick = () => {
+    setShowPrint(true);
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
+  };
+
+  const handleClosePrint = () => {
+    setShowPrint(false);
+  };
 
   const currentBill = useMemo(() => {
     return bills.find((bill) => bill.id === currentBillingId.toString());
@@ -63,6 +86,30 @@ const BillingBody = () => {
     }
   };
 
+  const handleCalculatorClick = (record: PurchasedProduct) => {
+    setSelectedProduct(record);
+  };
+
+  const handleCloseCalculator = () => {
+    setSelectedProduct(null);
+  };
+
+  const handleCreateBill = async () => {
+    try {
+      setIsCreating(true);
+      // Dummy API call
+      const response = await fetch("https://dummyjson.com/products/1");
+      if (response.ok) {
+        handlePrintClick();
+        message.success("Bill created successfully!");
+      }
+    } catch {
+      message.error("Failed to create bill. Please try again.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const columns: ColumnType<PurchasedProduct>[] = [
     {
       title: "Action",
@@ -101,7 +148,10 @@ const BillingBody = () => {
         <div className="flex items-center gap-2">
           <p className="capitalize text-start">{name}</p>
           {record.measuring === "kg" && (
-            <CalculatorOutlined size={20} className="text-blue-500" />
+            <CalculatorOutlined
+              className="text-blue-500 cursor-pointer hover:text-blue-600"
+              onClick={() => handleCalculatorClick(record)}
+            />
           )}
         </div>
       ),
@@ -310,6 +360,8 @@ const BillingBody = () => {
                   size="middle"
                   icon={<PlusOutlined />}
                   className="bg-blue-500 hover:bg-blue-600"
+                  onClick={handleCreateBill}
+                  loading={isCreating}
                 >
                   Create Bill
                 </Button>
@@ -318,6 +370,23 @@ const BillingBody = () => {
           </div>
         </div>
       </div>
+
+      {selectedProduct && (
+        <WeightCalculatorModal
+          isOpen={!!selectedProduct}
+          onClose={handleCloseCalculator}
+          product={selectedProduct}
+          billId={currentBillingId.toString()}
+        />
+      )}
+
+      {showPrint && (
+        <BillPrint
+          onClose={handleClosePrint}
+          handlePrint={handlePrintClick}
+          contentRef={contentRef}
+        />
+      )}
     </div>
   );
 };
