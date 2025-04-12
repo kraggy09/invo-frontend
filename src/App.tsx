@@ -1,12 +1,26 @@
-import BillingPage from "./billing/BillingPage";
-import Header from "./common/Header";
+import { BrowserRouter } from "react-router-dom";
+import { ConfigProvider } from "antd";
+import { SocketProvider } from "./contexts/SocketContext";
+import GlobalSocketHandlers from "./components/GlobalSocketHandlers";
+import AppRoutes from "./routes";
 
 function App() {
   return (
-    <>
-      <Header />
-      <BillingPage />
-    </>
+    <ConfigProvider
+      theme={{
+        token: {
+          colorPrimary: "#1890ff",
+        },
+      }}
+    >
+      <SocketProvider>
+        <GlobalSocketHandlers>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </GlobalSocketHandlers>
+      </SocketProvider>
+    </ConfigProvider>
   );
 }
 

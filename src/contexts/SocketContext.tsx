@@ -1,0 +1,120 @@
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import { io, Socket } from "socket.io-client";
+
+interface SocketContextType {
+  socket: Socket | null;
+  isConnected: boolean;
+  connect: () => void;
+  disconnect: () => void;
+}
+
+const SocketContext = createContext<SocketContextType>({
+  socket: null,
+  isConnected: false,
+  connect: () => {},
+  disconnect: () => {},
+});
+
+export const useSocket = () => useContext(SocketContext);
+
+export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+
+  const connect = useCallback(() => {
+    if (socket?.connected) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.log("No token found, socket connection aborted");
+      return;
+    }
+
+    const socketInstance = io(
+      import.meta.env.SOCKET_URL || "http://localhost:3000",
+      {
+        autoConnect: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        auth: {
+          token: token,
+        },
+      }
+    );
+
+    // Connection events
+    socketInstance.on("connect", () => {
+      setIsConnected(true);
+      console.log("Socket connected");
+    });
+
+    socketInstance.on("disconnect", () => {
+      setIsConnected(false);
+      console.log("Socket disconnected");
+    });
+
+    socketInstance.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+      setIsConnected(false);
+    });
+
+    socketInstance.on("reconnect", (attemptNumber) => {
+      console.log(`Socket reconnected after ${attemptNumber} attempts`);
+      setIsConnected(true);
+    });
+
+    socketInstance.on("reconnect_error", (error) => {
+      console.error("Socket reconnection error:", error);
+    });
+
+    socketInstance.on("reconnect_failed", () => {
+      console.error("Socket reconnection failed");
+    });
+
+    socketInstance.on("error", (error) => {
+      console.error("Socket error:", error);
+      if (error.message === "Authentication error") {
+        disconnect();
+      }
+    });
+
+    setSocket(socketInstance);
+  }, [socket]);
+
+  const disconnect = useCallback(() => {
+    if (socket) {
+      socket.disconnect();
+      setSocket(null);
+      setIsConnected(false);
+    }
+  }, [socket]);
+
+  // Handle tab close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      disconnect();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [disconnect]);
+
+  return (
+    <SocketContext.Provider
+      value={{ socket, isConnected, connect, disconnect }}
+    >
+      {children}
+    </SocketContext.Provider>
+  );
+};
