@@ -13,6 +13,9 @@ import { formatIndianNumber } from "../utils/index";
 import WeightCalculatorModal from "./WeightCalculatorModal";
 import BillPrint from "./BillPrint";
 import { useReactToPrint } from "react-to-print";
+import toast from "react-hot-toast";
+import apiCaller from "../utils/apiCaller";
+import useUserStore from "../store/user.store";
 
 const BillingBody = () => {
   const {
@@ -94,17 +97,49 @@ const BillingBody = () => {
     setSelectedProduct(null);
   };
 
+  const { user } = useUserStore((state) => state);
   const handleCreateBill = async () => {
     try {
       setIsCreating(true);
+      console.log(currentBill, "This is the current bill we are making");
+      if (currentBill?.customer === null) {
+        toast.error("Please select the customer.");
+        return;
+      }
+
+      currentBill?.purchased.forEach((product) => {
+        if (product.piece === 0 && product.packet === 0 && product.box === 0) {
+          toast.error(
+            `Please enter a quantity for the product ${product.name}`
+          );
+          throw new Error("Quantity cannot be zero.");
+        }
+        if (product.discount < 0) {
+          toast.error("Discount cannot be negative.");
+        }
+        if (product.total < 0) {
+          toast.error("Total cannot be negative.");
+          throw new Error("Total cannot be negative.");
+        }
+      });
       // Dummy API call
-      const response = await fetch("https://dummyjson.com/products/1");
-      if (response.ok) {
+      const response = await apiCaller.post("/bills/create-bill", {
+        customerId: currentBill?.customer._id,
+        billId: currentBill?.id,
+        transactionId: "1",
+        payment: currentBill?.total,
+        paymentMode: "cash",
+        discount: currentBill?.discount,
+        createdBy: user?._id,
+        products: currentBill?.purchased,
+      });
+      if (response.data.ok) {
+        console.log(response.data, "This is the bill response");
+        toast.success("Bill created successfully!");
         handlePrintClick();
-        message.success("Bill created successfully!");
       }
     } catch {
-      message.error("Failed to create bill. Please try again.");
+      toast.error("Failed to create bill. Please try again.");
     } finally {
       setIsCreating(false);
     }

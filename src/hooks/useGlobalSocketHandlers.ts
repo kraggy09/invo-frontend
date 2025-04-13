@@ -6,9 +6,12 @@ import {
   BillCreatedEvent,
 } from "../types/socket";
 import { message } from "antd";
+import useUserStore from "../store/user.store";
+import apiCaller from "../utils/apiCaller";
 
 export const useGlobalSocketHandlers = () => {
   const { socket, isConnected } = useSocket();
+  const { setSocketId } = useUserStore();
 
   const handleNotification = useCallback((data: NotificationEvent) => {
     switch (data.type) {
@@ -35,18 +38,74 @@ export const useGlobalSocketHandlers = () => {
     message.success(`New bill created for customer ID: ${data.customerId}`);
   }, []);
 
+  const handleWelcomeMessage = useCallback(
+    async (data: { socketId: string }) => {
+      console.log("Welcome message from server:", data);
+      setSocketId(data.socketId);
+      await fetchInitialData();
+      message.info("Welcome to the billing system!");
+    },
+    []
+  );
+  const fetchInitialData = useCallback(async () => {
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+
+    const promiseData = [];
+
+    promiseData.push(
+      apiCaller.get("/bills/get-bills", {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      })
+    );
+
+    promiseData.push(apiCaller.get("/customers/get-customers"));
+
+    promiseData.push(
+      apiCaller.get("/transactions/get-transactions", {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      })
+    );
+
+    promiseData.push(apiCaller.get("/products/all-products"));
+
+    await Promise.all(promiseData)
+      .then((responses) => {
+        const bills = responses[0].data.data.bills;
+        const customers = responses[1].data.data.customers;
+        const transactions = responses[2].data.data.transactions;
+        const products = responses[3].data.data.products;
+
+        console.log("Bills:", bills);
+        console.log("Customers:", customers);
+        console.log("Transactions:", transactions);
+        console.log("Products:", products);
+      })
+      .catch((error) => {
+        console.error("Error fetching initial data:", error);
+      });
+  }, []);
+
   useEffect(() => {
     if (!socket || !isConnected) return;
-
-    // Add global event handlers
     socket.on(SocketEvents.NOTIFICATION, handleNotification);
-    const billCreated = socket.on(SocketEvents.BILL.CREATED, handleBillCreated);
-    console.log("This is the socket for handling bill created", billCreated);
+    socket.on("welcome", handleWelcomeMessage);
+    socket.on(SocketEvents.BILL.CREATED, handleBillCreated);
 
     // Cleanup on unmount (though these should persist)
     return () => {
       socket.off(SocketEvents.NOTIFICATION, handleNotification);
       socket.off(SocketEvents.BILL.CREATED, handleBillCreated);
+      socket.off("welcome", handleWelcomeMessage);
     };
   }, [socket, isConnected, handleNotification, handleBillCreated]);
 };

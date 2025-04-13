@@ -11,6 +11,8 @@ type UserStore = {
   setUser: (user: User) => void;
   isAuthenticated: boolean;
   setIsAuthenticated: (isAutehnitated: boolean) => void;
+  socketId: string;
+  setSocketId: (socketId: string) => void;
 };
 
 const useUserStore = create<UserStore>((set) => ({
@@ -18,6 +20,8 @@ const useUserStore = create<UserStore>((set) => ({
   setUser: (user) => set({ user }),
   isAuthenticated: false,
   setIsAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
+  socketId: "",
+  setSocketId: (socketId) => set({ socketId }),
 }));
 
 export default useUserStore;

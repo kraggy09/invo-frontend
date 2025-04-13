@@ -17,7 +17,6 @@ const BillingTabs = () => {
   >([]);
 
   useEffect(() => {
-    console.log(bills, "This are the bills");
     const newKey = bills.length + 1;
     const newBill = {
       id: `${newKey}`,
@@ -41,8 +40,6 @@ const BillingTabs = () => {
     setActiveKey(`${newKey}`);
     setCurrentBillingId(newKey);
   }, []);
-
-  console.log(bills, tabs, "This are the data");
 
   const addTab = () => {
     const newBillingId = bills.length + 1;

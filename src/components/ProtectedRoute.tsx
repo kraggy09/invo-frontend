@@ -13,51 +13,57 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const location = useLocation();
   const [isChecking, setIsChecking] = useState(true);
   const { connect } = useSocket();
+  const [firstRender, setFirstRender] = useState(true);
   const { isAuthenticated, setIsAuthenticated } = useUserStore(
     (state) => state
   );
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (isAuthenticated) {
+  const checkAuth = async () => {
+    if (isAuthenticated) {
+      setIsChecking(false);
+      return;
+    }
+    try {
+      console.log("CHekcing auth");
+
+      const token = localStorage.getItem("token");
+      if (!token) {
         setIsChecking(false);
         return;
       }
-      try {
-        console.log("CHekcing auth");
 
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setIsChecking(false);
-          return;
-        }
+      const response = await apiCaller.get("/check-auth");
 
-        const response = await apiCaller.get("/check-auth");
-
-        if (response?.status === 200 || response?.status === 304) {
-          setIsChecking(false);
-          setIsAuthenticated(true);
-        } else {
-          localStorage.removeItem("token");
-          localStorage.removeItem("isAuthenticated");
-          setIsChecking(false);
-        }
-
-        if (response.status === 200) {
-          connect();
-        }
-      } catch {
+      if (response?.status === 200 || response?.status === 304) {
+        setIsChecking(false);
+        setIsAuthenticated(true);
+      } else {
         localStorage.removeItem("token");
         localStorage.removeItem("isAuthenticated");
         setIsChecking(false);
       }
-    };
 
-    checkAuth();
+      if (response.status === 200) {
+        connect();
+      }
+    } catch {
+      localStorage.removeItem("token");
+      localStorage.removeItem("isAuthenticated");
+      setIsChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!firstRender) {
+      checkAuth();
+    }
+  }, [firstRender]);
+  useEffect(() => {
+    setFirstRender(false);
   }, []);
 
   if (isChecking) {
-    return <div>Loading...</div>; // or a loading spinner
+    return <div>Loading...</div>;
   }
 
   if (!isAuthenticated && !isChecking) {

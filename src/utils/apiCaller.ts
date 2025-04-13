@@ -1,4 +1,5 @@
 import axios, { InternalAxiosRequestConfig, AxiosResponse } from "axios";
+import useUserStore from "../store/user.store";
 axios.defaults.withCredentials = true;
 
 const apiCaller = axios.create({
@@ -24,8 +25,11 @@ apiCaller.interceptors.request.use(
       return Promise.reject(new Error("Token not found"));
     }
 
+    const socketId = useUserStore.getState().socketId;
+
     if (config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+      config.headers.SocketId = socketId;
     }
 
     return config;
