@@ -14,7 +14,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [isChecking, setIsChecking] = useState(true);
   const { connect } = useSocket();
   const [firstRender, setFirstRender] = useState(true);
-  const { isAuthenticated, setIsAuthenticated } = useUserStore(
+  const { isAuthenticated, setIsAuthenticated, setUser } = useUserStore(
     (state) => state
   );
 
@@ -36,7 +36,14 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
       if (response?.status === 200 || response?.status === 304) {
         setIsChecking(false);
+        console.log(response.data, "USER DATA");
+
         setIsAuthenticated(true);
+        setUser({
+          _id: response.data.data.user._id,
+          username: response.data.data.user.username,
+          token: response.data.data.token,
+        });
       } else {
         localStorage.removeItem("token");
         localStorage.removeItem("isAuthenticated");

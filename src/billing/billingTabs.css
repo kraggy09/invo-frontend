@@ -27,9 +27,18 @@
     
   }
   
+/* billingTabs.css or relevant CSS file */
+/* billingTabs.css */
+.blinking-text {
+  color: red;
+  animation: blink-red 0.5s step-start infinite;
+}
 
-  .custom-billing-tabs .five-minutes-tab {
-    color: red !important;
+@keyframes blink-red {
+  0%, 100% {
+    opacity: 1;
   }
-  
-  
+  50% {
+    opacity: 0;
+  }
+}

@@ -8,11 +8,50 @@ import {
 import { message } from "antd";
 import useUserStore from "../store/user.store";
 import apiCaller from "../utils/apiCaller";
+import useCustomerStore from "../store/customer.store";
+import useProductStore from "../store/product.store";
+import useCategoriesStore from "../store/categories.store";
+import useCurrentBillStore from "../store/currentBill.store";
+import useTransactionStore from "../store/transaction.store";
+import useBillStore from "../store/bill.store";
 
 export const useGlobalSocketHandlers = () => {
   const { socket, isConnected } = useSocket();
-  const { setSocketId } = useUserStore();
 
+  // Zustands optimized with selectors
+
+  // User store
+  const setSocketId = useUserStore((state) => state.setSocketId);
+
+  // Product store
+  const products = useProductStore((state) => state.products);
+  const setProducts = useProductStore((state) => state.setProducts);
+
+  // Customer store
+  const setCustomers = useCustomerStore((state) => state.setCustomers);
+  const updateOutstanding = useCustomerStore(
+    (state) => state.updateOutstanding
+  );
+
+  // Category store
+  const setCategories = useCategoriesStore((state) => state.setCategories);
+
+  // Transaction store
+  const setTransactions = useTransactionStore((state) => state.setTransactions);
+  const setTransactionId = useTransactionStore(
+    (state) => state.setTransactionId
+  );
+  const addTransaction = useTransactionStore((state) => state.addTransaction);
+
+  // Bill store
+  const setBillingId = useBillStore((state) => state.setBillingId);
+  const setBills = useBillStore((state) => state.setBills);
+  const addBill = useBillStore((state) => state.addBill);
+
+  // Current bill store
+  const afterBillCreated = useCurrentBillStore(
+    (state) => state.afterBillCreated
+  );
   const handleNotification = useCallback((data: NotificationEvent) => {
     switch (data.type) {
       case "success":
@@ -30,13 +69,62 @@ export const useGlobalSocketHandlers = () => {
     }
   }, []);
 
-  const handleBillCreated = useCallback((data: BillCreatedEvent) => {
-    // You can update any global state here if needed
-    console.log("New bill created globally:", data);
+  const handleBillCreated = useCallback(
+    (data: BillCreatedEvent) => {
+      // You can update any global state here if needed
+      console.log("New bill created globally:", data);
 
-    // Show a notification
-    message.success(`New bill created for customer ID: ${data.customerId}`);
-  }, []);
+      const bill = data.bill;
+      const items = bill.items;
+      const billingId = data.billId;
+      const transaction = data.transaction;
+      const transactionId = data.transactionId;
+      const updatedCustomer = data.updatedCustomer;
+      const productsIdMap = new Map(products.map((p, i) => [p._id, i]));
+
+      let updatedProducts = [...products];
+      console.log(
+        productsIdMap,
+        products,
+        updatedProducts,
+        "This is the products ID map"
+      );
+      const itemsMap = new Map(items.map((item) => [item.product, item]));
+
+      items.forEach((item) => {
+        const productIndex = productsIdMap.get(item.product as string);
+        if (productIndex !== undefined) {
+          updatedProducts[productIndex].stock -= item.quantity;
+          console.log("Old Stock and New Stock", {
+            oldStock: updatedProducts[productIndex].stock + item.quantity,
+            newStock: updatedProducts[productIndex].stock,
+          });
+        } else {
+          console.warn(
+            `Product with ID ${item.product} not found in products.`
+          );
+        }
+      });
+      setProducts(updatedProducts);
+      setBillingId(billingId);
+      addBill(bill);
+      if (transactionId) {
+        setTransactionId(transactionId);
+      }
+      if (transaction) {
+        addTransaction(transaction);
+      }
+      const customer = updateOutstanding(
+        updatedCustomer._id,
+        updatedCustomer.outstanding
+      );
+      afterBillCreated(customer, itemsMap);
+
+      // Show a notfication
+      message.success(`New bill created for customer ID`);
+    },
+    [products]
+  );
 
   const handleWelcomeMessage = useCallback(
     async (data: { socketId: string }) => {
@@ -77,15 +165,27 @@ export const useGlobalSocketHandlers = () => {
     );
 
     promiseData.push(apiCaller.get("/products/all-products"));
-
+    promiseData.push(apiCaller.get("/categories/all-categories"));
+    promiseData.push(apiCaller.get("/bills/get-billing-id"));
+    promiseData.push(apiCaller.get("/transactions/get-transaction-id"));
     await Promise.all(promiseData)
       .then((responses) => {
         const bills = responses[0].data.data.bills;
         const customers = responses[1].data.data.customers;
         const transactions = responses[2].data.data.transactions;
         const products = responses[3].data.data.products;
+        const categories = responses[4].data.data.categories;
+        const billingId = responses[5].data.data.billId;
+        const transactionId = responses[6].data.data.transactionId;
+        console.log(billingId, "This is the billing id");
+        setCustomers(customers);
+        setBillingId(billingId);
+        setProducts(products);
+        setBills(bills);
+        setTransactions(transactions);
+        setTransactionId(transactionId);
+        setCategories(categories);
 
-        console.log("Bills:", bills);
         console.log("Customers:", customers);
         console.log("Transactions:", transactions);
         console.log("Products:", products);

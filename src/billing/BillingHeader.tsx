@@ -6,34 +6,42 @@ import {
 } from "@ant-design/icons";
 import SearchWithSuggestions from "../components/SearchWithSuggestions";
 import SelectWithSuggestions from "../components/SelectWithSuggestions";
-import data from "../constant";
+
+// Zustand selectors
 import useProductStore, { IProduct } from "../store/product.store";
-import { useEffect } from "react";
 import useCustomerStore, { Customer } from "../store/customer.store";
 import useCurrentBillStore from "../store/currentBill.store";
-import useCategoriesStore, { Category } from "../store/categories.store";
-
-const { productData, customerData, categoriesData } = data;
+import useBillStore from "../store/bill.store";
+import useTransactionStore from "../store/transaction.store";
 
 const BillingHeader = () => {
-  const { setProducts, products } = useProductStore();
-  const { setCustomers, customers } = useCustomerStore();
-  const { currentBillingId, billingId, setCustomerForBill, bills, addProduct } =
-    useCurrentBillStore();
-  const { setCategories, categories } = useCategoriesStore();
+  // ✅ Selectively get only needed state from all stores
+  const products = useProductStore((state) => state.products);
+  const customers = useCustomerStore((state) => state.customers);
+
+  const currentBillingId = useCurrentBillStore(
+    (state) => state.currentBillingId
+  );
+  const setCustomerForBill = useCurrentBillStore(
+    (state) => state.setCustomerForBill
+  );
+  const addProduct = useCurrentBillStore((state) => state.addProduct);
+
+  const bills = useCurrentBillStore((state) => state.bills); // better to colocate current billing data
+  const billingId = useBillStore((state) => state.billingId);
+  const transactionId = useTransactionStore((state) => state.transactionId);
+
+  // ✅ UseMemo or simple memoization where needed
   const currentBill = bills.find(
     (bill) => bill.id === currentBillingId.toString()
   );
+  const currentCustomer = currentBill?.customer;
+  const customerName = currentCustomer?.name || "";
 
+  // ✅ Handlers
   const handleProductSelect = (product: IProduct) => {
     addProduct(product, currentBillingId.toString());
   };
-
-  useEffect(() => {
-    setProducts(productData as IProduct[]);
-    setCustomers(customerData as Customer[]);
-    setCategories(categoriesData as Category[]);
-  }, []);
 
   const handleCustomerSelect = (customer: Customer) => {
     setCustomerForBill(customer, currentBillingId.toString());
@@ -43,28 +51,24 @@ const BillingHeader = () => {
     setCustomerForBill(null, currentBillingId.toString());
   };
 
-  const currentCustomer = bills.filter(
-    (bill) => bill.id === currentBillingId.toString()
-  )[0]?.customer;
-  const customerName = currentCustomer?.name || null;
-
   return (
-    <Card
-      className="w-full mb-4 shadow-sm hover:shadow-md transition-shadow duration-200"
-      // bodyStyle={{ padding: "16px 24px" }}
-    >
+    <Card className="w-full mb-4 shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="grid grid-cols-4 gap-6 items-center">
         {/* Bill Information */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <FileTextOutlined className="text-blue-500" />
             <span className="text-gray-500">Bill ID:</span>
-            <span className="font-semibold text-blue-600">B-{billingId}</span>
+            <span className="font-semibold text-blue-600">
+              B-{billingId + 1}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <FileTextOutlined className="text-blue-500" />
             <span className="text-gray-500">Trans ID:</span>
-            <span className="font-semibold text-blue-600">T-999</span>
+            <span className="font-semibold text-blue-600">
+              T-{transactionId + 1}
+            </span>
           </div>
         </div>
 
@@ -105,7 +109,7 @@ const BillingHeader = () => {
             <ShoppingCartOutlined className="text-green-500" />
             <span className="text-gray-500">Total Products:</span>
             <span className="font-semibold text-green-600">
-              {(currentBill && currentBill?.purchased?.length) || 0}
+              {currentBill?.purchased?.length || 0}
             </span>
           </div>
           <div className="flex items-center gap-2">

@@ -1,7 +1,7 @@
 import useCategoriesStore from "../store/categories.store";
 import { Product } from "../store/currentBill.store";
 
-type PriceType = "superWholesale" | "wholesale" | "retail";
+type PriceType = "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL";
 
 export const calculatePriceTag = (
   product: Product,
@@ -14,13 +14,13 @@ export const calculatePriceTag = (
   const categoryInfo = categories.find((cat) => cat.name === product.category);
   console.log(categoryInfo, "Category info from heaven", product.category);
   if (!categoryInfo) {
-    return { type: "retail", price: product.retailPrice };
+    return { type: "RETAIL", price: product.retailPrice };
   }
 
-  if (billType === "superWholesale") {
-    return { type: "superWholesale", price: product.superWholesalePrice };
-  } else if (billType === "wholesale" && val < categoryInfo.superWholeSale) {
-    return { type: "wholesale", price: product.wholesalePrice };
+  if (billType === "SUPERWHOLESALE") {
+    return { type: "SUPERWHOLESALE", price: product.superWholesalePrice };
+  } else if (billType === "WHOLESALE" && val < categoryInfo.superWholeSale) {
+    return { type: "WHOLESALE", price: product.wholesalePrice };
   }
 
   if (product.category === "null" && val === 1) {
@@ -37,19 +37,19 @@ export const calculatePriceTag = (
     console.log("Hey i have got the value", val);
 
     if (val >= superWholeSale) {
-      return { type: "superWholesale", price: product.superWholesalePrice };
+      return { type: "SUPERWHOLESALE", price: product.superWholesalePrice };
     } else if (val < superWholeSale && val >= wholesale) {
-      return { type: "wholesale", price: product.wholesalePrice };
+      return { type: "WHOLESALE", price: product.wholesalePrice };
     } else {
-      return { type: "retail", price: product.retailPrice };
+      return { type: "RETAIL", price: product.retailPrice };
     }
   } else {
     if (product.piece >= superWholeSale) {
-      return { type: "superWholesale", price: product.superWholesalePrice };
+      return { type: "SUPERWHOLESALE", price: product.superWholesalePrice };
     } else if (product.piece < superWholeSale && product.piece >= wholesale) {
-      return { type: "wholesale", price: product.wholesalePrice };
+      return { type: "WHOLESALE", price: product.wholesalePrice };
     } else {
-      return { type: "retail", price: product.retailPrice };
+      return { type: "RETAIL", price: product.retailPrice };
     }
   }
 };

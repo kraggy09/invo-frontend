@@ -249,7 +249,7 @@ const DashboardPage = () => {
             <h2 className="text-base font-semibold mb-4">Quick Actions</h2>
             <div className="grid grid-cols-2 gap-3">
               <Link
-                to="/newbill"
+                to="/new-bill"
                 className="bg-blue-50 text-blue-600 p-3 rounded-lg text-center hover:bg-blue-100 transition-colors"
               >
                 <DollarOutlined className="text-xl mb-2" />

@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import { Customer } from "./customer.store";
+import useCustomerStore, { Customer } from "./customer.store";
 import { IProduct } from "./product.store";
 import { calculatePriceTag } from "../utils/priceUtils";
+import { BillItem } from "./bill.store";
 
 export type PurchasedProduct = {
   id: string;
@@ -15,7 +16,7 @@ export type PurchasedProduct = {
   name: string;
   price: number;
   mrp: number;
-  type: "superWholesale" | "wholesale" | "retail";
+  type: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL";
   piece: number;
   packet: number;
   box: number;
@@ -38,7 +39,7 @@ export class Product implements PurchasedProduct {
   name: string;
   price: number;
   mrp: number;
-  type: "superWholesale" | "wholesale" | "retail";
+  type: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL";
   piece: number;
   packet: number;
   box: number;
@@ -60,7 +61,7 @@ export class Product implements PurchasedProduct {
     name: string,
     price: number,
     mrp: number,
-    type: "superWholesale" | "wholesale" | "retail",
+    type: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL",
     piece: number,
     packet: number,
     box: number,
@@ -93,21 +94,20 @@ export class Product implements PurchasedProduct {
   }
 }
 
-type Bill = {
+export type Bill = {
   id: string;
   idx: number;
   total: number;
   purchased: PurchasedProduct[];
   customer: Customer | null;
   discount: number;
+  createdAt: string;
 };
 
 type BillingStore = {
   bills: Bill[];
-  billingId: number;
   addBill: (bill: Bill) => void;
   removeBill: (id: string) => void;
-  setBillingId: (id: number) => void;
   currentBillingId: number;
   setCurrentBillingId: (id: number) => void;
   initialBills: (bills: Bill[]) => void;
@@ -117,7 +117,7 @@ type BillingStore = {
   updateProductPrice: (
     productId: string,
     billId: number,
-    priceType: "superWholesale" | "wholesale" | "retail"
+    priceType: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL"
   ) => void;
   updateProductQuantities: (
     productId: string,
@@ -133,16 +133,19 @@ type BillingStore = {
     productId: string,
     billId: string,
     price: number,
-    priceType: "superWholesale" | "wholesale" | "retail"
+    priceType: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL"
+  ) => void;
+  afterBillCreated: (
+    customer: Customer,
+    purchasedMap: Map<string, BillItem>
   ) => void;
 };
 
-const useCurrentBillStore = create<BillingStore>((set) => {
+const useCurrentBillStore = create<BillingStore>((set, get) => {
   // Get categories from the categories store
 
   return {
     bills: [],
-    billingId: 1,
     addBill: (bill) => set((state) => ({ bills: [...state.bills, bill] })),
     initialBills: (bills: Bill[]) => set(() => ({ bills: bills })),
     removeBill: (id) =>
@@ -158,7 +161,6 @@ const useCurrentBillStore = create<BillingStore>((set) => {
 
         return { bills: updatedBills };
       }),
-    setBillingId: (id) => set(() => ({ billingId: id })),
     currentBillingId: 0,
     setCurrentBillingId: (id) => set(() => ({ currentBillingId: id })),
     setCustomerForBill: (customer: Customer | null, id: string) => {
@@ -173,42 +175,28 @@ const useCurrentBillStore = create<BillingStore>((set) => {
       });
     },
     addProduct: (product: IProduct, id: string) => {
-      const newProduct = new Product(
-        product._id,
-        product.packet,
-        product.box,
-        product.wholesalePrice,
-        product.retailPrice,
-        product.superWholesalePrice,
-        product.measuring,
-        product.barcode,
-        product.name,
-        product.retailPrice,
-        product.mrp,
-        "retail",
-        1,
-        0,
-        0,
-        0,
-        0,
-        product.category,
-        product.hi,
-        product.stock
-      );
-
       set((state) => {
         const bills = [...state.bills];
-        const billIndex = bills.findIndex((bill) => bill.id === id);
+
+        // const billIndex = bills.findIndex((bill) => bill.id === id);
+        // Removed unnesscary checking for Bill index
+        const billIndex = Number(id) - 1;
 
         if (billIndex === -1) return state;
 
-        const existingProductIndex = bills[billIndex].purchased.findIndex(
+        // Create a shallow copy of the bill's purchased products array
+        const purchased = [...bills[billIndex].purchased];
+
+        // Find if the product already exists in the purchased array
+        const existingProductIndex = purchased.findIndex(
           (p) => p.id === product._id
         );
 
         if (existingProductIndex !== -1) {
-          const currentProduct =
-            bills[billIndex].purchased[existingProductIndex];
+          // Copy the existing product to avoid mutation
+          const currentProduct = { ...purchased[existingProductIndex] };
+
+          // Update the piece count
           currentProduct.piece += 1;
 
           // Calculate total pieces
@@ -217,36 +205,64 @@ const useCurrentBillStore = create<BillingStore>((set) => {
             currentProduct.box * currentProduct.boxQuantity +
             currentProduct.packet * currentProduct.packetQuantity;
 
-          // Get price tag based on total pieces
+          // Calculate price tag based on total pieces
           const priceTag = calculatePriceTag(
             currentProduct,
             totalPieces,
-            "retail"
+            "RETAIL"
           );
 
-          // Update product type and price
+          // Update product details
           currentProduct.type = priceTag.type;
           currentProduct.price = priceTag.price;
+          currentProduct.total = totalPieces * priceTag.price;
 
-          // Calculate total
-          currentProduct.total = totalPieces * currentProduct.price;
-          bills[billIndex].purchased[existingProductIndex] = currentProduct;
+          // Replace the updated product in the purchased copy
+          purchased[existingProductIndex] = currentProduct;
         } else {
-          // For new products, calculate initial price tag
-          const priceTag = calculatePriceTag(newProduct, 1, "retail");
+          // Create a new Product instance (immutable)
+          const newProduct = new Product(
+            product._id,
+            product.packet,
+            product.box,
+            product.wholesalePrice,
+            product.retailPrice,
+            product.superWholesalePrice,
+            product.measuring,
+            product.barcode,
+            product.name,
+            product.retailPrice,
+            product.mrp,
+            "RETAIL",
+            1,
+            0,
+            0,
+            0,
+            0,
+            product.category,
+            product.hi,
+            product.stock
+          );
+
+          // Calculate price tag for the new product
+          const priceTag = calculatePriceTag(newProduct, 1, "RETAIL");
           newProduct.type = priceTag.type;
           newProduct.price = priceTag.price;
-          newProduct.total = newProduct.price; // Since piece is 1 and others are 0
+          newProduct.total = newProduct.price;
 
-          console.log(newProduct, "We are pushing this");
-          bills[billIndex].purchased.push(newProduct);
+          // Add new product to purchased copy
+          purchased.push(newProduct);
         }
 
-        bills[billIndex].total = bills[billIndex].purchased.reduce(
-          (sum, product) => sum + product.total,
-          0
-        );
+        // Create a new bill object with updated purchased products and recalc total
+        const updatedBill = {
+          ...bills[billIndex],
+          purchased,
+          total: purchased.reduce((sum, p) => sum + p.total, 0),
+        };
 
+        // Replace the old bill with the updated one in the bills copy
+        bills[billIndex] = updatedBill;
         return { bills };
       });
     },
@@ -268,7 +284,7 @@ const useCurrentBillStore = create<BillingStore>((set) => {
     updateProductPrice: (
       productId: string,
       billId: number,
-      priceType: "superWholesale" | "wholesale" | "retail"
+      priceType: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL"
     ) => {
       set((state) => {
         const idx = state.bills.findIndex(
@@ -281,9 +297,9 @@ const useCurrentBillStore = create<BillingStore>((set) => {
           const currentProduct = state.bills[idx].purchased[productIdx];
           currentProduct.type = priceType;
           currentProduct.price =
-            priceType === "superWholesale"
+            priceType === "SUPERWHOLESALE"
               ? currentProduct.superWholesalePrice
-              : priceType === "wholesale"
+              : priceType === "WHOLESALE"
               ? currentProduct.wholesalePrice
               : currentProduct.retailPrice;
           currentProduct.total =
@@ -352,7 +368,7 @@ const useCurrentBillStore = create<BillingStore>((set) => {
               const priceTag = calculatePriceTag(
                 currentProduct,
                 totalPieces,
-                "retail"
+                "RETAIL"
               );
 
               console.log(priceTag, "Price tag from heaven");
@@ -385,7 +401,7 @@ const useCurrentBillStore = create<BillingStore>((set) => {
       productId: string,
       billId: string,
       price: number,
-      priceType: "superWholesale" | "wholesale" | "retail"
+      priceType: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL"
     ) => {
       set((state) => {
         const billIdx = state.bills.findIndex((bill) => bill.id === billId);
@@ -399,9 +415,9 @@ const useCurrentBillStore = create<BillingStore>((set) => {
           return state;
         }
         let sellingPrice = 0;
-        if (priceType === "superWholesale") {
+        if (priceType === "SUPERWHOLESALE") {
           sellingPrice = currentProduct.superWholesalePrice;
-        } else if (priceType === "wholesale") {
+        } else if (priceType === "WHOLESALE") {
           sellingPrice = currentProduct.wholesalePrice;
         } else {
           sellingPrice = currentProduct.retailPrice;
@@ -417,6 +433,60 @@ const useCurrentBillStore = create<BillingStore>((set) => {
         currentProduct.packet = 0;
 
         return { bills: state.bills };
+      });
+    },
+    afterBillCreated: (customer, purchasedMap) => {
+      const { bills } = get();
+      console.log(customer, purchasedMap, "After bill created");
+
+      const newBills = bills.map((bill) => {
+        const isSameCustomer = bill.customer?._id === customer._id;
+
+        // Track if something actually changed
+        let updated = false;
+
+        // Update customer if matched
+        const updatedCustomer = isSameCustomer ? customer : bill.customer;
+
+        const updatedPurchased = bill.purchased.map((product) => {
+          const updatedItem = purchasedMap.get(product.id);
+          if (updatedItem) {
+            updated = true;
+            return {
+              ...product,
+              stock: updatedItem.newQuantity,
+            };
+          }
+          return product;
+        });
+
+        // Only return a new object if something changed
+        if (isSameCustomer || updated) {
+          return {
+            ...bill,
+            customer: updatedCustomer,
+            purchased: updatedPurchased,
+            total: updatedPurchased.reduce((sum, item) => sum + item.total, 0),
+          };
+        }
+
+        // No changes needed, return existing bill
+        return bill;
+      });
+
+      // Finally, update the state only if needed
+      set({ bills: newBills });
+    },
+    afterProductUpdated: (productId: string) => {},
+    addCreatedAt: (billId: string, createdAt: string) => {
+      set((state) => {
+        const bills = [...state.bills];
+        const billIndex = bills.findIndex((bill) => bill.id === billId);
+
+        if (billIndex === -1) return state;
+
+        bills[billIndex].createdAt = createdAt;
+        return { bills };
       });
     },
   };

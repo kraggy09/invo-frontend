@@ -1,8 +1,9 @@
-import { Table, Button, Radio, Select, Input, InputRef, message } from "antd";
+import { Table, Button, Radio, Select, Input, InputRef } from "antd";
 import {
   DeleteOutlined,
   PlusOutlined,
   CalculatorOutlined,
+  SoundOutlined,
 } from "@ant-design/icons";
 import useCurrentBillStore, {
   PurchasedProduct,
@@ -16,6 +17,9 @@ import { useReactToPrint } from "react-to-print";
 import toast from "react-hot-toast";
 import apiCaller from "../utils/apiCaller";
 import useUserStore from "../store/user.store";
+import useBillStore from "../store/bill.store";
+import useTransactionStore from "../store/transaction.store";
+import useTabsStore from "../store/tabs.store";
 
 const BillingBody = () => {
   const {
@@ -24,16 +28,33 @@ const BillingBody = () => {
     removeProductFromBill,
     updateProductPrice,
     updateProductQuantities,
+    removeBill,
+    setCurrentBillingId,
   } = useCurrentBillStore();
+  const { removeTabAndBill } = useTabsStore();
+  const { billingId } = useBillStore();
+  const { transactionId } = useTransactionStore();
+
   const paymentInputRef = useRef<InputRef>(null);
   const [selectedProduct, setSelectedProduct] =
     useState<PurchasedProduct | null>(null);
   const [showPrint, setShowPrint] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [delayMs, setDelayMs] = useState(2000); // Default 2 seconds
+  const [paymentMode, setPaymentMode] = useState("CASH");
 
   const handlePrint = useReactToPrint({
     contentRef: contentRef as React.RefObject<HTMLDivElement>,
+    onAfterPrint: () => {
+      setShowPrint(false);
+      removeTabAndBill(
+        currentBillingId.toString(),
+        bills,
+        removeBill,
+        setCurrentBillingId
+      );
+    },
   });
 
   const handlePrintClick = () => {
@@ -71,7 +92,7 @@ const BillingBody = () => {
 
   const handlePriceChange = (
     record: PurchasedProduct,
-    priceType: "retail" | "wholesale" | "superWholesale"
+    priceType: "RETAIL" | "WHOLESALE" | "SUPERWHOLESALE"
   ) => {
     updateProductPrice(record.id, currentBillingId, priceType);
   };
@@ -98,16 +119,19 @@ const BillingBody = () => {
   };
 
   const { user } = useUserStore((state) => state);
+
   const handleCreateBill = async () => {
     try {
       setIsCreating(true);
-      console.log(currentBill, "This is the current bill we are making");
-      if (currentBill?.customer === null) {
+      if (!currentBill) {
+        toast.error("No current bill found.");
+        return;
+      }
+      if (!currentBill.customer) {
         toast.error("Please select the customer.");
         return;
       }
-
-      currentBill?.purchased.forEach((product) => {
+      for (const product of currentBill.purchased) {
         if (product.piece === 0 && product.packet === 0 && product.box === 0) {
           toast.error(
             `Please enter a quantity for the product ${product.name}`
@@ -116,30 +140,49 @@ const BillingBody = () => {
         }
         if (product.discount < 0) {
           toast.error("Discount cannot be negative.");
+          throw new Error("Discount cannot be negative.");
         }
         if (product.total < 0) {
           toast.error("Total cannot be negative.");
           throw new Error("Total cannot be negative.");
         }
-      });
-      // Dummy API call
-      const response = await apiCaller.post("/bills/create-bill", {
-        customerId: currentBill?.customer._id,
-        billId: currentBill?.id,
-        transactionId: "1",
-        payment: currentBill?.total,
-        paymentMode: "cash",
-        discount: currentBill?.discount,
-        createdBy: user?._id,
-        products: currentBill?.purchased,
-      });
-      if (response.data.ok) {
-        console.log(response.data, "This is the bill response");
-        toast.success("Bill created successfully!");
-        handlePrintClick();
       }
-    } catch {
-      toast.error("Failed to create bill. Please try again.");
+      // API call
+      let paymentValue = paymentInputRef.current?.input?.value;
+      if (paymentValue === "" || paymentValue === undefined) paymentValue = "0";
+      paymentValue = String(paymentValue);
+      const response = await apiCaller.post("/bills/create-bill", {
+        customerId: currentBill.customer._id,
+        billId: billingId,
+        transactionId: transactionId,
+        payment: paymentValue,
+        paymentMode: paymentMode, // <-- use state here
+        discount: currentBill.discount,
+        createdBy: user?._id,
+        products: currentBill.purchased,
+      });
+      if (response.data && response.data.success) {
+        console.log("Bill created successfully:", response.data.data.bill.bill);
+        toast.success("Bill created successfully!");
+        setShowPrint(true); // Open print modal only after success
+        setTimeout(() => {
+          handlePrint();
+        }, 100);
+        setTimeout(() => {
+          setShowPrint(false);
+        }, 2000);
+      } else {
+        toast.error(response.data?.message || "Failed to create bill.");
+      }
+    } catch (e: any) {
+      if (e.response && e.response.data && e.response.data.message) {
+        toast.error(e.response.data.message);
+      } else if (e.message) {
+        toast.error(e.message);
+      } else {
+        toast.error("Failed to create bill. Please try again.");
+      }
+      console.log(e, "this is the error");
     } finally {
       setIsCreating(false);
     }
@@ -210,9 +253,9 @@ const BillingBody = () => {
             onChange={(e) => handlePriceChange(record, e.target.value)}
             buttonStyle="outline"
           >
-            <Radio.Button value="retail">RP</Radio.Button>
-            <Radio.Button value="wholesale">WP</Radio.Button>
-            <Radio.Button value="superWholesale">SWP</Radio.Button>
+            <Radio.Button value="RETAIL">RP</Radio.Button>
+            <Radio.Button value="WHOLESALE">WP</Radio.Button>
+            <Radio.Button value="SUPERWHOLESALE">SWP</Radio.Button>
           </Radio.Group>
         </div>
       ),
@@ -380,16 +423,70 @@ const BillingBody = () => {
                 <span className="text-gray-600 text-xs ">Payment Mode</span>
                 <Select
                   size="small"
-                  defaultValue="cash"
+                  value={paymentMode}
                   className=" h-6"
                   options={[
-                    { value: "cash", label: "Cash" },
-                    { value: "online", label: "Online" },
+                    { value: "CASH", label: "Cash" },
+                    { value: "ONLINE", label: "Online" },
                   ]}
                   style={{ width: "100px" }}
+                  onChange={setPaymentMode}
                 />
               </div>
-              <div className="flex justify-end mt-2">
+              <div className="flex justify-end mt-2 gap-2">
+                <Select
+                  size="small"
+                  value={delayMs}
+                  style={{ width: 80 }}
+                  onChange={setDelayMs}
+                  options={[
+                    { value: 2000, label: "2 sec" },
+                    { value: 3000, label: "3 sec" },
+                    { value: 5000, label: "5 sec" },
+                    { value: 10000, label: "10 sec" },
+                  ]}
+                />
+                <Button
+                  type="default"
+                  icon={<SoundOutlined />}
+                  className="bg-gray-100 hover:bg-gray-200"
+                  disabled={!currentBill || !currentBill.purchased.length}
+                  onClick={async () => {
+                    if (!currentBill || !currentBill.purchased.length) return;
+                    const synth = window.speechSynthesis;
+                    synth.cancel(); // Cancel any ongoing speech
+                    const voices = synth.getVoices();
+                    const indianVoice =
+                      voices.find(
+                        (v) =>
+                          v.lang === "en-IN" ||
+                          v.name.toLowerCase().includes("india")
+                      ) || voices.find((v) => v.lang.startsWith("en"));
+                    const products = currentBill.purchased;
+                    let idx = 0;
+                    function speakNext() {
+                      if (idx >= products.length) return;
+                      const product = products[idx];
+                      const text = `${product.name}, quantity: ${
+                        product.piece +
+                        product.packet * product.packetQuantity +
+                        product.box * product.boxQuantity
+                      }`;
+                      const utter = new window.SpeechSynthesisUtterance(text);
+                      if (indianVoice) utter.voice = indianVoice;
+                      utter.rate = 0.8;
+                      utter.pitch = 1;
+                      utter.onend = () => {
+                        setTimeout(() => {
+                          idx++;
+                          speakNext();
+                        }, delayMs); // Use selected delay
+                      };
+                      synth.speak(utter);
+                    }
+                    speakNext();
+                  }}
+                />
                 <Button
                   type="primary"
                   size="middle"
@@ -420,6 +517,7 @@ const BillingBody = () => {
           onClose={handleClosePrint}
           handlePrint={handlePrintClick}
           contentRef={contentRef}
+          payment={paymentInputRef.current?.input?.value || "0"}
         />
       )}
     </div>

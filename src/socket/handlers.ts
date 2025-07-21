@@ -1,4 +1,5 @@
 import { Socket } from "socket.io-client";
+import { SocketEvents } from "../types/socket";
 
 interface BillUpdateData {
   billId: string;
@@ -13,24 +14,24 @@ interface NotificationData {
 }
 
 export const setupBillHandlers = (socket: Socket) => {
-  socket.on("bill:created", (data: BillUpdateData) => {
+  socket.on(SocketEvents.BILL.CREATED, (data: BillUpdateData) => {
     console.log("New bill created:", data);
     // Handle new bill creation
   });
 
-  socket.on("bill:updated", (data: BillUpdateData) => {
+  socket.on(SocketEvents.BILL.UPDATED, (data: BillUpdateData) => {
     console.log("Bill updated:", data);
     // Handle bill update
   });
 
-  socket.on("bill:deleted", (billId: string) => {
+  socket.on(SocketEvents.BILL.DELETED, (billId: string) => {
     console.log("Bill deleted:", billId);
     // Handle bill deletion
   });
 };
 
 export const setupNotificationHandlers = (socket: Socket) => {
-  socket.on("notification", (data: NotificationData) => {
+  socket.on(SocketEvents.NOTIFICATION, (data: NotificationData) => {
     console.log("New notification:", data);
     // Handle new notification
   });

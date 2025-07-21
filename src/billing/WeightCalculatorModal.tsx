@@ -14,7 +14,7 @@ interface WeightCalculatorModalProps {
     superWholesalePrice: number;
     wholesalePrice: number;
     retailPrice: number;
-    type: "superWholesale" | "wholesale" | "retail";
+    type: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL";
     category: string;
   };
   billId: string;
@@ -50,12 +50,13 @@ const WeightCalculatorModal = ({
       let newPriceType = product.type;
       if (categoryInfo) {
         if (kg >= categoryInfo.superWholeSale) {
-          newPriceType = "superWholesale";
+          newPriceType = "SUPERWHOLESALE";
         } else if (kg >= categoryInfo.wholesale) {
-          newPriceType = "wholesale";
+          newPriceType = "WHOLESALE";
         } else {
-          newPriceType = "retail";
+          newPriceType = "RETAIL";
         }
+        ``;
       }
 
       // Update local product state
@@ -84,9 +85,9 @@ const WeightCalculatorModal = ({
 
   const getPricePerKg = () => {
     switch (localProduct.type) {
-      case "superWholesale":
+      case "SUPERWHOLESALE":
         return localProduct.superWholesalePrice;
-      case "wholesale":
+      case "WHOLESALE":
         return localProduct.wholesalePrice;
       default:
         return localProduct.retailPrice;
