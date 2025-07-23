@@ -4,77 +4,126 @@ import {
   CloseOutlined,
   CheckCircleOutlined,
 } from "@ant-design/icons";
-import { Toaster, toast } from "react-hot-toast";
+import apiCaller from "../utils/apiCaller";
+import { message } from "antd";
 
-// Dummy data for inventory requests
-const dummyInventoryRequests = [
-  {
-    _id: "1",
-    date: new Date(),
-    createdBy: "John Doe",
-    product: {
-      name: "Product A",
-      stock: 150.5,
-    },
-    oldStock: 100.0,
-    quantity: 50.5,
-  },
-  {
-    _id: "2",
-    date: new Date(),
-    createdBy: "Jane Smith",
-    product: {
-      name: "Product B",
-      stock: 200.0,
-    },
-    oldStock: 180.0,
-    quantity: 20.0,
-  },
-  {
-    _id: "3",
-    date: new Date(),
-    createdBy: "Mike Johnson",
-    product: {
-      name: "Product C",
-      stock: 75.25,
-    },
-    oldStock: 50.0,
-    quantity: 25.25,
-  },
-];
+// Nested type for the 'createdBy' user object
+type User = {
+  _id: string;
+  name: string;
+  username: string;
+  __v: number;
+};
 
-const InventoryRequest = () => {
-  const [inventoryRequests, setInventoryRequests] = useState(
-    dummyInventoryRequests
-  );
+// Nested type for the 'product' object
+type Product = {
+  _id: string;
+  name: string;
+  mrp: number;
+  costPrice: number;
+  measuring: string;
+  retailPrice: number;
+  wholesalePrice: number;
+  barcode: number[];
+  stock: number;
+  packet: number;
+  box: number;
+  minQuantity: number;
+  __v: number;
+  superWholesalePrice: number;
+  category: string;
+  hi: string; // Seems like a Hindi/translated name
+};
+
+// Main type for each inventory request (based on your sample data)
+export interface IInventoryRequest {
+  _id: string;
+  createdBy: User;
+  approved: boolean;
+  product: Product;
+  oldStock: number;
+  quantity: number;
+  newStock: number;
+  purpose: string; // e.g., "STOCK_UPDATE"
+  date: string; // ISO string; could be Date if parsed
+  __v: number;
+}
+
+// Props interface for a React component
+interface IProps {
+  inventoryRequests: IInventoryRequest[] | [];
+  setInventoryRequests: React.Dispatch<
+    React.SetStateAction<IInventoryRequest[]>
+  >;
+}
+
+const InventoryRequest = ({
+  inventoryRequests,
+  setInventoryRequests,
+}: IProps) => {
   const [isAdmin] = useState(true); // For demo purposes
 
   const handleRejection = async (id: string) => {
     try {
-      setInventoryRequests((prev) => prev.filter((req) => req._id !== id));
-      toast.success("Request Rejected");
+      // API call to reject the inventory request
+      await apiCaller.post("/products/reject-stock-request", { stockId: id });
     } catch (error) {
       console.error("Error handling rejection:", error);
+      message.error("Failed to reject request");
     }
   };
 
-  const handleInventoryAcceptance = async (data: { _id: string }) => {
+  const handleInventoryAcceptance = async (inv: IInventoryRequest) => {
+    if (inv.approved) return; // Skip if already approved
+
     try {
-      setInventoryRequests((prev) =>
-        prev.filter((req) => req._id !== data._id)
-      );
-      toast.success("Request Accepted");
+      // Optimistic update: Remove from list immediately
+      setInventoryRequests((prev) => prev.filter((req) => req._id !== inv._id));
+
+      // Call API with single ID in array
+      await apiCaller.post("/products/accept-stock-requests", {
+        // Adjust endpoint if needed
+        inventoryRequests: [inv._id],
+      });
+
+      message.success(`Request ${inv._id} Accepted`);
     } catch (error) {
       console.error("Error handling acceptance:", error);
+      // Rollback optimistic update on errorq
+      setInventoryRequests((prev) => [...prev, inv]);
+      message.error("Failed to accept request");
     }
   };
 
   const handleAllInventoryAccept = async () => {
+    if (!inventoryRequests || inventoryRequests.length === 0) return;
+
+    // Collect only unapproved request IDs
+    const pendingIds = inventoryRequests
+      .filter((inv) => !inv.approved)
+      .map((inv) => inv._id);
+
+    if (pendingIds.length === 0) {
+      message.info("No pending requests to accept");
+      return;
+    }
+
     try {
+      // Optimistic update: Clear the list
       setInventoryRequests([]);
-      toast.success("All Requests Accepted");
+
+      // Call API with all IDs
+      await apiCaller.post("/products/accept-stock-requests", {
+        // Adjust endpoint if needed
+        inventoryRequests: pendingIds,
+      });
+
+      message.success("All Requests Accepted");
     } catch (error) {
       console.error("Error handling all acceptances:", error);
+      // Rollback on error (restore original list)
+      setInventoryRequests(inventoryRequests);
+      message.error("Failed to accept all requests");
     }
   };
 
@@ -95,13 +144,11 @@ const InventoryRequest = () => {
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
-      <Toaster position="top-center" reverseOrder={false} />
-
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
           Inventory Update Requests
         </h2>
-        {isAdmin && inventoryRequests.length > 0 && (
+        {isAdmin && inventoryRequests && inventoryRequests.length > 0 && (
           <button
             onClick={handleAllInventoryAccept}
             className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm sm:text-base flex items-center gap-1 transition-colors"
@@ -112,7 +159,7 @@ const InventoryRequest = () => {
         )}
       </div>
 
-      {inventoryRequests.length === 0 ? (
+      {inventoryRequests && inventoryRequests.length === 0 ? (
         <div className="flex items-center justify-center min-h-[200px]">
           <div className="flex flex-col items-center gap-2 text-center">
             <CheckCircleOutlined className="text-4xl text-green-500" />
@@ -139,10 +186,10 @@ const InventoryRequest = () => {
                   Product
                 </th>
                 <th className="px-3 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                  Current Stock
+                  Request Stock
                 </th>
                 <th className="px-3 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
-                  New Stock
+                  Current Stock
                 </th>
                 <th className="px-3 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
                   Change
@@ -157,55 +204,57 @@ const InventoryRequest = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {inventoryRequests.map((inv) => (
-                <tr key={inv._id} className="hover:bg-gray-50">
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(new Date(inv.date))}
-                  </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatTime(new Date(inv.date))}
-                  </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {inv.createdBy}
-                  </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {inv.product.name}
-                  </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {inv.oldStock % 1 !== 0
-                      ? inv.oldStock.toFixed(2)
-                      : inv.oldStock}
-                  </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {inv.product.stock % 1 !== 0
-                      ? inv.product.stock.toFixed(2)
-                      : inv.product.stock}
-                  </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {inv.quantity % 1 !== 0
-                      ? inv.quantity.toFixed(2)
-                      : inv.quantity}
-                  </td>
-                  {isAdmin && (
+              {inventoryRequests &&
+                inventoryRequests.map((inv) => (
+                  <tr key={inv._id} className="hover:bg-gray-50">
                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleInventoryAcceptance(inv)}
-                          className="p-1 text-green-600 hover:text-green-800 transition-colors"
-                        >
-                          <CheckOutlined className="text-lg" />
-                        </button>
-                        <button
-                          onClick={() => handleRejection(inv._id)}
-                          className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                        >
-                          <CloseOutlined className="text-lg" />
-                        </button>
-                      </div>
+                      {formatDate(new Date(inv.date))}
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatTime(new Date(inv.date))}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {inv.createdBy.name}
+                    </td>
+                    <td className="px-3 capitalize py-4 whitespace-nowrap text-sm text-gray-900">
+                      {inv.product.name}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {inv.oldStock % 1 !== 0
+                        ? inv.oldStock.toFixed(2)
+                        : inv.oldStock}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {inv.product.stock % 1 !== 0
+                        ? inv.product.stock.toFixed(2)
+                        : inv.product.stock}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {inv.quantity % 1 !== 0
+                        ? inv.quantity.toFixed(2)
+                        : inv.quantity}
+                    </td>
+                    {isAdmin && (
+                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleInventoryAcceptance(inv)}
+                            className="p-1 text-green-600 hover:text-green-800 transition-colors"
+                            disabled={inv.approved} // Disable if already approved
+                          >
+                            <CheckOutlined className="text-lg" />
+                          </button>
+                          <button
+                            onClick={() => handleRejection(inv._id)}
+                            className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                          >
+                            <CloseOutlined className="text-lg" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

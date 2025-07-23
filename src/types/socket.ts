@@ -73,5 +73,8 @@ export const SocketEvents = {
   CUSTOMER: {
     UPDATED: "CUSTOMER_UPDATED",
   },
+  INVENTORY: {
+    UPDATED: "INVENTORY_UPDATED",
+  },
   NOTIFICATION: "NOTIFICATION",
 } as const;

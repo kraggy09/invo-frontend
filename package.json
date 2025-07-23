@@ -15,6 +15,7 @@
     "antd": "^5.24.6",
     "axios": "^1.8.4",
     "react": "^19.0.0",
+    "react-barcode": "^1.6.1",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
     "react-router": "^7.4.1",

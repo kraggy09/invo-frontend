@@ -14,6 +14,7 @@ import useCategoriesStore from "../store/categories.store";
 import useCurrentBillStore from "../store/currentBill.store";
 import useTransactionStore from "../store/transaction.store";
 import useBillStore from "../store/bill.store";
+import { useInventoryRequestStore } from "../store/requests.store";
 
 export const useGlobalSocketHandlers = () => {
   const { socket, isConnected } = useSocket();
@@ -48,6 +49,7 @@ export const useGlobalSocketHandlers = () => {
   const setBills = useBillStore((state) => state.setBills);
   const addBill = useBillStore((state) => state.addBill);
 
+  const setRequests = useInventoryRequestStore((state) => state.setRequests);
   // Current bill store
   const afterBillCreated = useCurrentBillStore(
     (state) => state.afterBillCreated
@@ -126,6 +128,13 @@ export const useGlobalSocketHandlers = () => {
     [products]
   );
 
+  const handleStockUpdated = useCallback(() => {}, []);
+
+  // const handleTransactionUpdated = useCallback(() => {}, []);
+
+  // const handleProductsUpdated = useCallback(() => {}, []);
+  // const handleCategoriesUpdated = useCallback(() => {}, []);
+  // const handleCustomersUpdated = useCallback(() => {}, []);
   const handleWelcomeMessage = useCallback(
     async (data: { socketId: string }) => {
       console.log("Welcome message from server:", data);
@@ -168,6 +177,14 @@ export const useGlobalSocketHandlers = () => {
     promiseData.push(apiCaller.get("/categories/all-categories"));
     promiseData.push(apiCaller.get("/bills/get-billing-id"));
     promiseData.push(apiCaller.get("/transactions/get-transaction-id"));
+    promiseData.push(
+      apiCaller.get("/products/get-all-requests", {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      })
+    );
     await Promise.all(promiseData)
       .then((responses) => {
         const bills = responses[0].data.data.bills;
@@ -177,7 +194,10 @@ export const useGlobalSocketHandlers = () => {
         const categories = responses[4].data.data.categories;
         const billingId = responses[5].data.data.billId;
         const transactionId = responses[6].data.data.transactionId;
-        console.log(billingId, "This is the billing id");
+        const requests = responses[7].data.data.requests;
+        console.log(requests, "This are the requests");
+
+        setRequests(requests);
         setCustomers(customers);
         setBillingId(billingId);
         setProducts(products);
@@ -199,13 +219,15 @@ export const useGlobalSocketHandlers = () => {
     if (!socket || !isConnected) return;
     socket.on(SocketEvents.NOTIFICATION, handleNotification);
     socket.on("welcome", handleWelcomeMessage);
+    socket.on(SocketEvents.INVENTORY.UPDATED, handleStockUpdated);
     socket.on(SocketEvents.BILL.CREATED, handleBillCreated);
 
     // Cleanup on unmount (though these should persist)
     return () => {
-      socket.off(SocketEvents.NOTIFICATION, handleNotification);
-      socket.off(SocketEvents.BILL.CREATED, handleBillCreated);
-      socket.off("welcome", handleWelcomeMessage);
+      socket.off(SocketEvents.NOTIFICATION);
+      socket.off(SocketEvents.BILL.CREATED);
+      socket.off("welcome");
+      socket.off(SocketEvents.INVENTORY.UPDATED);
     };
   }, [socket, isConnected, handleNotification, handleBillCreated]);
 };

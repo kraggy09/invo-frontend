@@ -1,10 +1,10 @@
 import { BrowserRouter } from "react-router-dom";
-import { ConfigProvider } from "antd";
+import { ConfigProvider, App } from "antd";
 import { SocketProvider } from "./contexts/SocketContext";
 import GlobalSocketHandlers from "./components/GlobalSocketHandlers";
 import AppRoutes from "./routes";
 
-function App() {
+function AppWrapper() {
   return (
     <ConfigProvider
       theme={{
@@ -13,15 +13,17 @@ function App() {
         },
       }}
     >
-      <SocketProvider>
-        <GlobalSocketHandlers>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </GlobalSocketHandlers>
-      </SocketProvider>
+      <App>
+        <SocketProvider>
+          <GlobalSocketHandlers>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </GlobalSocketHandlers>
+        </SocketProvider>
+      </App>
     </ConfigProvider>
   );
 }
 
-export default App;
+export default AppWrapper;

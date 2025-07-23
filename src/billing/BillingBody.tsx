@@ -43,18 +43,19 @@ const BillingBody = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [delayMs, setDelayMs] = useState(2000); // Default 2 seconds
   const [paymentMode, setPaymentMode] = useState("CASH");
+  const [printBillData, setPrintBillData] = useState(null);
 
   const handlePrint = useReactToPrint({
     contentRef: contentRef as React.RefObject<HTMLDivElement>,
-    onAfterPrint: () => {
-      setShowPrint(false);
-      removeTabAndBill(
-        currentBillingId.toString(),
-        bills,
-        removeBill,
-        setCurrentBillingId
-      );
-    },
+    // onAfterPrint: () => {
+    //   setShowPrint(false);
+    //   removeTabAndBill(
+    //     currentBillingId.toString(),
+    //     bills,
+    //     removeBill,
+    //     setCurrentBillingId
+    //   );
+    // },
   });
 
   const handlePrintClick = () => {
@@ -66,6 +67,7 @@ const BillingBody = () => {
 
   const handleClosePrint = () => {
     setShowPrint(false);
+    setPrintBillData(null); // <-- clear after printing
   };
 
   const currentBill = useMemo(() => {
@@ -162,14 +164,16 @@ const BillingBody = () => {
         products: currentBill.purchased,
       });
       if (response.data && response.data.success) {
-        console.log("Bill created successfully:", response.data.data.bill.bill);
+        const billData = response.data.data.bill;
+        console.log(billData, "this is the bill data");
+        setPrintBillData(billData); // <-- store for printing
         toast.success("Bill created successfully!");
         setShowPrint(true); // Open print modal only after success
+        // setTimeout(() => {
+        //   handlePrint();
+        // }, 100);
         setTimeout(() => {
-          handlePrint();
-        }, 100);
-        setTimeout(() => {
-          setShowPrint(false);
+          // setShowPrint(false);
         }, 2000);
       } else {
         toast.error(response.data?.message || "Failed to create bill.");
@@ -518,6 +522,7 @@ const BillingBody = () => {
           handlePrint={handlePrintClick}
           contentRef={contentRef}
           payment={paymentInputRef.current?.input?.value || "0"}
+          printBillData={printBillData}
         />
       )}
     </div>

@@ -15,10 +15,53 @@ interface SearchWithSuggestionsProps {
   primaryKey?: string;
   reset?: () => void;
   intialValue?: string;
+  stockRequired?: boolean;
 }
+
+const binarySearchMatches = (dataArr: any[], key: string, search: string) => {
+  let left = 0;
+  let right = dataArr.length - 1;
+  let foundIdx = -1;
+  search = search.toLowerCase();
+  // Find one match
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    const value = String(dataArr[mid][key]).toLowerCase();
+    if (value.startsWith(search)) {
+      foundIdx = mid;
+      break;
+    } else if (value < search) {
+      left = mid + 1;
+    } else {
+      right = mid - 1;
+    }
+  }
+  if (foundIdx === -1) return [];
+  // Expand to all contiguous matches
+  let start = foundIdx;
+  let end = foundIdx;
+  while (
+    start > 0 &&
+    String(dataArr[start - 1][key])
+      .toLowerCase()
+      .startsWith(search)
+  ) {
+    start--;
+  }
+  while (
+    end < dataArr.length - 1 &&
+    String(dataArr[end + 1][key])
+      .toLowerCase()
+      .startsWith(search)
+  ) {
+    end++;
+  }
+  return dataArr.slice(start, end + 1);
+};
 
 const SearchWithSuggestions = ({
   data,
+  stockRequired = true,
   onSelect,
   placeholder = "Search...",
   label,
@@ -37,11 +80,36 @@ const SearchWithSuggestions = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const filteredData = data.filter((item) =>
-    searchKeys.some((key) =>
-      String(item[key]).toLowerCase().includes(search.toLowerCase())
-    )
-  );
+  let filteredData: any[];
+  const isNumeric = !isNaN(Number(search)) && search.trim() !== "";
+
+  if (
+    searchKeys.length === 1 &&
+    searchKeys[0] === "name" &&
+    Array.isArray(data) &&
+    data.length > 0 &&
+    search.length > 0
+  ) {
+    filteredData = binarySearchMatches(data, "name", search).filter(
+      (item) => item.stock === undefined || item.stock > 0
+    );
+  } else {
+    filteredData = data.filter((item) => {
+      // Only show items with stock > 0 (or undefined)
+      if (item.stock !== undefined && item.stock <= 0 && stockRequired)
+        return false;
+
+      // Barcode search (if barcode is an array)
+      if (isNumeric && item.barcode && Array.isArray(item.barcode)) {
+        return item.barcode.includes(Number(search));
+      }
+
+      // Normal search
+      return searchKeys.some((key) =>
+        String(item[key]).toLowerCase().includes(search.toLowerCase())
+      );
+    });
+  }
 
   const handleSelect = (item: any) => {
     onSelect(item);

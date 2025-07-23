@@ -176,27 +176,20 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
     },
     addProduct: (product: IProduct, id: string) => {
       set((state) => {
-        const bills = [...state.bills];
-
-        // const billIndex = bills.findIndex((bill) => bill.id === id);
-        // Removed unnesscary checking for Bill index
+        // Find the bill index
         const billIndex = Number(id) - 1;
+        if (billIndex < 0 || billIndex >= state.bills.length) return state;
 
-        if (billIndex === -1) return state;
-
-        // Create a shallow copy of the bill's purchased products array
-        const purchased = [...bills[billIndex].purchased];
-
-        // Find if the product already exists in the purchased array
+        // Copy the bill and its purchased array
+        const bill = state.bills[billIndex];
+        const purchased = [...bill.purchased];
         const existingProductIndex = purchased.findIndex(
           (p) => p.id === product._id
         );
 
         if (existingProductIndex !== -1) {
-          // Copy the existing product to avoid mutation
+          // Copy the product and update
           const currentProduct = { ...purchased[existingProductIndex] };
-
-          // Update the piece count
           currentProduct.piece += 1;
 
           // Calculate total pieces
@@ -256,13 +249,15 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
 
         // Create a new bill object with updated purchased products and recalc total
         const updatedBill = {
-          ...bills[billIndex],
+          ...bill,
           purchased,
           total: purchased.reduce((sum, p) => sum + p.total, 0),
         };
 
-        // Replace the old bill with the updated one in the bills copy
+        // Create a new bills array with the updated bill
+        const bills = [...state.bills];
         bills[billIndex] = updatedBill;
+
         return { bills };
       });
     },
@@ -478,7 +473,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
       set({ bills: newBills });
     },
     afterProductUpdated: (productId: string) => {},
-    addCreatedAt: (billId: string, createdAt: string) => {
+    addCreatedAt: (billId: string, createdAt: string, customer: Customer) => {
       set((state) => {
         const bills = [...state.bills];
         const billIndex = bills.findIndex((bill) => bill.id === billId);
@@ -486,6 +481,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
         if (billIndex === -1) return state;
 
         bills[billIndex].createdAt = createdAt;
+        bills[billIndex].customer = customer;
         return { bills };
       });
     },

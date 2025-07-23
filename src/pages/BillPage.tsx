@@ -1,163 +1,34 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  Card,
+  Table,
+  Input,
+  Button,
+  Select,
+  DatePicker,
+  InputNumber,
+  Switch,
+  AutoComplete,
+  Spin,
+  message,
+} from "antd";
 import {
   EyeOutlined,
   DownloadOutlined,
   PrinterOutlined,
-  FileTextOutlined,
   DollarOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
+import dayjs from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
+dayjs.extend(isBetween);
+import apiCaller from "../utils/apiCaller";
 import { formatIndianNumber } from "../utils";
-import UniversalTable, {
-  UniversalColumnType,
-} from "../components/UniversalTable";
-import FilterBuilder from "../components/FilterBuilder";
-import { Switch, AutoComplete, DatePicker, Spin } from "antd";
-import type { Dayjs } from "dayjs";
-import { useSearchParams } from "react-router-dom";
-import apiCaller from "../utils/apiCaller"; // or your fetch utility
+import useBillStore from "../store/bill.store";
+import { useNavigate } from "react-router-dom";
 
 const { RangePicker } = DatePicker;
 
-// Dummy data for bills
-const dummyBills: Bill[] = [
-  {
-    _id: "1",
-    date: new Date(),
-    customer: { name: "Rahul Sharma", phone: "9876543210" },
-    total: 1750,
-    payment: 1500,
-    outstanding: 250,
-    status: "Pending",
-  },
-  {
-    _id: "2",
-    date: new Date(),
-    customer: { name: "Priya Patel", phone: "9876543211" },
-    total: 1800,
-    payment: 1800,
-    outstanding: 0,
-    status: "Paid",
-  },
-  {
-    _id: "3",
-    date: new Date(),
-    customer: { name: "Amit Kumar", phone: "9876543212" },
-    total: 1200,
-    payment: 1000,
-    outstanding: 200,
-    status: "Partial",
-  },
-  {
-    _id: "1",
-    date: new Date(),
-    customer: { name: "Rahul Sharma", phone: "9876543210" },
-    total: 1750,
-    payment: 1500,
-    outstanding: 250,
-    status: "Pending",
-  },
-  {
-    _id: "2",
-    date: new Date(),
-    customer: { name: "Priya Patel", phone: "9876543211" },
-    total: 1800,
-    payment: 1800,
-    outstanding: 0,
-    status: "Paid",
-  },
-  {
-    _id: "3",
-    date: new Date(),
-    customer: { name: "Amit Kumar", phone: "9876543212" },
-    total: 1200,
-    payment: 1000,
-    outstanding: 200,
-    status: "Partial",
-  },
-  {
-    _id: "1",
-    date: new Date(),
-    customer: { name: "Rahul Sharma", phone: "9876543210" },
-    total: 1750,
-    payment: 1500,
-    outstanding: 250,
-    status: "Pending",
-  },
-  {
-    _id: "2",
-    date: new Date(),
-    customer: { name: "Priya Patel", phone: "9876543211" },
-    total: 1800,
-    payment: 1800,
-    outstanding: 0,
-    status: "Paid",
-  },
-  {
-    _id: "3",
-    date: new Date(),
-    customer: { name: "Amit Kumar", phone: "9876543212" },
-    total: 1200,
-    payment: 1000,
-    outstanding: 200,
-    status: "Partial",
-  },
-  {
-    _id: "1",
-    date: new Date(),
-    customer: { name: "Rahul Sharma", phone: "9876543210" },
-    total: 1750,
-    payment: 1500,
-    outstanding: 250,
-    status: "Pending",
-  },
-  {
-    _id: "2",
-    date: new Date(),
-    customer: { name: "Priya Patel", phone: "9876543211" },
-    total: 1800,
-    payment: 1800,
-    outstanding: 0,
-    status: "Paid",
-  },
-  {
-    _id: "3",
-    date: new Date(),
-    customer: { name: "Amit Kumar", phone: "9876543212" },
-    total: 1200,
-    payment: 1000,
-    outstanding: 200,
-    status: "Partial",
-  },
-  {
-    _id: "1",
-    date: new Date(),
-    customer: { name: "Rahul Sharma", phone: "9876543210" },
-    total: 1750,
-    payment: 1500,
-    outstanding: 250,
-    status: "Pending",
-  },
-  {
-    _id: "2",
-    date: new Date(),
-    customer: { name: "Priya Patel", phone: "9876543211" },
-    total: 1800,
-    payment: 1800,
-    outstanding: 0,
-    status: "Paid",
-  },
-  {
-    _id: "3",
-    date: new Date(),
-    customer: { name: "Amit Kumar", phone: "9876543212" },
-    total: 1200,
-    payment: 1000,
-    outstanding: 200,
-    status: "Partial",
-  },
-];
-
-// Dummy product list for search
 const allProducts = [
   "Toothpaste",
   "Soap",
@@ -171,45 +42,47 @@ const allProducts = [
   "Coffee",
 ];
 
-interface Bill {
-  _id: string;
-  date: Date;
-  customer: {
-    name: string;
-    phone: string;
-  };
-  total: number;
-  payment: number;
-  outstanding: number;
-  status: "Paid" | "Pending" | "Partial";
-  // Add a products field for demo
-  products?: { name: string; quantity: number; price: number }[];
-}
-
-interface FilterState {
-  status?: string;
-  dateRange?: [Dayjs, Dayjs];
-  category?: string;
-}
-
 const BillPage = () => {
-  const [searchParams] = useSearchParams();
-  const [bills] = useState<Bill[]>(dummyBills);
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
-  const [filters, setFilters] = useState<FilterState>({});
-  const [productSearchMode, setProductSearchMode] = useState(false);
+  // Zustand store
+  const billsFromStore = useBillStore((state) => state.bills);
+  const navigate = useNavigate();
+
+  // Local state for API data
+  const [bills, setBills] = useState<any[] | null>(null); // null means not loaded from API yet
+  const [loading, setLoading] = useState(false);
+  const [searchMode, setSearchMode] = useState(false); // false: Bill Search, true: Product Search
   const [productQuery, setProductQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([
-    null,
-    null,
+  const [dateRange, setDateRange] = useState<
+    [dayjs.Dayjs | null, dayjs.Dayjs | null]
+  >([null, null]);
+  const [status, setStatus] = useState("all");
+  const [search, setSearch] = useState("");
+  const [amountRange, setAmountRange] = useState<[number, number]>([
+    0,
+    Infinity,
   ]);
-  const [billsWithProduct, setBillsWithProduct] = useState<Bill[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [filteredBills, setFilteredBills] = useState<any[]>([]);
+  const [productBills, setProductBills] = useState<any[] | null>(null); // null means not loaded from API yet
 
+  // Use bills from store until API data is loaded
+  const effectiveBills = bills !== null ? bills : billsFromStore;
+
+  // Fetch bills (simulate API)
+  // You can trigger this with a button or on mount as needed
+  // useEffect(() => {
+  //   setLoading(true);
+  //   setTimeout(() => {
+  //     // Replace with real API call
+  //     setBills([]); // TODO: Load real data
+  //     setLoading(false);
+  //   }, 500);
+  // }, []);
+
+  // Product search API
   useEffect(() => {
     if (!selectedProduct) {
-      setBillsWithProduct([]);
+      setProductBills(null);
       return;
     }
     setLoading(true);
@@ -221,358 +94,399 @@ const BillPage = () => {
           to: dateRange[1]?.toISOString(),
         },
       })
-      .then((res) => setBillsWithProduct(res.data))
+      .then((res) => setProductBills(res.data))
       .finally(() => setLoading(false));
   }, [selectedProduct, dateRange]);
 
-  const filterOptions = [
+  // Filter bills for Bill Search mode
+  useEffect(() => {
+    let data = [...(effectiveBills || [])];
+    if (status !== "all") data = data.filter((b) => b.status === status);
+    if (search) {
+      data = data.filter(
+        (b) =>
+          b.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
+          b._id?.toString().includes(search) ||
+          b.customer?.phone?.includes(search) ||
+          b.total?.toString().includes(search) ||
+          b.payment?.toString().includes(search)
+      );
+    }
+    if (dateRange[0] && dateRange[1]) {
+      data = data.filter((b) =>
+        dayjs(b.date).isBetween(dateRange[0], dateRange[1], null, "[]")
+      );
+    }
+    if (amountRange[0] > 0)
+      data = data.filter((b) => b.total >= amountRange[0]);
+    if (amountRange[1] < Infinity)
+      data = data.filter((b) => b.total <= amountRange[1]);
+    setFilteredBills(data.reverse());
+  }, [effectiveBills, status, search, dateRange, amountRange]);
+
+  // Summary cards
+  const summary = useMemo(() => {
+    const data = searchMode
+      ? productBills !== null
+        ? productBills
+        : []
+      : filteredBills;
+    return {
+      totalBills: data.length,
+      totalAmount: data.reduce((sum, b) => sum + (b.total || 0), 0),
+      totalPayment: data.reduce((sum, b) => sum + (b.payment || 0), 0),
+      outstanding: data.reduce((sum, b) => sum + (b.outstanding || 0), 0),
+    };
+  }, [filteredBills, productBills, searchMode]);
+
+  // Table columns
+  const billColumns = [
     {
+      title: "Date",
+      dataIndex: "date",
+      key: "date",
+      render: (d: any) => dayjs(d).format("DD/MM/YYYY"),
+    },
+    {
+      title: "Time",
+      dataIndex: "date",
+      key: "time",
+      render: (d: any) => dayjs(d).format("hh:mm:ss A"),
+    },
+    { title: "Bill ID", dataIndex: "_id", key: "_id" },
+    {
+      title: "Customer",
+      dataIndex: "customer",
+      key: "customer",
+      render: (c: any) => (
+        <div>
+          <div className="text-sm text-gray-900">{c?.name}</div>
+          <div className="text-xs text-gray-500">{c?.phone}</div>
+        </div>
+      ),
+    },
+    {
+      title: "Total",
+      dataIndex: "total",
+      key: "total",
+      render: (t: number) => `₹${formatIndianNumber(t)}`,
+    },
+    {
+      title: "Payment",
+      dataIndex: "payment",
+      key: "payment",
+      render: (p: number) => `₹${formatIndianNumber(p)}`,
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
       key: "status",
-      label: "Status",
-      type: "select" as const,
-      options: [
-        { label: "All", value: "All" },
-        { label: "Paid", value: "Paid" },
-        { label: "Pending", value: "Pending" },
-        { label: "Partial", value: "Partial" },
-      ],
+      render: (s: string) => (
+        <span
+          className={`px-2 py-1 text-xs rounded-full ${
+            s === "Paid"
+              ? "bg-green-100 text-green-800"
+              : s === "Pending"
+              ? "bg-yellow-100 text-yellow-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
+          {s}
+        </span>
+      ),
     },
     {
-      key: "dateRange",
-      label: "Date Range",
-      type: "dateRange" as const,
+      title: "Actions",
+      key: "actions",
+      render: (_: any, record: any) => (
+        <Button
+          icon={<EyeOutlined />}
+          onClick={() =>
+            navigate(`/bills/${record._id}`, { state: { from: "bill" } })
+          }
+        />
+      ),
     },
   ];
 
-  // Bill columns for UniversalTable
-  const billColumns: UniversalColumnType<Bill>[] = [
+  const productColumns = [
     {
-      column: {
-        title: "Date & Time",
-        dataIndex: "date",
-        key: "date",
-        render: (date: Date) => (
-          <div>
-            <div className="text-sm text-gray-900">
-              {date.toLocaleDateString()}
-            </div>
-            <div className="text-xs text-gray-500">
-              {date.toLocaleTimeString()}
-            </div>
-          </div>
-        ),
+      title: "Date",
+      dataIndex: "date",
+      key: "date",
+      render: (d: any) => dayjs(d).format("DD/MM/YYYY"),
+    },
+    {
+      title: "Time",
+      dataIndex: "date",
+      key: "time",
+      render: (d: any) => dayjs(d).format("hh:mm:ss A"),
+    },
+    { title: "Bill ID", dataIndex: "_id", key: "_id" },
+    {
+      title: "Customer",
+      dataIndex: "customer",
+      key: "customer",
+      render: (c: any) => (
+        <div>
+          <div className="text-sm text-gray-900">{c?.name}</div>
+          <div className="text-xs text-gray-500">{c?.phone}</div>
+        </div>
+      ),
+    },
+    {
+      title: "Product Quantity",
+      key: "quantity",
+      render: (b: any) =>
+        b.products?.find((p: any) => p.name === selectedProduct)?.quantity ||
+        "-",
+    },
+    {
+      title: "Product Total",
+      key: "productTotal",
+      render: (b: any) => {
+        const prod = b.products?.find((p: any) => p.name === selectedProduct);
+        return prod
+          ? `₹${formatIndianNumber(prod.price * prod.quantity)}`
+          : "-";
       },
     },
     {
-      column: {
-        title: "Bill ID",
-        dataIndex: "_id",
-        key: "_id",
-      },
-      onCellClick: (record, rowIndex, colIndex) => {
-        console.log("Bill ID cell clicked:", record._id, rowIndex, colIndex);
-      },
+      title: "Total",
+      dataIndex: "total",
+      key: "total",
+      render: (t: number) => `₹${formatIndianNumber(t)}`,
     },
     {
-      column: {
-        title: "Customer",
-        dataIndex: "customer",
-        key: "customer",
-        render: (customer: Bill["customer"]) => (
-          <div>
-            <div className="text-sm text-gray-900">{customer.name}</div>
-            <div className="text-xs text-gray-500">{customer.phone}</div>
-          </div>
-        ),
-      },
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (s: string) => (
+        <span
+          className={`px-2 py-1 text-xs rounded-full ${
+            s === "Paid"
+              ? "bg-green-100 text-green-800"
+              : s === "Pending"
+              ? "bg-yellow-100 text-yellow-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
+          {s}
+        </span>
+      ),
     },
     {
-      column: {
-        title: "Total",
-        dataIndex: "total",
-        key: "total",
-        render: (total: number) => `₹${formatIndianNumber(total)}`,
-      },
-    },
-    {
-      column: {
-        title: "Payment",
-        dataIndex: "payment",
-        key: "payment",
-        render: (payment: number) => `₹${formatIndianNumber(payment)}`,
-      },
-    },
-    {
-      column: {
-        title: "Status",
-        dataIndex: "status",
-        key: "status",
-        render: (status: Bill["status"]) => (
-          <span
-            className={`px-2 py-1 text-xs rounded-full ${
-              status === "Paid"
-                ? "bg-green-100 text-green-800"
-                : status === "Pending"
-                ? "bg-yellow-100 text-yellow-800"
-                : "bg-red-100 text-red-800"
-            }`}
-          >
-            {status}
-          </span>
-        ),
-      },
-    },
-    {
-      column: {
-        title: "Actions",
-        key: "actions",
-        render: () => (
-          <button className="text-blue-600 hover:text-blue-800">
-            <EyeOutlined className="text-lg" />
-          </button>
-        ),
-      },
+      title: "Actions",
+      key: "actions",
+      render: (_: any, record: any) => (
+        <Button
+          icon={<EyeOutlined />}
+          onClick={() =>
+            navigate(`/bills/${record._id}`, { state: { from: "bill" } })
+          }
+        />
+      ),
     },
   ];
-
-  // Product-in-bill columns
-  const productBillColumns: UniversalColumnType<Bill>[] = [
-    {
-      column: {
-        title: "Date",
-        dataIndex: "date",
-        key: "date",
-        render: (date: Date) => date.toLocaleDateString(),
-      },
-    },
-    {
-      column: {
-        title: "Time",
-        dataIndex: "date",
-        key: "time",
-        render: (date: Date) => date.toLocaleTimeString(),
-      },
-    },
-    {
-      column: {
-        title: "Customer Name",
-        dataIndex: "customer",
-        key: "customerName",
-        render: (customer: Bill["customer"]) => customer.name,
-      },
-    },
-    {
-      column: {
-        title: "Quantity",
-        key: "quantity",
-        render: (_, record) => {
-          const prod = record.products?.find((p) => p.name === selectedProduct);
-          return prod ? prod.quantity : "-";
-        },
-      },
-    },
-    {
-      column: {
-        title: "Total Price",
-        key: "totalPrice",
-        render: (_, record) => {
-          const prod = record.products?.find((p) => p.name === selectedProduct);
-          return prod ? prod.price * prod.quantity : "-";
-        },
-      },
-    },
-    {
-      column: {
-        title: "View",
-        key: "actions",
-        render: (_, record) => (
-          <button className="text-blue-600 hover:text-blue-800">
-            <EyeOutlined className="text-lg" />
-          </button>
-        ),
-      },
-    },
-  ];
-
-  // Filtered bills for normal mode
-  const filteredBills = useMemo(
-    () =>
-      bills.filter((bill) => {
-        const matchesSearch =
-          searchQuery === "" ||
-          bill.customer.name
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          bill._id.includes(searchQuery) ||
-          bill.customer.phone.includes(searchQuery) ||
-          bill.total.toString().includes(searchQuery) ||
-          bill.payment.toString().includes(searchQuery);
-
-        const matchesStatus =
-          !filters.status ||
-          filters.status === "All" ||
-          bill.status === filters.status;
-
-        const matchesDateRange =
-          !filters.dateRange ||
-          (bill.date >= filters.dateRange[0].toDate() &&
-            bill.date <= filters.dateRange[1].toDate());
-
-        return matchesSearch && matchesStatus && matchesDateRange;
-      }),
-    [bills, searchQuery, filters]
-  );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      {/* Header Section */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-xl font-semibold text-gray-800">
-            Billing History
-          </h1>
-          <div className="flex gap-2 items-center">
-            <Switch
-              checked={productSearchMode}
-              onChange={setProductSearchMode}
-              className="mr-2"
-              checkedChildren="Product Search"
-              unCheckedChildren="Bill Search"
-            />
-            {productSearchMode && (
-              <>
-                <AutoComplete
-                  style={{ width: 200 }}
-                  options={allProducts.map((p) => ({ value: p }))}
-                  value={productQuery}
-                  onChange={setProductQuery}
-                  onSelect={(value) => setSelectedProduct(value)}
-                  placeholder="Search product..."
-                  allowClear
-                />
-                <RangePicker
-                  className="ml-2"
-                  value={dateRange}
-                  onChange={(range) =>
-                    setDateRange(range as [Dayjs | null, Dayjs | null])
-                  }
-                  allowClear
-                />
-              </>
-            )}
-            <button className="bg-blue-50 text-blue-600 px-3 py-1 rounded-md flex items-center gap-1 hover:bg-blue-100 transition-colors">
-              <DownloadOutlined />
-              <span className="hidden sm:inline">Export</span>
-            </button>
-            <button className="bg-green-50 text-green-600 px-3 py-1 rounded-md flex items-center gap-1 hover:bg-green-100 transition-colors">
-              <PrinterOutlined />
-              <span className="hidden sm:inline">Print</span>
-            </button>
-          </div>
+    <div className="p-4 min-h-screen bg-gray-50">
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-xl font-semibold text-gray-800">Billing History</h1>
+        <div className="flex gap-2 items-center">
+          <Switch
+            checked={searchMode}
+            onChange={setSearchMode}
+            className="mr-2"
+            checkedChildren="Product Search"
+            unCheckedChildren="Bill Search"
+          />
+          {searchMode && (
+            <>
+              <AutoComplete
+                style={{ width: 200 }}
+                options={allProducts.map((p) => ({ value: p }))}
+                value={productQuery}
+                onChange={setProductQuery}
+                onSelect={(value) => setSelectedProduct(value)}
+                placeholder="Search product..."
+                allowClear
+              />
+              <RangePicker
+                className="ml-2"
+                value={dateRange}
+                onChange={(range) =>
+                  setDateRange(
+                    range as [dayjs.Dayjs | null, dayjs.Dayjs | null]
+                  )
+                }
+                allowClear
+              />
+            </>
+          )}
+          <Button
+            className="bg-blue-50 text-blue-600 flex items-center gap-1 hover:bg-blue-100 transition-colors"
+            icon={<DownloadOutlined />}
+          >
+            Export
+          </Button>
+          <Button
+            className="bg-green-50 text-green-600 flex items-center gap-1 hover:bg-green-100 transition-colors"
+            icon={<PrinterOutlined />}
+          >
+            Print
+          </Button>
         </div>
       </div>
 
-      {!productSearchMode && (
-        <FilterBuilder
-          filters={filterOptions}
-          onFilterChange={setFilters}
-          onSearch={setSearchQuery}
-          searchPlaceholder={"Search bills by customer name, ID, or amount..."}
-        />
-      )}
-
       {/* Summary Cards */}
-      {!productSearchMode && (
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Bills</p>
-                <p className="text-xl font-semibold">{filteredBills.length}</p>
-              </div>
-              <div className="bg-blue-50 p-2 rounded-full">
-                <FileTextOutlined className="text-blue-500" />
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+        <Card
+          style={{
+            background: "#f6ffed",
+            border: "1px solid #b7eb8f",
+            boxShadow: "0 2px 8px rgba(34,197,94,0.06)",
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Total Bills</p>
+              <p className="text-xl font-semibold">{summary.totalBills}</p>
+            </div>
+            <div className="bg-blue-50 p-2 rounded-full">
+              <FileTextOutlined className="text-blue-500" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Amount</p>
-                <p className="text-xl font-semibold">
-                  ₹
-                  {formatIndianNumber(
-                    filteredBills.reduce((sum, bill) => sum + bill.total, 0)
-                  )}
-                </p>
-              </div>
-              <div className="bg-green-50 p-2 rounded-full">
-                <DollarOutlined className="text-green-500" />
-              </div>
+        </Card>
+        <Card
+          style={{
+            background: "#e6f7ff",
+            border: "1px solid #91d5ff",
+            boxShadow: "0 2px 8px rgba(24,144,255,0.06)",
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Total Amount</p>
+              <p className="text-xl font-semibold">
+                ₹{formatIndianNumber(summary.totalAmount)}
+              </p>
+            </div>
+            <div className="bg-green-50 p-2 rounded-full">
+              <DollarOutlined className="text-green-500" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Payment</p>
-                <p className="text-xl font-semibold">
-                  ₹
-                  {formatIndianNumber(
-                    filteredBills.reduce((sum, bill) => sum + bill.payment, 0)
-                  )}
-                </p>
-              </div>
-              <div className="bg-purple-50 p-2 rounded-full">
-                <DollarOutlined className="text-purple-500" />
-              </div>
+        </Card>
+        <Card
+          style={{
+            background: "#f0f5ff",
+            border: "1px solid #adc6ff",
+            boxShadow: "0 2px 8px rgba(47,84,235,0.06)",
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Total Payment</p>
+              <p className="text-xl font-semibold">
+                ₹{formatIndianNumber(summary.totalPayment)}
+              </p>
+            </div>
+            <div className="bg-purple-50 p-2 rounded-full">
+              <DollarOutlined className="text-purple-500" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Outstanding</p>
-                <p className="text-xl font-semibold">
-                  ₹
-                  {formatIndianNumber(
-                    filteredBills.reduce(
-                      (sum, bill) => sum + bill.outstanding,
-                      0
-                    )
-                  )}
-                </p>
-              </div>
-              <div className="bg-red-50 p-2 rounded-full">
-                <DollarOutlined className="text-red-500" />
-              </div>
+        </Card>
+        <Card
+          style={{
+            background: "#fffbe6",
+            border: "1px solid #ffe58f",
+            boxShadow: "0 2px 8px rgba(250,219,20,0.06)",
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Outstanding</p>
+              <p className="text-xl font-semibold">
+                ₹{formatIndianNumber(summary.outstanding)}
+              </p>
+            </div>
+            <div className="bg-red-50 p-2 rounded-full">
+              <DollarOutlined className="text-red-500" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Filters for Bill Search mode */}
+      {!searchMode && (
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-2 flex flex-wrap gap-4 items-end border border-gray-200">
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">Search</label>
+            <Input.Search
+              placeholder="Customer name, bill id, phone, amount..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: 220 }}
+              allowClear
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">Status</label>
+            <Select
+              value={status}
+              onChange={setStatus}
+              style={{ width: 120 }}
+              options={[
+                { value: "all", label: "All Status" },
+                { value: "Paid", label: "Paid" },
+                { value: "Pending", label: "Pending" },
+                { value: "Partial", label: "Partial" },
+              ]}
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">Date Range</label>
+            <RangePicker
+              value={dateRange}
+              onChange={(range) =>
+                setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])
+              }
+              style={{ width: 220 }}
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">Amount</label>
+            <div className="flex gap-2">
+              <InputNumber
+                min={0}
+                value={amountRange[0] === 0 ? undefined : amountRange[0]}
+                onChange={(v) => setAmountRange([v || 0, amountRange[1]])}
+                placeholder="Min"
+                style={{ width: 80 }}
+              />
+              <InputNumber
+                min={0}
+                value={amountRange[1] === Infinity ? undefined : amountRange[1]}
+                onChange={(v) =>
+                  setAmountRange([amountRange[0], v || Infinity])
+                }
+                placeholder="Max"
+                style={{ width: 80 }}
+              />
             </div>
           </div>
         </div>
       )}
 
       {/* Table Section */}
-      {productSearchMode ? (
-        <UniversalTable<Bill>
-          key={
-            billsWithProduct.length +
-            productQuery +
-            (selectedProduct || "") +
-            JSON.stringify(dateRange)
-          }
-          data={billsWithProduct}
-          columns={productBillColumns}
-          pageSize={10}
-        />
-      ) : (
-        <UniversalTable<Bill>
-          key={filteredBills.length + searchQuery + JSON.stringify(filters)}
-          data={filteredBills}
-          columns={billColumns}
-          pageSize={10}
-          onRowClick={(record, rowIndex) => {
-            console.log("Row clicked:", record, rowIndex);
-          }}
-        />
-      )}
+      <Table
+        columns={searchMode ? productColumns : billColumns}
+        dataSource={searchMode ? productBills ?? [] : filteredBills ?? []}
+        loading={loading}
+        rowKey={searchMode ? "_id" : "_id"}
+        pagination={{ pageSize: 10 }}
+      />
+      {loading && <Spin className="block mx-auto" />}
     </div>
   );
 };

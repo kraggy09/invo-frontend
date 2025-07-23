@@ -9,6 +9,7 @@ import {
   calculateMeasuring,
   calculateTime,
 } from "../utils/bill.util";
+import { formatIndianNumber } from "../utils";
 
 const { Title } = Typography;
 
@@ -17,6 +18,7 @@ interface BillPrintProps {
   contentRef: React.RefObject<HTMLDivElement | null>;
   handlePrint: () => void;
   payment: string;
+  printBillData?: any;
 }
 
 const BillPrint = ({
@@ -24,10 +26,10 @@ const BillPrint = ({
   contentRef,
   handlePrint,
   payment,
+  printBillData,
 }: BillPrintProps) => {
-  const { bills, currentBillingId } = useCurrentBillStore();
+  const [withMRP, setWithMRP] = useState(true);
 
-  const [withMRP, setWithMRP] = useState(false);
   const calculateSave = (product: PurchasedProduct[]) => {
     let saved = 0;
     for (let i = 0; i < product.length; i++) {
@@ -53,10 +55,52 @@ const BillPrint = ({
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, []);
-  const currentBill = bills.find(
-    (bill) => bill.id === currentBillingId.toString()
-  );
 
+  // Use printBillData if provided, otherwise fallback to currentBill from store
+  let currentBill: any = null;
+  if (
+    printBillData &&
+    printBillData.bill &&
+    Array.isArray(printBillData.bill.items)
+  ) {
+    console.log(printBillData, "print bill data");
+
+    // If backend response structure is printBillData.bill
+    currentBill = printBillData.bill;
+    // Map items to purchased for compatibility
+    if (currentBill.items && !currentBill.purchased) {
+      currentBill.purchased = currentBill.items.map((item: any) => {
+        // Use productSnapshot if available, otherwise fallback to product fields
+        return {
+          ...(item.productSnapshot || {}),
+          ...(item.product || {}),
+          ...item,
+        };
+      });
+    }
+  }
+  // Attach customer info if available (always do this if present)
+  if (printBillData && printBillData.updatedCustomer && currentBill) {
+    currentBill.customer = printBillData.updatedCustomer;
+  }
+
+  console.log(currentBill, "current bill");
+  // Calculate Bill Total from purchased
+  const billTotal = currentBill?.purchased
+    ? currentBill.purchased.reduce(
+        (sum: number, p: any) => sum + (p.total || 0),
+        0
+      )
+    : currentBill?.total || 0;
+  // Discount
+  const discount = currentBill?.discount || 0;
+  // Outstanding from customer
+  const customerOutstanding = currentBill.total - billTotal + discount;
+  // Payment
+  const paymentValue = Number(payment) || 0;
+  // Final Outstanding
+  const finalOutstanding =
+    billTotal + customerOutstanding - discount - paymentValue;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg shadow-lg w-[500px]">
@@ -85,7 +129,7 @@ const BillPrint = ({
                 <span id="left" className="mr-10">
                   <p>
                     Invoice No.:{" "}
-                    {currentBillingId ? `B-${currentBillingId}` : "Old Bill"}
+                    {currentBill.id ? `B-${currentBill.id}` : "Old Bill"}
                   </p>
                   <p>
                     Date:
@@ -197,36 +241,39 @@ const BillPrint = ({
               <div className="min-w-full mt-2 flex flex-col pr-2 justify-end items-end">
                 <div className="">
                   Bill Total:
-                  {(currentBill?.total ?? 0) -
-                    (currentBill.customer?.outstanding ?? 0) +
-                    (currentBill.discount ?? 0)}
+                  {formatIndianNumber(billTotal)}₹
                 </div>
-                {currentBill.customer &&
-                currentBill.customer.outstanding > 0 ? (
-                  <div>Outstanding:+{currentBill.customer.outstanding}</div>
-                ) : (
-                  currentBill.customer &&
-                  currentBill.customer.outstanding < 0 && (
-                    <div>Balance:-{currentBill.customer.outstanding}</div>
-                  )
+                {discount > 0 && (
+                  <div>Discount:-{formatIndianNumber(discount)}</div>
                 )}
-                {currentBill.discount > 0 && (
-                  <div>Discount:-{currentBill.discount}</div>
-                )}
-
-                <div className="">Total:{currentBill.total}</div>
-                {Number(payment) > 0 && (
-                  <div className="">
-                    Payment:{payment == null ? 0 : "-" + payment}
+                {customerOutstanding !== 0 && (
+                  <div>
+                    {customerOutstanding > 0 ? "Outstanding:" : "Balance:"}
+                    {formatIndianNumber(customerOutstanding)}₹
                   </div>
                 )}
                 <div className="">
-                  {currentBill.total - Number(payment) > 0 ? (
+                  Total:
+                  {formatIndianNumber(
+                    billTotal + customerOutstanding - discount
+                  )}
+                </div>
+                {paymentValue > 0 && (
+                  <div className="">
+                    Payment:{payment === "" ? 0 : "-" + payment}
+                  </div>
+                )}
+                <div className="">
+                  {finalOutstanding > 0 ? (
                     <span>
-                      Outstanding:{currentBill.total - Number(payment)}
+                      Outstanding:
+                      {formatIndianNumber(finalOutstanding)}
                     </span>
                   ) : (
-                    <span>Balance:{currentBill.total - Number(payment)}</span>
+                    <span>
+                      Balance:
+                      {formatIndianNumber(finalOutstanding)}
+                    </span>
                   )}
                 </div>
                 {calculateSave(currentBill.purchased) > 0 && (
@@ -243,90 +290,6 @@ const BillPrint = ({
             </main>
           </div>
         )}
-        {/* <div ref={contentRef} className="p-4 bg-white">
-          <div className="text-center mb-4">
-            <Title level={3}>INVOICE</Title>
-            <Text className="text-gray-600">Bill No: {currentBill?.id}</Text>
-          </div>
-
-          <Divider />
-
-          <div className="mb-4">
-            <Text strong>Customer:</Text>
-            <Text className="block">
-              {currentBill?.customer?.name || "Walk-in Customer"}
-            </Text>
-            {currentBill?.customer?.phone && (
-              <Text className="block text-gray-600">
-                Phone: {currentBill?.customer?.phone}
-              </Text>
-            )}
-          </div>
-
-          <Divider />
-
-          <div className="mb-4">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2">Item</th>
-                  <th className="text-right py-2">Qty</th>
-                  <th className="text-right py-2">Price</th>
-                  <th className="text-right py-2">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentBill?.purchased.map((item) => (
-                  <tr key={item.id} className="border-b">
-                    <td className="py-2">{item.name}</td>
-                    <td className="text-right py-2">
-                      {item.piece +
-                        item.packet * item.packetQuantity +
-                        item.box * item.boxQuantity}
-                    </td>
-                    <td className="text-right py-2">
-                      {formatIndianNumber(item.price)}
-                    </td>
-                    <td className="text-right py-2">
-                      {formatIndianNumber(item.total)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <Divider />
-
-          <div className="text-right space-y-2">
-            <div className="flex justify-between">
-              <Text>Subtotal:</Text>
-              <Text>{formatIndianNumber(currentBill?.total || 0)}</Text>
-            </div>
-            {currentBill &&
-              currentBill.discount &&
-              currentBill.discount > 0 && (
-                <div className="flex justify-between">
-                  <Text>Discount:</Text>
-                  <Text>-{formatIndianNumber(currentBill?.discount || 0)}</Text>
-                </div>
-              )}
-            <div className="flex justify-between font-bold">
-              <Text>Total:</Text>
-              <Text>
-                {formatIndianNumber(
-                  (currentBill?.total || 0) - (currentBill?.discount || 0)
-                )}
-              </Text>
-            </div>
-          </div>
-
-          <Divider />
-
-          <div className="text-center text-gray-600 text-sm">
-            <Text>Thank you for your business!</Text>
-          </div>
-        </div> */}
 
         <div className="flex justify-end mt-4">
           <button

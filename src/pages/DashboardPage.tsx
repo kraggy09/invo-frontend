@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Area,
@@ -19,8 +19,11 @@ import {
   ArrowUpOutlined,
   ArrowDownOutlined,
 } from "@ant-design/icons";
-import InventoryRequest from "../components/InventoryRequest";
+import InventoryRequest, {
+  IInventoryRequest,
+} from "../components/InventoryRequest";
 import { formatIndianNumber } from "../utils";
+import apiCaller from "../utils/apiCaller";
 
 // Dummy data for the dashboard
 const dummyData = {
@@ -68,14 +71,67 @@ const dummyData = {
     returningCustomers: 105,
   },
 };
+// Dummy data for inventory requests
+const dummyInventoryRequests = [
+  {
+    _id: "1",
+    date: new Date(),
+    createdBy: "John Doe",
+    product: {
+      name: "Product A",
+      stock: 150.5,
+    },
+    oldStock: 100.0,
+    quantity: 50.5,
+  },
+  {
+    _id: "2",
+    date: new Date(),
+    createdBy: "Jane Smith",
+    product: {
+      name: "Product B",
+      stock: 200.0,
+    },
+    oldStock: 180.0,
+    quantity: 20.0,
+  },
+  {
+    _id: "3",
+    date: new Date(),
+    createdBy: "Mike Johnson",
+    product: {
+      name: "Product C",
+      stock: 75.25,
+    },
+    oldStock: 50.0,
+    quantity: 25.25,
+  },
+];
 
 const DashboardPage = () => {
   const [days, setDays] = useState(7);
+  const [inventoryRequests, setInventoryRequests] = useState<
+    IInventoryRequest[] | null
+  >();
 
   const getIncrease = (curr: number, prev: number) => {
     return ((curr - prev) / prev) * 100;
   };
 
+  const getInventoryRequests = async () => {
+    try {
+      const res = await apiCaller.get("/products/get-requests");
+      console.log(res.data, "This is the inventory requests data");
+      setInventoryRequests(res.data.data);
+    } catch (error) {
+      console.log("Error fetching inventory requests:", error);
+    }
+  };
+
+  // ALL THE DATA FETCHING LOGIC GOES HERE
+  useEffect(() => {
+    getInventoryRequests();
+  }, []);
   const mergedData = dummyData.sales.map((sale) => {
     const trans = dummyData.trans.find((tran) => tran._id === sale._id);
     return {
@@ -238,7 +294,10 @@ const DashboardPage = () => {
 
           {/* Inventory Requests Section */}
           <div className="bg-white p-4 rounded-lg shadow-sm">
-            <InventoryRequest />
+            <InventoryRequest
+              inventoryRequests={inventoryRequests}
+              setInventoryRequests={setInventoryRequests}
+            />
           </div>
         </div>
 
@@ -256,7 +315,7 @@ const DashboardPage = () => {
                 <p className="text-sm font-medium">New Bill</p>
               </Link>
               <Link
-                to="/inventory"
+                to="/products"
                 className="bg-green-50 text-green-600 p-3 rounded-lg text-center hover:bg-green-100 transition-colors"
               >
                 <ShoppingOutlined className="text-xl mb-2" />
@@ -270,7 +329,7 @@ const DashboardPage = () => {
                 <p className="text-sm font-medium">Customers</p>
               </Link>
               <Link
-                to="/reports"
+                to="/daily-report"
                 className="bg-orange-50 text-orange-600 p-3 rounded-lg text-center hover:bg-orange-100 transition-colors"
               >
                 <FileTextOutlined className="text-xl mb-2" />
