@@ -26,6 +26,8 @@ interface ProductStore {
 
   setProducts: (products: IProduct[]) => void;
   updateStock: (productId: string, newStock: number) => void;
+  productMap: Map<string, number>;
+  setProductMap: (map: Map<string, number>) => void;
 }
 
 const useProductStore = create<ProductStore>((set) => ({
@@ -33,7 +35,9 @@ const useProductStore = create<ProductStore>((set) => ({
   products: [],
   loading: false,
   error: null,
+  productMap: new Map<string, number>(),
 
+  setProductMap: (map) => set({ productMap: map }),
   // Actions
   setProducts: (products) => set({ products }),
 

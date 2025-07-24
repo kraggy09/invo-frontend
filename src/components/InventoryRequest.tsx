@@ -66,7 +66,12 @@ const InventoryRequest = ({
   const handleRejection = async (id: string) => {
     try {
       // API call to reject the inventory request
-      await apiCaller.post("/products/reject-stock-request", { stockId: id });
+      await apiCaller.get(`/products/reject-stock-request/${id}`);
+      message.success("Request Rejected");
+      const updatedRequests = inventoryRequests.filter(
+        (request) => request._id !== id
+      );
+      setInventoryRequests(updatedRequests);
     } catch (error) {
       console.error("Error handling rejection:", error);
       message.error("Failed to reject request");

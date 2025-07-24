@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import useCustomerStore, { Customer } from "./customer.store";
+import { Customer } from "./customer.store";
 import { IProduct } from "./product.store";
 import { calculatePriceTag } from "../utils/priceUtils";
 import { BillItem } from "./bill.store";
@@ -138,6 +138,13 @@ type BillingStore = {
   afterBillCreated: (
     customer: Customer,
     purchasedMap: Map<string, BillItem>
+  ) => void;
+  afterStockUpdated: (
+    updatedProducts: {
+      newStock: number;
+      previousStock: number;
+      productId: string;
+    }[]
   ) => void;
 };
 
@@ -473,6 +480,31 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
       set({ bills: newBills });
     },
     afterProductUpdated: (productId: string) => {},
+    afterStockUpdated: (updatedProduct) => {
+      const updatedProductMap = new Map(
+        updatedProduct.map((prod) => [prod.productId, prod])
+      );
+      const { bills } = get();
+      const newBills = bills.map((bill) => {
+        const updatedPurchsed = bill.purchased.map((product) => {
+          if (updatedProductMap.has(product.id)) {
+            const updatedProd = updatedProductMap.get(product.id);
+            if (updatedProd) {
+              return {
+                ...product,
+                stock: updatedProd.newStock,
+              };
+            }
+          }
+          return product;
+        });
+        return {
+          ...bill,
+          purchased: updatedPurchsed,
+        };
+      });
+      set({ bills: newBills });
+    },
     addCreatedAt: (billId: string, createdAt: string, customer: Customer) => {
       set((state) => {
         const bills = [...state.bills];

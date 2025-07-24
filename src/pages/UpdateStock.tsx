@@ -185,9 +185,9 @@ const UpdateStock = () => {
       messageApi.success("Request submitted successfully!");
       setRequestList([]);
       setShowModal(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      messageApi.error("Submission failed.");
+      messageApi.error(err.response.data.msg || "Submission failed.");
     } finally {
       setSubmitting(false);
     }

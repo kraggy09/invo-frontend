@@ -14,7 +14,7 @@ import useCategoriesStore from "../store/categories.store";
 import useCurrentBillStore from "../store/currentBill.store";
 import useTransactionStore from "../store/transaction.store";
 import useBillStore from "../store/bill.store";
-import { useInventoryRequestStore } from "../store/requests.store";
+import { Product, useInventoryRequestStore } from "../store/requests.store";
 
 export const useGlobalSocketHandlers = () => {
   const { socket, isConnected } = useSocket();
@@ -27,7 +27,8 @@ export const useGlobalSocketHandlers = () => {
   // Product store
   const products = useProductStore((state) => state.products);
   const setProducts = useProductStore((state) => state.setProducts);
-
+  const setProductMap = useProductStore((state) => state.setProductMap);
+  const productMap = useProductStore((state) => state.productMap);
   // Customer store
   const setCustomers = useCustomerStore((state) => state.setCustomers);
   const updateOutstanding = useCustomerStore(
@@ -49,10 +50,14 @@ export const useGlobalSocketHandlers = () => {
   const setBills = useBillStore((state) => state.setBills);
   const addBill = useBillStore((state) => state.addBill);
 
+  const requests = useInventoryRequestStore((state) => state.requests);
   const setRequests = useInventoryRequestStore((state) => state.setRequests);
   // Current bill store
   const afterBillCreated = useCurrentBillStore(
     (state) => state.afterBillCreated
+  );
+  const afterStockUpdated = useCurrentBillStore(
+    (state) => state.afterStockUpdated
   );
   const handleNotification = useCallback((data: NotificationEvent) => {
     switch (data.type) {
@@ -82,7 +87,7 @@ export const useGlobalSocketHandlers = () => {
       const transaction = data.transaction;
       const transactionId = data.transactionId;
       const updatedCustomer = data.updatedCustomer;
-      const productsIdMap = new Map(products.map((p, i) => [p._id, i]));
+      const productsIdMap = productMap;
 
       let updatedProducts = [...products];
       console.log(
@@ -128,8 +133,99 @@ export const useGlobalSocketHandlers = () => {
     [products]
   );
 
-  const handleStockUpdated = useCallback(() => {}, []);
+  const handleInventoryUpdateRequest = useCallback(
+    (data: any) => {
+      console.log("CALLING INVENTORY UPDATE REQUEST HANDLER");
 
+      console.log(data, "This is the inventory update request data");
+      console.log("requests:", requests);
+      console.log("data:", data);
+      const newRequests = [...data, ...requests];
+      console.log("newRequests:", newRequests);
+
+      setRequests(newRequests);
+    },
+    [requests]
+  );
+
+  const handleStockUpdated = useCallback(
+    (data: {
+      data: {
+        updatedProducts: {
+          newStock: number;
+          previousStock: number;
+          productId: string;
+          quantityAdded: number;
+        }[];
+        todayStockUpdates: {
+          createdAt: string;
+          product: string;
+          quantity: number;
+          _id: string;
+          previousStock: number;
+          newStock: number;
+          totalQty: number;
+        }[];
+      };
+    }) => {
+      if (
+        !data?.data?.updatedProducts ||
+        !Array.isArray(data.data.updatedProducts)
+      ) {
+        console.warn("Invalid updatedProducts data:", data);
+        return;
+      }
+
+      console.log(data, "this is the data");
+
+      const updatedProducts = data.data.updatedProducts;
+
+      const productsMap = new Map(updatedProducts.map((p) => [p.productId, p]));
+
+      const oldProducts = [...products];
+
+      const newProducts = oldProducts.map((prod) => {
+        if (productsMap.has(prod._id)) {
+          const updatedProduct = productsMap.get(prod._id);
+          console.log(updatedProduct);
+
+          if (updatedProduct) {
+            console.log(
+              prod.name,
+              "Is updated with new stock",
+              updatedProduct.newStock
+            );
+            return {
+              ...prod,
+              stock: updatedProduct.newStock,
+            };
+          }
+        } else {
+          console.log("NOT IN THE MAP");
+        }
+        return prod;
+      });
+      afterStockUpdated(updatedProducts);
+
+      setProducts(newProducts);
+    },
+    [products] // Optional: Add as dependency if products changes often (test for loops)
+  );
+
+  const handleStockRejected = (requestId: string) => {
+    console.log("HANDLING STOCK REJECTION SUCCESSFULLY", requestId);
+
+    const newRequests = requests.map((request) => {
+      if (request._id === requestId) {
+        return {
+          ...request,
+          rejected: true,
+        };
+      }
+      return request;
+    });
+    setRequests(newRequests);
+  };
   // const handleTransactionUpdated = useCallback(() => {}, []);
 
   // const handleProductsUpdated = useCallback(() => {}, []);
@@ -197,6 +293,11 @@ export const useGlobalSocketHandlers = () => {
         const requests = responses[7].data.data.requests;
         console.log(requests, "This are the requests");
 
+        const productsMap: Map<string, number> = new Map(
+          products.map((p: Product, i: number) => [p._id, i])
+        );
+        console.log(productsMap, "This is the products map");
+        setProductMap(productsMap);
         setRequests(requests);
         setCustomers(customers);
         setBillingId(billingId);
@@ -220,6 +321,11 @@ export const useGlobalSocketHandlers = () => {
     socket.on(SocketEvents.NOTIFICATION, handleNotification);
     socket.on("welcome", handleWelcomeMessage);
     socket.on(SocketEvents.INVENTORY.UPDATED, handleStockUpdated);
+    socket.on(
+      SocketEvents.INVENTORY.UPDATE_REQUEST,
+      handleInventoryUpdateRequest
+    );
+    socket.on(SocketEvents.INVENTORY.REJECTED, handleStockRejected);
     socket.on(SocketEvents.BILL.CREATED, handleBillCreated);
 
     // Cleanup on unmount (though these should persist)
@@ -228,6 +334,8 @@ export const useGlobalSocketHandlers = () => {
       socket.off(SocketEvents.BILL.CREATED);
       socket.off("welcome");
       socket.off(SocketEvents.INVENTORY.UPDATED);
+      socket.off(SocketEvents.INVENTORY.UPDATE_REQUEST);
+      socket.off(SocketEvents.INVENTORY.REJECTED);
     };
   }, [socket, isConnected, handleNotification, handleBillCreated]);
 };
