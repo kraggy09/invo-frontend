@@ -12,7 +12,6 @@ import {
   Select,
   InputNumber,
   Tag,
-  Space,
   Tooltip,
 } from "antd";
 import {
@@ -25,11 +24,12 @@ import {
   EyeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ClockCircleOutlined,
-  InfoCircleOutlined,
-  UndoOutlined,
   CloseOutlined,
   StockOutlined,
+  ClockCircleOutlined,
+  FileTextOutlined,
+  UndoOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
@@ -38,6 +38,7 @@ import useBillStore from "../store/bill.store";
 import useTransactionStore from "../store/transaction.store";
 import { useNavigate } from "react-router-dom";
 import { useInventoryRequestStore } from "../store/requests.store";
+import apiCaller from "../utils/apiCaller";
 
 const { RangePicker } = DatePicker;
 
@@ -52,7 +53,7 @@ const DailyReportPage = () => {
     [dayjs.Dayjs | null, dayjs.Dayjs | null]
   >([dayjs(), dayjs()]);
   const [loading, setLoading] = useState(false);
-  const [reportData, setReportData] = useState<any>(mockReportData);
+  const [reportData, setReportData] = useState<{ bills: any[]; transactions: any[] } | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [pin, setPin] = useState("");
   const [summary, setSummary] = useState({
@@ -61,6 +62,7 @@ const DailyReportPage = () => {
     totalPaymentOut: 0,
     totalBillAmount: 0,
     marginPercent: 0,
+    peakHour: "N/A",
   });
   const [billSearch, setBillSearch] = useState("");
   const [transactionSearch, setTransactionSearch] = useState("");
@@ -92,25 +94,9 @@ const DailyReportPage = () => {
   );
   const { requests: inventoryRequests } = useInventoryRequestStore();
 
-  // Simulate fetch
-  const fetchReport = async () => {
-    setLoading(true);
-    setTimeout(() => {
-      setReportData(mockReportData); // Replace with API call
-      setLoading(false);
-      message.success("Fetched daily report!");
-    }, 1000);
-  };
-
-  // Use zustand store data until API data is loaded
-  const bills =
-    reportData !== mockReportData && reportData.bills.length > 0
-      ? reportData.bills
-      : billsFromStore;
-  const transactions =
-    reportData !== mockReportData && reportData.transactions.length > 0
-      ? reportData.transactions
-      : transactionsFromStore;
+  // Use fetched report data if in historical mode, otherwise use live store
+  const bills = reportData ? reportData.bills : billsFromStore;
+  const transactions = reportData ? reportData.transactions : transactionsFromStore;
 
   // Map bills and transactions to correct table shape
   const mappedBills = bills
@@ -124,16 +110,17 @@ const DailyReportPage = () => {
       payment: bill.payment || 0,
       total: bill.total,
       customerName: bill.customer?.name || bill.customer || "",
+      createdByName: bill.createdBy?.name || "System",
       status: bill.status || (bill.outstanding > 0 ? "Pending" : "Paid"),
     }))
     .reverse();
 
   const mappedTransactions = transactions
     .map((t: any) => ({
-      key: t._id || t.id,
+      key: t._id, // Always use _id for the row key / navigation
       date: t.createdAt ? dayjs(t.createdAt).format("DD/MM/YYYY") : "",
       time: t.createdAt ? dayjs(t.createdAt).format("hh:mm:ss A") : "",
-      transId: t.id || t._id,
+      transId: t.id || t._id, // Display the numeric ID
       purpose: t.purpose || "",
       name: t.name || "",
       previousOutstanding: t.previousOutstanding || 0,
@@ -151,16 +138,15 @@ const DailyReportPage = () => {
       dateTime: dayjs(request.date).format("DD/MM/YYYY HH:mm"),
       productName: request.product.name,
       createdBy: request.createdBy.name,
-      stockChange: `${
-        !request.approved ? request.oldStock : request.stockAtUpdate
-      } → ${request.newStock}`,
+      stockChange: `${!request.approved ? request.oldStock : request.stockAtUpdate
+        } → ${request.newStock}`,
       quantity:
         request.quantity > 0 ? `+${request.quantity}` : request.quantity,
       status: request.approved
         ? "Approved"
         : request.rejected
-        ? "Rejected"
-        : "Pending",
+          ? "Rejected"
+          : "Pending",
       approved: request.approved,
       rejected: request.rejected,
       rawData: request, // Keep full data for tooltip/modal if needed
@@ -266,13 +252,15 @@ const DailyReportPage = () => {
     let totalInvestment = 0;
     let totalPaymentIn = 0;
     let totalPaymentOut = 0;
+
     if (bills) {
       for (const bill of bills) {
         if (bill.items) {
           for (const item of bill.items) {
             totalBillAmount += item.total ?? 0;
+            // Prefer item level cost price which is persisted
             totalInvestment +=
-              (item.quantity ?? 0) * (item.product?.costPrice ?? 0);
+              (item.quantity ?? 0) * (item.costPrice ?? item.product?.costPrice ?? 0);
           }
         }
       }
@@ -289,14 +277,96 @@ const DailyReportPage = () => {
     const profit = totalBillAmount - totalInvestment;
     const marginPercent =
       totalBillAmount > 0 ? (profit / totalBillAmount) * 100 : 0;
+
+    // Calculate Peak Hour
+    let peakHour = "N/A";
+    if (bills && bills.length > 0) {
+      const hourCounts: { [key: number]: number } = {};
+      bills.forEach((bill: any) => {
+        if (bill.createdAt) {
+          const hour = dayjs(bill.createdAt).hour();
+          hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+        }
+      });
+
+      let maxHour = -1;
+      let maxCount = 0;
+      for (const hour in hourCounts) {
+        if (hourCounts[hour] > maxCount) {
+          maxCount = hourCounts[hour];
+          maxHour = parseInt(hour);
+        }
+      }
+
+      if (maxHour !== -1) {
+        const start = dayjs().hour(maxHour).minute(0).format("hh A");
+        const end = dayjs()
+          .hour(maxHour + 1)
+          .minute(0)
+          .format("hh A");
+        peakHour = `${start} - ${end}`;
+      }
+    }
+
     setSummary({
       profit: Number(profit.toFixed(1)),
       totalPaymentIn: Number(totalPaymentIn.toFixed(1)),
       totalPaymentOut: Number(totalPaymentOut.toFixed(1)),
       totalBillAmount: Number(totalBillAmount.toFixed(1)),
       marginPercent: Number(marginPercent.toFixed(1)),
+      peakHour,
     });
   }, [bills, transactions]);
+
+  // Fetch on date range change
+  useEffect(() => {
+    const isToday =
+      dateRange[0]?.isSame(dayjs(), "day") &&
+      dateRange[1]?.isSame(dayjs(), "day");
+
+    if (!isToday) {
+      fetchReport();
+    } else {
+      setReportData(null); // Clear report data to fallback to live store for Today
+    }
+  }, [dateRange]);
+
+  // Real fetch from API
+  const fetchReport = async () => {
+    if (!dateRange[0] || !dateRange[1]) return;
+
+    setLoading(true);
+    try {
+      const [billsRes, transactionsRes] = await Promise.all([
+        apiCaller.get("/bills", {
+          params: {
+            startDate: dateRange[0].startOf("day").toISOString(),
+            endDate: dateRange[1].endOf("day").toISOString(),
+          },
+        }),
+        apiCaller.get("/transactions", {
+          params: {
+            startDate: dateRange[0].startOf("day").toISOString(),
+            endDate: dateRange[1].endOf("day").toISOString(),
+          },
+        }),
+      ]);
+
+      setReportData({
+        bills: billsRes.data.data?.bills ?? billsRes.data.bills ?? [],
+        transactions:
+          transactionsRes.data.data?.transactions ??
+          transactionsRes.data.transactions ??
+          [],
+      });
+      message.success("Report data loaded successfully");
+    } catch (error) {
+      console.error("Fetch report error:", error);
+      message.error("Failed to load historical report");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // PIN logic
   const handlePinSubmit = () => {
@@ -315,6 +385,12 @@ const DailyReportPage = () => {
     { title: "Time", dataIndex: "time", key: "time" },
     { title: "Bill Id", dataIndex: "billId", key: "billId" },
     { title: "Customer", dataIndex: "customerName", key: "customerName" },
+    {
+      title: "Created By",
+      dataIndex: "createdBy",
+      key: "createdBy",
+      render: (_: any, record: any) => record.createdByName || "N/A",
+    },
     { title: "Bill Amount", dataIndex: "billAmount", key: "billAmount" },
     { title: "Outstanding", dataIndex: "outstanding", key: "outstanding" },
     { title: "Payment", dataIndex: "payment", key: "payment" },
@@ -599,135 +675,139 @@ const DailyReportPage = () => {
 
       {/* Admin PIN */}
       {!showAdmin ? (
-        <div className="flex justify-center items-center mb-4">
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-3 mb-6">
           <Input.Password
-            prefix={<LockOutlined />}
+            prefix={<LockOutlined className="text-gray-400" />}
             value={pin}
             onChange={(e) => setPin(e.target.value)}
             placeholder="Enter admin PIN"
-            style={{ width: 200, marginRight: 8 }}
+            className="w-full sm:w-64 max-w-xs"
             onPressEnter={handlePinSubmit}
           />
-          <Button type="primary" onClick={handlePinSubmit}>
-            Check
+          <Button type="primary" onClick={handlePinSubmit} className="w-full sm:w-auto">
+            Authorize View
           </Button>
         </div>
       ) : (
-        <Button
-          icon={<EyeInvisibleOutlined />}
-          onClick={() => setShowAdmin(false)}
-        />
+        <div className="flex justify-center mb-6">
+          <Button
+            type="primary"
+            danger
+            ghost
+            icon={<EyeInvisibleOutlined />}
+            onClick={() => setShowAdmin(false)}
+          >
+            Hide Admin Summary
+          </Button>
+        </div>
       )}
 
       {/* Date Range Picker and Fetch */}
-      <div className="flex justify-center gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-3 mb-8">
         <RangePicker
+          className="w-full sm:w-80"
           value={dateRange}
           onChange={(range) =>
             setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])
           }
           allowClear={false}
         />
-        <Button type="primary" onClick={fetchReport}>
-          Get the bills
+        <Button
+          type="primary"
+          onClick={fetchReport}
+          loading={loading}
+          className="w-full sm:w-auto min-w-[120px]"
+        >
+          {loading ? "Fetching..." : "Fetch Reports"}
         </Button>
       </div>
 
       {/* Summary Cards */}
       {showAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <Card
-            style={{
-              background: "#f6ffed",
-              border: "1px solid #b7eb8f",
-              boxShadow: "0 2px 8px rgba(34,197,94,0.06)",
-            }}
+            className="rounded-xl overflow-hidden shadow-sm border-0"
+            style={{ background: "linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)" }}
+            bodyStyle={{ padding: "16px 20px" }}
           >
             <Statistic
-              title="Profit"
+              title={<span className="text-gray-600 font-medium">Profit</span>}
               value={summary.profit}
-              prefix={<DollarOutlined style={{ color: "#389e0d" }} />}
-              valueStyle={{ color: "#389e0d", fontWeight: 700 }}
+              prefix={<DollarOutlined className="text-green-600" />}
+              valueStyle={{ color: "#389e0d", fontWeight: 800, fontSize: "24px" }}
             />
           </Card>
           <Card
-            style={{
-              background: "#e6f7ff",
-              border: "1px solid #91d5ff",
-              boxShadow: "0 2px 8px rgba(24,144,255,0.06)",
-            }}
+            className="rounded-xl overflow-hidden shadow-sm border-0"
+            style={{ background: "linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)" }}
+            bodyStyle={{ padding: "16px 20px" }}
           >
             <Statistic
-              title="Total Payment In"
+              title={<span className="text-gray-600 font-medium">Payment In</span>}
               value={summary.totalPaymentIn}
-              prefix={<ArrowDownOutlined style={{ color: "#1890ff" }} />}
-              valueStyle={{ color: "#1890ff", fontWeight: 700 }}
+              prefix={<ArrowDownOutlined className="text-blue-600" />}
+              valueStyle={{ color: "#1890ff", fontWeight: 800, fontSize: "24px" }}
             />
           </Card>
           <Card
-            style={{
-              background: "#fff7e6",
-              border: "1px solid #ffd591",
-              boxShadow: "0 2px 8px rgba(255,140,0,0.06)",
-            }}
+            className="rounded-xl overflow-hidden shadow-sm border-0"
+            style={{ background: "linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%)" }}
+            bodyStyle={{ padding: "16px 20px" }}
           >
             <Statistic
-              title="Total Payment Out"
+              title={<span className="text-gray-600 font-medium">Payment Out</span>}
               value={summary.totalPaymentOut}
-              prefix={<ArrowUpOutlined style={{ color: "#fa8c16" }} />}
-              valueStyle={{ color: "#fa8c16", fontWeight: 700 }}
+              prefix={<ArrowUpOutlined className="text-orange-600" />}
+              valueStyle={{ color: "#fa8c16", fontWeight: 800, fontSize: "24px" }}
             />
           </Card>
           <Card
-            style={{
-              background: "#f0f5ff",
-              border: "1px solid #adc6ff",
-              boxShadow: "0 2px 8px rgba(47,84,235,0.06)",
-            }}
+            className="rounded-xl overflow-hidden shadow-sm border-0"
+            style={{ background: "linear-gradient(135deg, #f0f5ff 0%, #d6e4ff 100%)" }}
+            bodyStyle={{ padding: "16px 20px" }}
           >
             <Statistic
-              title="Total Bill"
+              title={<span className="text-gray-600 font-medium">Total Billed</span>}
               value={summary.totalBillAmount}
-              prefix={<ArrowUpOutlined style={{ color: "#2f54eb" }} />}
-              valueStyle={{ color: "#2f54eb", fontWeight: 700 }}
+              prefix={<FileTextOutlined className="text-indigo-600" />}
+              valueStyle={{ color: "#2f54eb", fontWeight: 800, fontSize: "24px" }}
             />
           </Card>
           <Card
-            style={{
-              background: "#fffbe6",
-              border: "1px solid #ffe58f",
-              boxShadow: "0 2px 8px rgba(250,219,20,0.06)",
-            }}
+            className="rounded-xl overflow-hidden shadow-sm border-0"
+            style={{ background: "linear-gradient(135deg, #fff2f0 0%, #ffccc7 100%)" }}
+            bodyStyle={{ padding: "16px 20px" }}
           >
-            <Statistic
-              title="Margin %"
-              value={summary.marginPercent}
-              prefix={<PercentageOutlined style={{ color: "#faad14" }} />}
-              valueStyle={{ color: "#faad14", fontWeight: 700 }}
-            />
+            <div className="flex flex-col">
+              <span className="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1">Peak Business Hour</span>
+              <div className="flex items-center gap-2">
+                <ClockCircleOutlined className="text-red-500 text-xl" />
+                <span className="text-red-700 font-black text-lg">{summary.peakHour}</span>
+              </div>
+            </div>
           </Card>
         </div>
       )}
 
       {/* Filters for Bills */}
       {activeTab === "bills" && (
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-2 flex flex-wrap gap-4 items-end border border-gray-200">
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Search</label>
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-6 flex flex-wrap gap-4 items-end border border-gray-100">
+          <div className="flex flex-col w-full sm:w-auto min-w-[200px]">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-1.5 ml-1">Search Records</label>
             <Input.Search
-              placeholder="Customer name or bill id"
+              placeholder="Customer or Bill ID"
               value={billSearch}
               onChange={(e) => setBillSearch(e.target.value)}
-              style={{ width: 200 }}
+              className="w-full"
               allowClear
             />
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Status</label>
+          <div className="flex flex-col w-full sm:w-auto min-w-[120px]">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-1.5 ml-1">Status Filter</label>
             <Select
+              className="w-full"
               value={billFilterType}
               onChange={setBillFilterType}
-              style={{ width: 120 }}
               options={[
                 { value: "all", label: "All Status" },
                 { value: "Paid", label: "Paid" },
@@ -736,16 +816,16 @@ const DailyReportPage = () => {
               ]}
             />
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Date Range</label>
+          <div className="flex flex-col w-full sm:w-auto min-w-[220px]">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-1.5 ml-1">Report Date Range</label>
             <RangePicker
+              className="w-full"
               value={billDateRange}
               onChange={(range) =>
                 setBillDateRange(
                   range as [dayjs.Dayjs | null, dayjs.Dayjs | null]
                 )
               }
-              style={{ width: 220 }}
             />
           </div>
           <div className="flex flex-col">

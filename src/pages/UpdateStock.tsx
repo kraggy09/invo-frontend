@@ -179,7 +179,7 @@ const UpdateStock = () => {
 
     setSubmitting(true);
     try {
-      await apiCaller.post("/products/raise-stock-requests", {
+      await apiCaller.post("/stocks/requests", {
         products: payLoad,
       });
       messageApi.success("Request submitted successfully!");

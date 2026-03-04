@@ -30,7 +30,7 @@ const Login = () => {
   const { fetchData, loading } = useFetch<LoginResponse>();
   const onFinish = async (values: LoginRequest) => {
     try {
-      const response = await fetchData("/login", {
+      const response = await fetchData("/users/login", {
         method: "POST",
         data: {
           username: values.username,

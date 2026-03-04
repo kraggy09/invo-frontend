@@ -70,11 +70,32 @@ const BillPrint = ({
     // Map items to purchased for compatibility
     if (currentBill.items && !currentBill.purchased) {
       currentBill.purchased = currentBill.items.map((item: any) => {
-        // Use productSnapshot if available, otherwise fallback to product fields
+        const snap = item.productSnapshot || {};
+        const prod =
+          typeof item.product === "object" && item.product !== null
+            ? item.product
+            : {};
+        const totalQty = item.quantity ?? 0;
+        const derivedPrice =
+          snap.price != null
+            ? snap.price
+            : totalQty > 0
+              ? (item.total ?? 0) / totalQty
+              : 0;
         return {
-          ...(item.productSnapshot || {}),
-          ...(item.product || {}),
+          ...snap,
           ...item,
+          name: snap.name ?? prod.name ?? "Deleted Product",
+          mrp: snap.mrp ?? prod.mrp ?? 0,
+          measuring: snap.measuring ?? prod.measuring ?? "piece",
+          price: derivedPrice,
+          piece: snap.piece ?? totalQty,
+          packet: snap.packet ?? 0,
+          box: snap.box ?? 0,
+          boxQuantity: snap.boxQuantity ?? prod.box ?? 1,
+          packetQuantity: snap.packetQuantity ?? prod.packet ?? 1,
+          discount: snap.discount ?? item.discount ?? 0,
+          total: item.total ?? snap.total ?? 0,
         };
       });
     }
@@ -88,9 +109,9 @@ const BillPrint = ({
   // Calculate Bill Total from purchased
   const billTotal = currentBill?.purchased
     ? currentBill.purchased.reduce(
-        (sum: number, p: any) => sum + (p.total || 0),
-        0
-      )
+      (sum: number, p: any) => sum + (p.total || 0),
+      0
+    )
     : currentBill?.total || 0;
   // Discount
   const discount = currentBill?.discount || 0;
@@ -209,8 +230,8 @@ const BillPrint = ({
                               {product.measuring === "kg"
                                 ? calculateMeasuring(total)
                                 : total % 1 != 0
-                                ? total.toFixed(3)
-                                : total}
+                                  ? total.toFixed(3)
+                                  : total}
                             </p>
                           </td>
 

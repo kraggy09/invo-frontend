@@ -191,7 +191,7 @@ const FilterBuilder = ({
               {filter.type === "dateRange" && (
                 <RangePicker
                   value={activeFilters[filter.key] as [Dayjs, Dayjs]}
-                  onChange={(dates) => handleFilterChange(filter.key, dates)}
+                  onChange={(dates) => handleFilterChange(filter.key, dates as any)}
                   className="w-full"
                   disabledDate={disabledDate}
                 />

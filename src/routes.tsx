@@ -19,6 +19,8 @@ import UpdateStock from "./pages/UpdateStock";
 import NewCustomer from "./components/NewCustomer";
 import NewTransaction from "./components/NewTransaction";
 import TransactionPage from "./pages/TransactionPage";
+import SingleTransactionPage from "./pages/SingleTransactionPage";
+import UpdateStockRequest from "./pages/UpdateStockRequest";
 const AppRoutes = () => {
   const location = useLocation();
   const path = location.pathname;
@@ -150,13 +152,22 @@ const AppRoutes = () => {
           }
         />
         <Route
-          path="/transactions/new-transaction"
+          path="/transactions/:id"
+          element={
+            <ProtectedRoute>
+              <SingleTransactionPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/new-transaction"
           element={
             <ProtectedRoute>
               <NewTransaction />
             </ProtectedRoute>
           }
         />
+
       </Routes>
     </>
   );

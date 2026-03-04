@@ -18,7 +18,7 @@ const NewProductPage = () => {
   const handleSubmit = async (values: ProductFormValues) => {
     setLoading(true);
     try {
-      await apiCaller.post("/products/newItem", {
+      await apiCaller.post("/products", {
         name: values.name,
         mrp: Number(values.mrp),
         costPrice: Number(values.costPrice),

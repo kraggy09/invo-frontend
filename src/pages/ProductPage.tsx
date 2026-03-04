@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useProductStore from "../store/product.store";
 import useCategoriesStore from "../store/categories.store";
@@ -38,19 +38,6 @@ const ProductPage = () => {
   }>({ open: false });
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchProducts() {
-      setLoading(true);
-      try {
-        const res = await apiCaller.get("/products/all");
-        setProducts(res.data.products || []);
-      } catch {
-        message.error("Failed to fetch products");
-      }
-      setLoading(false);
-    }
-    if (products.length === 0) fetchProducts();
-  }, [setProducts, products.length]);
 
   const filteredProducts = useMemo(() => {
     let arr = [...products];
@@ -84,7 +71,7 @@ const ProductPage = () => {
   const handleDelete = async (product: any) => {
     setLoading(true);
     try {
-      await apiCaller.delete(`/products/delete/${product._id}`);
+      await apiCaller.delete(`/products/${product._id}`);
       setProducts(products.filter((p) => p._id !== product._id));
       message.success("Product deleted");
     } catch {
@@ -165,9 +152,8 @@ const ProductPage = () => {
       key: "stock",
       render: (v: number, record: any) => (
         <span
-          className={`px-2 rounded-lg font-semibold ${
-            v <= record.minQuantity ? "bg-red-500 text-white" : ""
-          }`}
+          className={`px-2 rounded-lg font-semibold ${v <= record.minQuantity ? "bg-red-500 text-white" : ""
+            }`}
           onClick={() =>
             navigate(`/products/updateStock/${record._id}`, { state: record })
           }

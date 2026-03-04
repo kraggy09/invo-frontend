@@ -17,10 +17,16 @@ const SingleBillPage = () => {
   const [bill, setBill] = useState<any>(null);
 
   useEffect(() => {
+    // Always fetch from API — the store holds lightweight bill objects whose
+    // items.product field is an unpopulated ObjectId string. BillPrint needs the
+    // fully-populated item with productSnapshot (price, mrp, piece, packet…).
+    // Only the API's getBillDetails provides this via .populate('items.product').
     const fetchBill = async () => {
       setLoading(true);
       try {
-        const res = await apiCaller.get(`/bills/single-bill/${id}`);
+        const res = await apiCaller.get(`/bills/${id}`);
+        console.log(res);
+
         setBill(res.data?.data?.bill);
       } catch (error) {
         message.error("Failed to fetch bill details");
@@ -73,21 +79,55 @@ const SingleBillPage = () => {
     contentRef: printContentRef as React.RefObject<HTMLDivElement>,
   });
 
-  // Map API bill data to BillPrint expected structure
+  // Map API bill data to BillPrint expected structure.
+  // BillPrint expects each item: name, mrp, measuring, price, piece, packet,
+  // box, boxQuantity, packetQuantity, discount, total.
+  //
+  // New bills: item.productSnapshot has all of the above (captured at billing time).
+  // Old bills: productSnapshot is absent — fall back to the populated product doc
+  //   for name/mrp/measuring, and derive price from item.total / item.quantity.
   const printBillData = bill
     ? {
-        bill: {
-          ...bill,
-          purchased: bill.items
-            ? bill.items.map((item: any) => ({
-                ...(item.productSnapshot || {}),
-                ...(item.product || {}),
-                ...item,
-              }))
-            : [],
-        },
-        updatedCustomer: bill.customer,
-      }
+      bill: {
+        ...bill,
+        purchased: bill.items
+          ? bill.items.map((item: any) => {
+            const snap = item.productSnapshot || {};
+            const prod =
+              typeof item.product === "object" && item.product !== null
+                ? item.product
+                : {};
+
+            const totalQty = item.quantity ?? 0;
+            const derivedPrice =
+              snap.price != null
+                ? snap.price
+                : totalQty > 0
+                  ? (item.total ?? 0) / totalQty
+                  : 0;
+
+            return {
+              // Spread snapshot first (new bills) then item-level overrides
+              ...snap,
+              ...item,
+              // Ensure every field BillPrint reads always has a safe value
+              name: snap.name ?? prod.name ?? "Deleted Product",
+              mrp: snap.mrp ?? prod.mrp ?? 0,
+              measuring: snap.measuring ?? prod.measuring ?? "piece",
+              price: derivedPrice,
+              piece: snap.piece ?? totalQty,
+              packet: snap.packet ?? 0,
+              box: snap.box ?? 0,
+              boxQuantity: snap.boxQuantity ?? prod.box ?? 1,
+              packetQuantity: snap.packetQuantity ?? prod.packet ?? 1,
+              discount: snap.discount ?? item.discount ?? 0,
+              total: item.total ?? snap.total ?? 0,
+            };
+          })
+          : [],
+      },
+      updatedCustomer: bill.customer,
+    }
     : undefined;
 
   return (
@@ -145,7 +185,7 @@ const SingleBillPage = () => {
                 <span
                   className={
                     bill?.status === "Paid" ||
-                    bill?.total - bill?.payment - bill?.discount <= 0
+                      bill?.total - bill?.payment - bill?.discount <= 0
                       ? "text-green-600 font-semibold"
                       : "text-yellow-600 font-semibold"
                   }
@@ -204,7 +244,7 @@ const SingleBillPage = () => {
                 <div className="text-xs text-gray-500 mb-1 font-medium">
                   Created By
                 </div>
-                <div className="text-base text-gray-900">{bill?.createdBy}</div>
+                <div className="text-base text-gray-900">{bill?.createdBy?.name ?? bill?.createdBy}</div>
               </div>
             </div>
           </div>
@@ -246,8 +286,8 @@ const SingleBillPage = () => {
                 item && item._id
                   ? item._id
                   : typeof idx === "number"
-                  ? idx
-                  : `row-${Math.random()}`
+                    ? idx
+                    : `row-${Math.random()}`
               }
               pagination={false}
               bordered={false}
@@ -300,9 +340,9 @@ const SingleBillPage = () => {
       {bill && (
         <div style={{ display: "none" }}>
           <BillPrint
-            onClose={() => {}}
+            onClose={() => { }}
             contentRef={printContentRef}
-            handlePrint={() => {}}
+            handlePrint={() => { }}
             payment={bill?.payment?.toString() || "0"}
             printBillData={printBillData}
           />

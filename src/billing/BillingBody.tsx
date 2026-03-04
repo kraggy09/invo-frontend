@@ -153,7 +153,7 @@ const BillingBody = () => {
       let paymentValue = paymentInputRef.current?.input?.value;
       if (paymentValue === "" || paymentValue === undefined) paymentValue = "0";
       paymentValue = String(paymentValue);
-      const response = await apiCaller.post("/bills/create-bill", {
+      const response = await apiCaller.post("/bills", {
         customerId: currentBill.customer._id,
         billId: billingId,
         transactionId: transactionId,
@@ -353,7 +353,7 @@ const BillingBody = () => {
   return (
     <div
       className="w-[98%] h-full mb-4 shadow-sm hover:shadow-md transition-shadow duration-200"
-      // bodyStyle={{ padding: "16px 24px" }}
+    // bodyStyle={{ padding: "16px 24px" }}
     >
       <div className="flex flex-col flex-1 h-full">
         <div className="h-[70%] flex  overflow-auto">
@@ -397,8 +397,8 @@ const BillingBody = () => {
                   {currentBill &&
                     formatIndianNumber(
                       currentBill?.total +
-                        (currentBill?.customer?.outstanding || 0) -
-                        currentBill?.discount
+                      (currentBill?.customer?.outstanding || 0) -
+                      currentBill?.discount
                     )}
                   ₹
                 </span>
@@ -471,11 +471,10 @@ const BillingBody = () => {
                     function speakNext() {
                       if (idx >= products.length) return;
                       const product = products[idx];
-                      const text = `${product.name}, quantity: ${
-                        product.piece +
+                      const text = `${product.name}, quantity: ${product.piece +
                         product.packet * product.packetQuantity +
                         product.box * product.boxQuantity
-                      }`;
+                        }`;
                       const utter = new window.SpeechSynthesisUtterance(text);
                       if (indianVoice) utter.voice = indianVoice;
                       utter.rate = 0.8;

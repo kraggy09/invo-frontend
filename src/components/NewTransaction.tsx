@@ -23,25 +23,37 @@ import {
   FileTextOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
+import useCustomerStore from "../store/customer.store";
+import apiCaller from "../utils/apiCaller";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-// Dummy data
-const dummyCustomers = [
-  { id: 1, name: "John Doe", outstanding: 1500 },
-  { id: 2, name: "Jane Smith", outstanding: 2300 },
-  { id: 3, name: "Mike Johnson", outstanding: 800 },
-  { id: 4, name: "Sarah Wilson", outstanding: 0 },
-  { id: 5, name: "David Brown", outstanding: 4500 },
-];
 
 const NewTransaction: React.FC = () => {
   const [form] = Form.useForm();
   const [isPaymentIn, setIsPaymentIn] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [transactionId] = useState("T-1001");
+  const [transactionId, setTransactionId] = useState("Loading...");
+  const { customers, setCustomers } = useCustomerStore();
+
+  const fetchInitialData = async () => {
+    try {
+      if (customers.length === 0) {
+        const resCustomers = await apiCaller.get("/customers");
+        setCustomers(resCustomers.data.customers || []);
+      }
+      const resId = await apiCaller.get("/transactions/latest-id");
+      setTransactionId(resId.data.transactionId);
+    } catch (e) {
+      message.error("Error fetching initial data");
+    }
+  };
+
+  React.useEffect(() => {
+    fetchInitialData();
+  }, [customers.length]);
 
   const handleModeChange = (checked: boolean) => {
     setIsPaymentIn(checked);
@@ -50,7 +62,7 @@ const NewTransaction: React.FC = () => {
   };
 
   const handleCustomerSearch = (value: string) => {
-    return dummyCustomers
+    return customers
       .filter((customer) =>
         customer.name.toLowerCase().includes(value.toLowerCase())
       )
@@ -75,17 +87,36 @@ const NewTransaction: React.FC = () => {
 
   const handleSubmit = async (values: any) => {
     setLoading(true);
-    console.log("Form values:", values);
-    console.log("Selected customer:", selectedCustomer);
-    console.log("Transaction type:", isPaymentIn ? "Payment In" : "Cash Out");
-
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      if (isPaymentIn) {
+        // Handle Payment In -> createNewPayment
+        await apiCaller.post("/transactions/payments", {
+          name: values.name,
+          amount: values.amount,
+          paymentMode: values.paymentMode,
+          customerId: selectedCustomer?._id,
+          transactionId: transactionId,
+        });
+      } else {
+        // Handle Cash Out -> createNewTransaction
+        await apiCaller.post("/transactions", {
+          name: values.name,
+          amount: values.amount,
+          purpose: values.purpose,
+          transactionId: transactionId,
+        });
+      }
       message.success(
         `${isPaymentIn ? "Payment" : "Transaction"} created successfully!`
       );
-    }, 1500);
+      form.resetFields();
+      setSelectedCustomer(null);
+      fetchInitialData(); // Refresh transaction ID and stuff
+    } catch (error: any) {
+      message.error(error.response?.data?.message || "Failed to submit transaction");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRefresh = () => {

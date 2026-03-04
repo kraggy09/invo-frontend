@@ -26,39 +26,10 @@ import {
 import { useNavigate } from "react-router-dom";
 import { calculateDate, calculateTime } from "../utils/bill.util";
 import useUserStore from "../store/user.store";
+import apiCaller from "../utils/apiCaller";
 
 const { Title, Text } = Typography;
 
-// Dummy data for demonstration
-const dummyTransactions = [
-  {
-    _id: "1",
-    name: "John Doe",
-    amount: 5000,
-    previousOutstanding: 15000,
-    newOutstanding: 10000,
-    paymentMode: "cash",
-    createdAt: "2024-07-23T10:30:00.000Z",
-  },
-  {
-    _id: "2",
-    name: "Jane Smith",
-    amount: 8500,
-    previousOutstanding: 12000,
-    newOutstanding: 3500,
-    paymentMode: "online",
-    createdAt: "2024-07-23T14:45:00.000Z",
-  },
-  {
-    _id: "3",
-    name: "Mike Johnson",
-    amount: 3200,
-    previousOutstanding: 7800,
-    newOutstanding: 4600,
-    paymentMode: "card",
-    createdAt: "2024-07-23T16:20:00.000Z",
-  },
-];
 
 const TransactionPage: React.FC = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -69,15 +40,9 @@ const TransactionPage: React.FC = () => {
   const fetchTransactions = async () => {
     setLoading(true);
     try {
-      // Replace with actual API call
-      // const res = await apiCaller.get(apiUrl + "/getTransactionForApproval");
-      // setTransactions(res.data.transactions);
-
-      // Using dummy data for now
-      setTimeout(() => {
-        setTransactions(dummyTransactions);
-        setLoading(false);
-      }, 1000);
+      const res = await apiCaller.get("/transactions/approvals");
+      setTransactions(res.data.transactions);
+      setLoading(false);
     } catch (error) {
       console.error(error);
       setLoading(false);
@@ -88,17 +53,10 @@ const TransactionPage: React.FC = () => {
   const approveTransaction = async (id: string) => {
     setLoading(true);
     try {
-      // const res = await apiCaller.post(apiUrl + "/approveTransaction", { id });
-      // message.success(res.data.msg);
-
-      // Simulate API call
-      setTimeout(() => {
-        message.success("Transaction approved successfully");
-        setTransactions((prev) => prev.filter((tr) => tr._id !== id));
-        setLoading(false);
-        // dispatch(fetchCustomers());
-        // dispatch(fetchDailyReport());
-      }, 1000);
+      const res = await apiCaller.post(`/transactions/${id}/approve`);
+      message.success(res.data.msg || "Transaction approved successfully");
+      setTransactions((prev) => prev.filter((tr) => tr._id !== id));
+      setLoading(false);
     } catch (error: any) {
       setLoading(false);
       console.error(error);
@@ -123,17 +81,10 @@ const TransactionPage: React.FC = () => {
   const rejectTransaction = async (id: string) => {
     setLoading(true);
     try {
-      // const res = await apiCaller.post(apiUrl + "/rejectTransaction", { id });
-      // message.success(res.data.msg);
-
-      // Simulate API call
-      setTimeout(() => {
-        message.success("Transaction rejected successfully");
-        setTransactions((prev) => prev.filter((tr) => tr._id !== id));
-        setLoading(false);
-        // dispatch(fetchCustomers());
-        // dispatch(fetchDailyReport());
-      }, 1000);
+      const res = await apiCaller.post(`/transactions/${id}/reject`);
+      message.success(res.data.msg || "Transaction rejected successfully");
+      setTransactions((prev) => prev.filter((tr) => tr._id !== id));
+      setLoading(false);
     } catch (error) {
       setLoading(false);
       console.error(error);
@@ -163,40 +114,19 @@ const TransactionPage: React.FC = () => {
   }, []);
 
   return (
-    <div
-      style={{
-        padding: "24px",
-        background: "#f0f2f5",
-        minHeight: "100vh",
-      }}
-    >
+    <div className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-50/50">
       <Spin spinning={loading} size="large">
         {/* Header with Integrated Add Button */}
-        <div
-          style={{
-            marginBottom: 24,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 mb-8 border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
           <div>
-            <Title level={2} style={{ marginBottom: 8 }}>
-              Pending Transactions
-            </Title>
-            <Text type="secondary">
-              Review and approve payment transactions
-            </Text>
+            <h1 className="text-2xl font-black text-gray-800 tracking-tight">Pending Transactions</h1>
+            <p className="text-gray-500 text-sm mt-0.5">Review and approve payment transactions</p>
           </div>
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate("/new-transaction")}
-            style={{
-              background: "#1677ff", // Soft primary blue
-              borderColor: "#1677ff",
-              height: 40,
-            }}
+            className="w-full sm:w-auto h-11 bg-indigo-600 border-indigo-600 font-bold px-6 rounded-xl hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100"
           >
             Create New Transaction
           </Button>
@@ -204,201 +134,131 @@ const TransactionPage: React.FC = () => {
 
         {/* Transactions Grid */}
         {transactions && transactions.length > 0 ? (
-          <Row gutter={[16, 16]}>
+          <Row gutter={[20, 20]}>
             {transactions.map((transaction) => (
               <Col xs={24} sm={12} lg={8} xl={6} key={transaction._id}>
                 <Badge.Ribbon
                   text="Pending Approval"
                   color="orange"
-                  style={{ fontSize: 12 }}
+                  className="font-bold tracking-wider px-3"
                 >
                   <Card
-                    style={{
-                      height: "100%",
-                      borderRadius: 12,
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                      border: "1px solid #f0f0f0", // Subtle border for professionalism
-                    }}
-                    bodyStyle={{ padding: "20px" }}
+                    className="h-full rounded-2xl border-0 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
+                    bodyStyle={{ padding: "0" }}
                   >
-                    {/* Header */}
-                    <div style={{ textAlign: "center", marginBottom: 16 }}>
-                      <ExclamationCircleOutlined
-                        style={{
-                          fontSize: 24,
-                          color: "#fa8c16",
-                          marginBottom: 8,
-                        }}
-                      />
-                      <div>
-                        <Text strong style={{ fontSize: 16 }}>
-                          Payment Pending
-                        </Text>
+                    {/* Header Section */}
+                    <div className="p-6 text-center bg-gray-50/50 border-b border-gray-100">
+                      <div className="bg-orange-100 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <ExclamationCircleOutlined className="text-orange-500 text-2xl" />
                       </div>
-                      <Title
-                        level={3}
-                        style={{ margin: "8px 0", color: "#1677ff" }} // Soft blue for amount
-                      >
+                      <p className="text-xs font-black text-orange-500 uppercase tracking-widest mb-1">Payment Pending</p>
+                      <h3 className="text-2xl font-black text-indigo-600 tracking-tight">
                         {formatCurrency(transaction.amount)}
-                      </Title>
+                      </h3>
                     </div>
 
-                    {/* Outstanding Info */}
-                    <Row gutter={16} style={{ marginBottom: 16 }}>
-                      <Col span={12}>
-                        <Statistic
-                          title="Current Outstanding"
-                          value={transaction.previousOutstanding}
-                          formatter={(value) => formatCurrency(Number(value))}
-                          valueStyle={{ fontSize: 14, color: "#f5222d" }} // Red for current
-                        />
-                      </Col>
-                      <Col span={12}>
-                        <Statistic
-                          title="Future Outstanding"
-                          value={transaction.newOutstanding}
-                          formatter={(value) => formatCurrency(Number(value))}
-                          valueStyle={{
-                            fontSize: 14,
-                            color:
-                              transaction.newOutstanding <
-                              transaction.previousOutstanding
-                                ? "#52c41a" // Green if reduced
-                                : "#f5222d", // Red if not
-                          }}
-                        />
-                      </Col>
-                    </Row>
-
-                    {/* Transaction Details */}
-                    <div style={{ marginBottom: 16 }}>
-                      <Space
-                        direction="vertical"
-                        size="small"
-                        style={{ width: "100%" }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <Text type="secondary">
-                            <UserOutlined /> Customer:
-                          </Text>
-                          <Text strong style={{ textTransform: "capitalize" }}>
-                            {transaction.name}
-                          </Text>
+                    <div className="p-6">
+                      {/* Outstanding Info */}
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="bg-red-50 p-3 rounded-xl border border-red-100">
+                          <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Current</p>
+                          <p className="text-sm font-bold text-red-700">{formatCurrency(transaction.previousOutstanding)}</p>
                         </div>
-
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <Text type="secondary">
-                            <CalendarOutlined /> Date & Time:
-                          </Text>
-                          <Text>
-                            {calculateDate(new Date(transaction.createdAt))}{" "}
-                            {calculateTime(new Date(transaction.createdAt))}
-                          </Text>
+                        <div className={`p-3 rounded-xl border ${transaction.newOutstanding < transaction.previousOutstanding
+                          ? "bg-green-50 border-green-100"
+                          : "bg-red-50 border-red-100"
+                          }`}>
+                          <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${transaction.newOutstanding < transaction.previousOutstanding
+                            ? "text-green-400"
+                            : "text-red-400"
+                            }`}>After</p>
+                          <p className={`text-sm font-bold ${transaction.newOutstanding < transaction.previousOutstanding
+                            ? "text-green-700"
+                            : "text-red-700"
+                            }`}>{formatCurrency(transaction.newOutstanding)}</p>
                         </div>
+                      </div>
 
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <Text type="secondary">
-                            <CreditCardOutlined /> Method:
-                          </Text>
+                      {/* Details */}
+                      <div className="space-y-3 mb-6">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-400 font-medium">Customer</span>
+                          <span className="font-black text-gray-700 capitalize">{transaction.name}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-400 font-medium">Date</span>
+                          <span className="font-bold text-gray-600">
+                            {calculateDate(new Date(transaction.createdAt))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-400 font-medium">Method</span>
                           <Tag
                             color={getPaymentModeColor(transaction.paymentMode)}
+                            className="mr-0 rounded-lg font-bold border-0 px-3 uppercase text-[10px]"
                           >
-                            {transaction.paymentMode.toUpperCase()}
+                            {transaction.paymentMode}
                           </Tag>
                         </div>
-                      </Space>
-                    </div>
+                      </div>
 
-                    {/* Action Buttons */}
-                    {user && (
-                      <Row gutter={8}>
-                        <Col span={12}>
+                      {/* Action Buttons */}
+                      {user && (
+                        <div className="grid grid-cols-2 gap-3 pt-2">
                           <Popconfirm
                             title="Reject Transaction"
                             description="Are you sure you want to reject this transaction?"
                             onConfirm={() => rejectTransaction(transaction._id)}
                             okText="Yes, Reject"
                             cancelText="Cancel"
-                            okButtonProps={{ danger: true }}
+                            okButtonProps={{ danger: true, className: "rounded-lg" }}
+                            cancelButtonProps={{ className: "rounded-lg" }}
                           >
                             <Button
                               danger
-                              block
+                              className="w-full h-10 font-bold rounded-xl flex items-center justify-center gap-1"
                               icon={<CloseOutlined />}
-                              style={{ height: 40 }}
                             >
                               Reject
                             </Button>
                           </Popconfirm>
-                        </Col>
-                        <Col span={12}>
                           <Popconfirm
                             title="Approve Transaction"
                             description="Are you sure you want to approve this transaction?"
-                            onConfirm={() =>
-                              approveTransaction(transaction._id)
-                            }
+                            onConfirm={() => approveTransaction(transaction._id)}
                             okText="Yes, Approve"
                             cancelText="Cancel"
                             okButtonProps={{
-                              style: {
-                                background: "#52c41a",
-                                borderColor: "#52c41a",
-                              },
+                              className: "bg-green-600 border-green-600 hover:bg-green-700 rounded-lg"
                             }}
+                            cancelButtonProps={{ className: "rounded-lg" }}
                           >
                             <Button
                               type="primary"
-                              block
+                              className="w-full h-10 font-bold rounded-xl bg-green-600 border-green-600 hover:bg-green-700 flex items-center justify-center gap-1"
                               icon={<CheckOutlined />}
-                              style={{
-                                height: 40,
-                                background: "#52c41a",
-                                borderColor: "#52c41a",
-                              }}
                             >
                               Approve
                             </Button>
                           </Popconfirm>
-                        </Col>
-                      </Row>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </Card>
                 </Badge.Ribbon>
               </Col>
             ))}
           </Row>
         ) : (
-          <div style={{ textAlign: "center", padding: "60px 0" }}>
+          <div className="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-gray-100">
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
-                <div>
-                  <Text strong style={{ fontSize: 16 }}>
-                    All payments are processed
-                  </Text>
-                  <br />
-                  <Text type="secondary">
-                    No pending transactions to review
-                  </Text>
-                  <div style={{ marginTop: 8 }}>
-                    <CheckOutlined style={{ color: "#52c41a", fontSize: 24 }} />
+                <div className="mt-4">
+                  <p className="text-lg font-black text-gray-800">No Pending Approvals</p>
+                  <p className="text-gray-500">All transactions are currently up to date.</p>
+                  <div className="mt-6 inline-flex p-4 bg-green-50 rounded-full">
+                    <CheckOutlined className="text-green-500 text-3xl" />
                   </div>
                 </div>
               }

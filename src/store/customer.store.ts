@@ -16,7 +16,9 @@ interface CustomerStore {
   // Actions
   setCustomers: (customers: Customer[]) => void;
   getCustomerById: (id: string) => Customer | undefined;
-  updateOutstanding: (id: string, newOutstanding: number) => void;
+  updateOutstanding: (id: string, newOutstanding: number) => Customer | undefined;
+  addCustomer: (customer: Customer) => void;
+  updateCustomer: (customer: Customer) => void;
 }
 
 const useCustomerStore = create<CustomerStore>((set, get) => ({
@@ -49,6 +51,21 @@ const useCustomerStore = create<CustomerStore>((set, get) => ({
 
     return updatedCustomer;
   },
+
+  addCustomer: (customer) => set((state) => {
+    const newCustomers = [...state.customers, customer].sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+    return { customers: newCustomers };
+  }),
+
+  updateCustomer: (updatedCustomer) =>
+    set((state) => {
+      const newCustomers = state.customers.map((c) => (c._id === updatedCustomer._id ? updatedCustomer : c)).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      return { customers: newCustomers };
+    }),
 }));
 
 export default useCustomerStore;

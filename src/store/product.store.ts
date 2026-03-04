@@ -26,6 +26,9 @@ interface ProductStore {
 
   setProducts: (products: IProduct[]) => void;
   updateStock: (productId: string, newStock: number) => void;
+  addProduct: (product: IProduct) => void;
+  updateProduct: (product: IProduct) => void;
+  removeProduct: (productId: string) => void;
   productMap: Map<string, number>;
   setProductMap: (map: Map<string, number>) => void;
 }
@@ -47,6 +50,37 @@ const useProductStore = create<ProductStore>((set) => ({
         p._id === productId ? { ...p, stock: newStock } : p
       ),
     }));
+  },
+
+  addProduct: (product: IProduct) => {
+    set((state) => {
+      const newProducts = [...state.products, product].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      const newMap = new Map<string, number>();
+      newProducts.forEach((p, index) => newMap.set(p._id, index));
+      return { products: newProducts, productMap: newMap };
+    });
+  },
+
+  updateProduct: (product: IProduct) => {
+    set((state) => {
+      const newProducts = state.products.map((p) =>
+        p._id === product._id ? product : p
+      ).sort((a, b) => a.name.localeCompare(b.name));
+      const newMap = new Map<string, number>();
+      newProducts.forEach((p, index) => newMap.set(p._id, index));
+      return { products: newProducts, productMap: newMap };
+    });
+  },
+
+  removeProduct: (productId: string) => {
+    set((state) => {
+      const newProducts = state.products.filter((p) => p._id !== productId);
+      const newMap = new Map<string, number>();
+      newProducts.forEach((p, index) => newMap.set(p._id, index));
+      return { products: newProducts, productMap: newMap };
+    });
   },
 }));
 

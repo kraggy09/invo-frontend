@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useCustomerStore, { Customer } from "../store/customer.store";
 import { Table, Button, Select, Input } from "antd";
@@ -25,18 +25,6 @@ const CustomerPage = () => {
   const [sortType, setSortType] = useState<string>("name");
   const [search, setSearch] = useState("");
 
-  // Fetch customers from backend (mocked here)
-  useEffect(() => {
-    async function fetchCustomers() {
-      // Simulate API
-      const res = await fetch("/api/customers");
-      if (res.ok) {
-        const data = await res.json();
-        setCustomers(data.customers || []);
-      }
-    }
-    if (customers.length === 0) fetchCustomers();
-  }, [setCustomers, customers.length]);
 
   // Filter and sort
   const filteredCustomers = useMemo(() => {

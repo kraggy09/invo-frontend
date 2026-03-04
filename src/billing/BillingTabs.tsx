@@ -28,6 +28,7 @@ const BillingTabs = () => {
       discount: 0,
       total: 0,
       idx: 0,
+      createdAt: new Date().toISOString(),
     };
     initialBills([newBill]);
     setTabs([
@@ -69,6 +70,7 @@ const BillingTabs = () => {
       discount: 0,
       total: 0,
       idx: bills.length,
+      createdAt: new Date().toISOString(),
     };
     addBill(newBill);
     setCurrentBillingId(newBillingId);
@@ -103,9 +105,8 @@ const BillingTabs = () => {
             closable
             tab={
               <div
-                className={`custom-tab ${
-                  tab.fiveMinutes ? "five-minutes-tab" : ""
-                }`}
+                className={`custom-tab ${tab.fiveMinutes ? "five-minutes-tab" : ""
+                  }`}
               >
                 {tab.label}
               </div>

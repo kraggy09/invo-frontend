@@ -42,15 +42,27 @@ const allProducts = [
   "Coffee",
 ];
 
+/**
+ * Returns true when the selected date range is entirely in the past
+ * (i.e. the end date is before the start of today).
+ * In that case the store won't have those bills and we must fetch.
+ */
+const isHistoricalRange = (
+  range: [dayjs.Dayjs | null, dayjs.Dayjs | null]
+): boolean => {
+  if (!range[0] || !range[1]) return false;
+  const todayStart = dayjs().startOf("day");
+  return range[1].isBefore(todayStart);
+};
+
 const BillPage = () => {
-  // Zustand store
+  // ── Zustand store (kept live by socket events) ──────────────────────────
   const billsFromStore = useBillStore((state) => state.bills);
   const navigate = useNavigate();
 
-  // Local state for API data
-  const [bills, setBills] = useState<any[] | null>(null); // null means not loaded from API yet
+  // ── Local UI state ──────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
-  const [searchMode, setSearchMode] = useState(false); // false: Bill Search, true: Product Search
+  const [searchMode, setSearchMode] = useState(false);
   const [productQuery, setProductQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<
@@ -63,23 +75,45 @@ const BillPage = () => {
     Infinity,
   ]);
   const [filteredBills, setFilteredBills] = useState<any[]>([]);
-  const [productBills, setProductBills] = useState<any[] | null>(null); // null means not loaded from API yet
+  const [productBills, setProductBills] = useState<any[] | null>(null);
 
-  // Use bills from store until API data is loaded
-  const effectiveBills = bills !== null ? bills : billsFromStore;
+  /**
+   * historicalBills is only populated when the user picks a date range
+   * that falls entirely before today. Otherwise it stays null and we read
+   * from billsFromStore (which the socket keeps up-to-date).
+   */
+  const [historicalBills, setHistoricalBills] = useState<any[] | null>(null);
 
-  // Fetch bills (simulate API)
-  // You can trigger this with a button or on mount as needed
-  // useEffect(() => {
-  //   setLoading(true);
-  //   setTimeout(() => {
-  //     // Replace with real API call
-  //     setBills([]); // TODO: Load real data
-  //     setLoading(false);
-  //   }, 500);
-  // }, []);
+  // The effective data source: historical fetch result OR live store data
+  const effectiveBills = historicalBills ?? billsFromStore;
 
-  // Product search API
+  // ── Historical date-range fetch ─────────────────────────────────────────
+  useEffect(() => {
+    if (!isHistoricalRange(dateRange)) {
+      // Range includes today or is cleared — store data is fresh enough
+      setHistoricalBills(null);
+      return;
+    }
+
+    setLoading(true);
+    apiCaller
+      .get("/bills", {
+        params: {
+          startDate: dateRange[0]!.startOf("day").toISOString(),
+          endDate: dateRange[1]!.endOf("day").toISOString(),
+        },
+      })
+      .then((res) => {
+        setHistoricalBills(res.data.data?.bills ?? res.data.bills ?? []);
+      })
+      .catch(() => {
+        message.error("Failed to fetch historical bills");
+        setHistoricalBills([]);
+      })
+      .finally(() => setLoading(false));
+  }, [dateRange]);
+
+  // ── Product search API ──────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedProduct) {
       setProductBills(null);
@@ -98,7 +132,7 @@ const BillPage = () => {
       .finally(() => setLoading(false));
   }, [selectedProduct, dateRange]);
 
-  // Filter bills for Bill Search mode
+  // ── Client-side filtering for Bill Search mode ──────────────────────────
   useEffect(() => {
     let data = [...(effectiveBills || [])];
     if (status !== "all") data = data.filter((b) => b.status === status);
@@ -124,7 +158,7 @@ const BillPage = () => {
     setFilteredBills(data.reverse());
   }, [effectiveBills, status, search, dateRange, amountRange]);
 
-  // Summary cards
+  // ── Summary cards ───────────────────────────────────────────────────────
   const summary = useMemo(() => {
     const data = searchMode
       ? productBills !== null
@@ -139,7 +173,14 @@ const BillPage = () => {
     };
   }, [filteredBills, productBills, searchMode]);
 
-  // Table columns
+  // ── Handle date-range change ────────────────────────────────────────────
+  const handleDateRangeChange = (
+    range: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null
+  ) => {
+    setDateRange(range ?? [null, null]);
+  };
+
+  // ── Table columns ───────────────────────────────────────────────────────
   const billColumns = [
     {
       title: "Date",
@@ -153,7 +194,7 @@ const BillPage = () => {
       key: "time",
       render: (d: any) => dayjs(d).format("hh:mm:ss A"),
     },
-    { title: "Bill ID", dataIndex: "_id", key: "_id" },
+    { title: "Bill ID", dataIndex: "id", key: "id" },
     {
       title: "Customer",
       dataIndex: "customer",
@@ -183,17 +224,22 @@ const BillPage = () => {
       key: "status",
       render: (s: string) => (
         <span
-          className={`px-2 py-1 text-xs rounded-full ${
-            s === "Paid"
-              ? "bg-green-100 text-green-800"
-              : s === "Pending"
+          className={`px-2 py-1 text-xs rounded-full ${s === "Paid"
+            ? "bg-green-100 text-green-800"
+            : s === "Pending"
               ? "bg-yellow-100 text-yellow-800"
               : "bg-red-100 text-red-800"
-          }`}
+            }`}
         >
           {s}
         </span>
       ),
+    },
+    {
+      title: "Created By",
+      dataIndex: "createdBy",
+      key: "createdBy",
+      render: (u: any) => u?.name ?? u ?? "-",
     },
     {
       title: "Actions",
@@ -202,6 +248,8 @@ const BillPage = () => {
         <Button
           icon={<EyeOutlined />}
           onClick={() =>
+            // Use _id (MongoDB ObjectId) for routing — the backend uses findById()
+            // record.id is the sequential display number, not the route param
             navigate(`/bills/${record._id}`, { state: { from: "bill" } })
           }
         />
@@ -263,13 +311,12 @@ const BillPage = () => {
       key: "status",
       render: (s: string) => (
         <span
-          className={`px-2 py-1 text-xs rounded-full ${
-            s === "Paid"
-              ? "bg-green-100 text-green-800"
-              : s === "Pending"
+          className={`px-2 py-1 text-xs rounded-full ${s === "Paid"
+            ? "bg-green-100 text-green-800"
+            : s === "Pending"
               ? "bg-yellow-100 text-yellow-800"
               : "bg-red-100 text-red-800"
-          }`}
+            }`}
         >
           {s}
         </span>
@@ -290,128 +337,127 @@ const BillPage = () => {
   ];
 
   return (
-    <div className="p-4 min-h-screen bg-gray-50">
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-xl font-semibold text-gray-800">Billing History</h1>
-        <div className="flex gap-2 items-center">
-          <Switch
-            checked={searchMode}
-            onChange={setSearchMode}
-            className="mr-2"
-            checkedChildren="Product Search"
-            unCheckedChildren="Bill Search"
-          />
+    <div className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-50/50">
+      <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 mb-8 border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+        <div>
+          <h1 className="text-2xl font-black text-gray-800 tracking-tight">Billing History</h1>
+          <p className="text-gray-500 text-sm mt-0.5">Manage and track all generated bills</p>
+        </div>
+        <div className="flex flex-wrap gap-3 items-center w-full sm:w-auto">
+          <div className="bg-gray-100/80 p-1 rounded-xl flex items-center w-full sm:w-auto">
+            <Switch
+              checked={searchMode}
+              onChange={setSearchMode}
+              className="mr-2"
+              checkedChildren="Product Search"
+              unCheckedChildren="Bill Search"
+            />
+          </div>
           {searchMode && (
-            <>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <AutoComplete
-                style={{ width: 200 }}
+                className="w-full sm:w-48"
                 options={allProducts.map((p) => ({ value: p }))}
                 value={productQuery}
                 onChange={setProductQuery}
                 onSelect={(value) => setSelectedProduct(value)}
-                placeholder="Search product..."
+                placeholder="Product name..."
                 allowClear
               />
               <RangePicker
-                className="ml-2"
+                className="w-full sm:w-64"
                 value={dateRange}
                 onChange={(range) =>
-                  setDateRange(
+                  handleDateRangeChange(
                     range as [dayjs.Dayjs | null, dayjs.Dayjs | null]
                   )
                 }
                 allowClear
               />
-            </>
+            </div>
           )}
-          <Button
-            className="bg-blue-50 text-blue-600 flex items-center gap-1 hover:bg-blue-100 transition-colors"
-            icon={<DownloadOutlined />}
-          >
-            Export
-          </Button>
-          <Button
-            className="bg-green-50 text-green-600 flex items-center gap-1 hover:bg-green-100 transition-colors"
-            icon={<PrinterOutlined />}
-          >
-            Print
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              className="flex-1 sm:flex-none h-10 border-0 bg-indigo-50 text-indigo-600 font-bold px-4 rounded-xl hover:bg-indigo-100 flex items-center justify-center gap-2 transition-all"
+              icon={<DownloadOutlined />}
+            >
+              Export
+            </Button>
+            <Button
+              className="flex-1 sm:flex-none h-10 border-0 bg-emerald-50 text-emerald-600 font-bold px-4 rounded-xl hover:bg-emerald-100 flex items-center justify-center gap-2 transition-all"
+              icon={<PrinterOutlined />}
+            >
+              Print
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card
-          style={{
-            background: "#f6ffed",
-            border: "1px solid #b7eb8f",
-            boxShadow: "0 2px 8px rgba(34,197,94,0.06)",
-          }}
+          className="rounded-2xl border-0 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300"
+          style={{ background: "linear-gradient(135deg, #f0f5ff 0%, #d6e4ff 100%)" }}
+          bodyStyle={{ padding: "20px" }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Bills</p>
-              <p className="text-xl font-semibold">{summary.totalBills}</p>
+              <p className="text-indigo-500 text-[10px] font-black uppercase tracking-widest mb-1">Total Bills</p>
+              <p className="text-2xl font-black text-indigo-900 leading-none">{summary.totalBills}</p>
             </div>
-            <div className="bg-blue-50 p-2 rounded-full">
-              <FileTextOutlined className="text-blue-500" />
+            <div className="bg-white/50 p-3 rounded-xl shadow-inner group-hover:scale-110 transition-transform">
+              <FileTextOutlined className="text-indigo-600 text-xl" />
             </div>
           </div>
         </Card>
         <Card
-          style={{
-            background: "#e6f7ff",
-            border: "1px solid #91d5ff",
-            boxShadow: "0 2px 8px rgba(24,144,255,0.06)",
-          }}
+          className="rounded-2xl border-0 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300"
+          style={{ background: "linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)" }}
+          bodyStyle={{ padding: "20px" }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Amount</p>
-              <p className="text-xl font-semibold">
+              <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest mb-1">Total Amount</p>
+              <p className="text-2xl font-black text-emerald-900 leading-none">
                 ₹{formatIndianNumber(summary.totalAmount)}
               </p>
             </div>
-            <div className="bg-green-50 p-2 rounded-full">
-              <DollarOutlined className="text-green-500" />
+            <div className="bg-white/50 p-3 rounded-xl shadow-inner group-hover:scale-110 transition-transform">
+              <DollarOutlined className="text-emerald-600 text-xl" />
             </div>
           </div>
         </Card>
         <Card
-          style={{
-            background: "#f0f5ff",
-            border: "1px solid #adc6ff",
-            boxShadow: "0 2px 8px rgba(47,84,235,0.06)",
-          }}
+          className="rounded-2xl border-0 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300"
+          style={{ background: "linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%)" }}
+          bodyStyle={{ padding: "20px" }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Payment</p>
-              <p className="text-xl font-semibold">
+              <p className="text-orange-500 text-[10px] font-black uppercase tracking-widest mb-1">Total Payment</p>
+              <p className="text-2xl font-black text-orange-900 leading-none">
                 ₹{formatIndianNumber(summary.totalPayment)}
               </p>
             </div>
-            <div className="bg-purple-50 p-2 rounded-full">
-              <DollarOutlined className="text-purple-500" />
+            <div className="bg-white/50 p-3 rounded-xl shadow-inner group-hover:scale-110 transition-transform">
+              <DollarOutlined className="text-orange-600 text-xl" />
             </div>
           </div>
         </Card>
         <Card
-          style={{
-            background: "#fffbe6",
-            border: "1px solid #ffe58f",
-            boxShadow: "0 2px 8px rgba(250,219,20,0.06)",
-          }}
+          className="rounded-2xl border-0 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300"
+          style={{ background: "linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)" }}
+          bodyStyle={{ padding: "20px" }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Outstanding</p>
-              <p className="text-xl font-semibold">
+              <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest mb-1">Outstanding</p>
+              <p className="text-2xl font-black text-rose-900 leading-none">
                 ₹{formatIndianNumber(summary.outstanding)}
               </p>
             </div>
-            <div className="bg-red-50 p-2 rounded-full">
-              <DollarOutlined className="text-red-500" />
+            <div className="bg-white/50 p-3 rounded-xl shadow-inner group-hover:scale-110 transition-transform">
+              <DollarOutlined className="text-rose-600 text-xl" />
             </div>
           </div>
         </Card>
@@ -419,23 +465,23 @@ const BillPage = () => {
 
       {/* Filters for Bill Search mode */}
       {!searchMode && (
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-2 flex flex-wrap gap-4 items-end border border-gray-200">
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Search</label>
+        <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 mb-8 flex flex-wrap gap-6 items-end border border-gray-100">
+          <div className="flex flex-col w-full sm:w-auto min-w-[240px]">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-2 ml-1">Search Records</label>
             <Input.Search
-              placeholder="Customer name, bill id, phone, amount..."
+              placeholder="Customer, Bill ID, Phone..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: 220 }}
+              className="w-full"
               allowClear
             />
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Status</label>
+          <div className="flex flex-col w-full sm:w-auto min-w-[140px]">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-2 ml-1">Payment Status</label>
             <Select
+              className="w-full"
               value={status}
               onChange={setStatus}
-              style={{ width: 120 }}
               options={[
                 { value: "all", label: "All Status" },
                 { value: "Paid", label: "Paid" },
@@ -444,34 +490,43 @@ const BillPage = () => {
               ]}
             />
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Date Range</label>
+          <div className="flex flex-col w-full sm:w-auto min-w-[220px]">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-2 ml-1 flex items-center">
+              Date Range
+              {historicalBills !== null && (
+                <span className="ml-2 text-orange-500 bg-orange-50 px-2 py-0.5 rounded text-[10px]">
+                  HISTORICAL
+                </span>
+              )}
+            </label>
             <RangePicker
+              className="w-full"
               value={dateRange}
               onChange={(range) =>
-                setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])
+                handleDateRangeChange(
+                  range as [dayjs.Dayjs | null, dayjs.Dayjs | null]
+                )
               }
-              style={{ width: 220 }}
             />
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Amount</label>
+          <div className="flex flex-col w-full sm:w-auto min-w-[180px]">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-2 ml-1">Amount Range</label>
             <div className="flex gap-2">
               <InputNumber
                 min={0}
+                className="w-1/2 sm:w-20"
                 value={amountRange[0] === 0 ? undefined : amountRange[0]}
                 onChange={(v) => setAmountRange([v || 0, amountRange[1]])}
                 placeholder="Min"
-                style={{ width: 80 }}
               />
               <InputNumber
                 min={0}
+                className="w-1/2 sm:w-20"
                 value={amountRange[1] === Infinity ? undefined : amountRange[1]}
                 onChange={(v) =>
                   setAmountRange([amountRange[0], v || Infinity])
                 }
                 placeholder="Max"
-                style={{ width: 80 }}
               />
             </div>
           </div>
@@ -479,13 +534,21 @@ const BillPage = () => {
       )}
 
       {/* Table Section */}
-      <Table
-        columns={searchMode ? productColumns : billColumns}
-        dataSource={searchMode ? productBills ?? [] : filteredBills ?? []}
-        loading={loading}
-        rowKey={searchMode ? "_id" : "_id"}
-        pagination={{ pageSize: 10 }}
-      />
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <Table
+          columns={searchMode ? productColumns : billColumns}
+          dataSource={searchMode ? productBills ?? [] : filteredBills ?? []}
+          loading={loading}
+          rowKey="_id"
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            className: "px-6 py-4"
+          }}
+          scroll={{ x: "max-content" }}
+          className="responsive-table"
+        />
+      </div>
       {loading && <Spin className="block mx-auto" />}
     </div>
   );

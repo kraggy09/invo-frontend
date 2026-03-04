@@ -51,6 +51,7 @@ type BillStore = {
   setBillingId: (billingId: number) => void;
   setBills: (bills: Bill[]) => void;
   addBill: (bill: Bill) => void;
+  updateBill: (updatedBill: Partial<Bill> & { _id: string }) => void;
 };
 
 const useBillStore = create<BillStore>((set) => ({
@@ -59,6 +60,12 @@ const useBillStore = create<BillStore>((set) => ({
   setBills: (bills) => set({ bills }),
   setBillingId: (billingId) => set({ billingId }),
   addBill: (bill) => set((state) => ({ bills: [...state.bills, bill] })),
+  updateBill: (updatedBill) =>
+    set((state) => ({
+      bills: state.bills.map((b) =>
+        b._id === updatedBill._id ? { ...b, ...updatedBill } : b
+      ),
+    })),
 }));
 
 export default useBillStore;

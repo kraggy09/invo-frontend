@@ -12,7 +12,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const location = useLocation();
   const [isChecking, setIsChecking] = useState(true);
-  const { connect } = useSocket();
+  const { connect, isConnected } = useSocket();
   const [firstRender, setFirstRender] = useState(true);
   const { isAuthenticated, setIsAuthenticated, setUser } = useUserStore(
     (state) => state
@@ -20,6 +20,9 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   const checkAuth = async () => {
     if (isAuthenticated) {
+      if (!isConnected) {
+        connect();
+      }
       setIsChecking(false);
       return;
     }
@@ -32,7 +35,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         return;
       }
 
-      const response = await apiCaller.get("/check-auth");
+      const response = await apiCaller.get("/users/check-auth");
 
       if (response?.status === 200 || response?.status === 304) {
         setIsChecking(false);
@@ -51,7 +54,9 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       }
 
       if (response.status === 200) {
-        connect();
+        if (!isConnected) {
+          connect();
+        }
       }
     } catch {
       localStorage.removeItem("token");

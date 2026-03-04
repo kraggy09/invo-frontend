@@ -61,7 +61,7 @@ const UpdateStockRequest = () => {
     }
     setSubmitting(true);
     try {
-      await apiCaller.post("/products/raiseStockRequest", {
+      await apiCaller.post("/stocks/requests", {
         items: requestList.map((item) => ({
           id: item._id,
           quantity: item.quantity,

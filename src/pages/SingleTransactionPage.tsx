@@ -4,6 +4,7 @@ import { Card, Spin, Button, message, Statistic } from "antd";
 import { ArrowLeftOutlined, DollarOutlined } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
 import dayjs from "dayjs";
+import useTransactionStore from "../store/transaction.store";
 
 const SingleTransactionPage = () => {
   const { id } = useParams();
@@ -13,13 +14,21 @@ const SingleTransactionPage = () => {
   const [loading, setLoading] = useState(false);
   const [transaction, setTransaction] = useState<any>(null);
 
+  // Try the store first — covers in-app navigation without a network round-trip
+  const transactionFromStore = useTransactionStore((state) =>
+    state.transactions.find((t) => t._id === id)
+  );
+
   useEffect(() => {
+    if (transactionFromStore) {
+      setTransaction(transactionFromStore);
+      return;
+    }
+    // Fall back to API — covers direct URL, page refresh, shared links
     const fetchTransaction = async () => {
       setLoading(true);
       try {
-        const res = await apiCaller.get(
-          `/transactions/single-transaction/${id}`
-        );
+        const res = await apiCaller.get(`/transactions/${id}`);
         setTransaction(res.data?.data?.transaction);
       } catch (error) {
         message.error("Failed to fetch transaction details");
@@ -28,7 +37,7 @@ const SingleTransactionPage = () => {
       }
     };
     fetchTransaction();
-  }, [id]);
+  }, [id, transactionFromStore]);
 
   return (
     <div className="p-6 min-h-screen bg-white">
@@ -146,6 +155,14 @@ const SingleTransactionPage = () => {
                   ) : (
                     <span className="text-gray-500">-</span>
                   )}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1 font-medium">
+                  {transaction.purpose === "Payment" ? "Received By" : "Approved By"}
+                </div>
+                <div className="text-base text-gray-900 font-medium">
+                  {transaction.approvedBy?.name ?? "-"}
                 </div>
               </div>
             </div>

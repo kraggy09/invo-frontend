@@ -10,12 +10,25 @@ import {
   message,
   Spin,
   Tooltip,
+  Select,
 } from "antd";
 import {
   ArrowLeftOutlined,
   EyeOutlined,
   LockOutlined,
+  BarChartOutlined,
+  LineChartOutlined,
 } from "@ant-design/icons";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as ChartTooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import apiCaller from "../utils/apiCaller";
 import dayjs from "dayjs";
 
@@ -29,8 +42,10 @@ const IndividualCustomerPage = () => {
   const [locked, setLocked] = useState(true);
   const [pin, setPin] = useState("");
   const [tab, setTab] = useState("bills");
-  const [days] = useState(7);
-  const [data, setData] = useState<any>(null);
+  const [analyticsDays, setAnalyticsDays] = useState(7);
+  const [analyticsData, setAnalyticsData] = useState<any[]>([]);
+  const [analyticsSummary, setAnalyticsSummary] = useState({ totalSales: 0, totalProfit: 0, totalPayments: 0 });
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,7 +53,7 @@ const IndividualCustomerPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await apiCaller.get(`/customers/get-customer/${id}`);
+        const res = await apiCaller.get(`/customers/${id}`);
         setCustomer(res.data.data.customer);
         console.log(res.data.data.customer, "This is the customer data");
       } catch (err: any) {
@@ -50,24 +65,25 @@ const IndividualCustomerPage = () => {
     if (id) fetchCustomer();
   }, [id]);
 
-  // useEffect(() => {
-  //   async function fetchData() {
-  //     setLoading(true);
-  //     setError(null);
-  //     try {
-  //       const res = await apiCaller.post("/getCustomerData", {
-  //         days,
-  //         customerId: id,
-  //       });
-  //       setData(res.data);
-  //     } catch (err: any) {
-  //       setError("Failed to fetch customer data");
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   }
-  //   if (id) fetchData();
-  // }, [id, days]);
+  useEffect(() => {
+    async function fetchAnalytics() {
+      if (!id || locked || tab !== "analytics") return;
+      setAnalyticsLoading(true);
+      try {
+        const res = await apiCaller.get(`/customers/${id}/analytics?days=${analyticsDays}`);
+        if (res.data.success) {
+          setAnalyticsData(res.data.data.chartData);
+          setAnalyticsSummary(res.data.data.summary);
+        }
+      } catch (err: any) {
+        message.error("Failed to fetch customer analytics");
+      } finally {
+        setAnalyticsLoading(false);
+      }
+    }
+    fetchAnalytics();
+  }, [id, locked, tab, analyticsDays]);
+
 
   const billColumns = [
     {
@@ -128,7 +144,7 @@ const IndividualCustomerPage = () => {
           <Button
             type="text"
             icon={<EyeOutlined />}
-            onClick={() => navigate(`/bills/${record.id}`)}
+            onClick={() => navigate(`/bills/${record._id}`)}
           />
         </Tooltip>
       ),
@@ -196,7 +212,7 @@ const IndividualCustomerPage = () => {
           <Button
             type="text"
             icon={<EyeOutlined />}
-            onClick={() => navigate(`/transactions/${record.id}`)}
+            onClick={() => navigate(`/transactions/${record._id}`)}
           />
         </Tooltip>
       ),
@@ -301,28 +317,118 @@ const IndividualCustomerPage = () => {
                 key: "analytics",
                 label: "Analytics",
                 children: locked ? (
-                  <Card className="max-w-md mx-auto mt-10 text-center">
-                    <LockOutlined style={{ fontSize: 32, color: ACCENT }} />
-                    <div className="font-semibold text-gray-700 mt-4 mb-2">
+                  <Card className="max-w-md mx-auto mt-10 text-center border-0 shadow-none">
+                    <LockOutlined style={{ fontSize: 40, color: ACCENT }} />
+                    <div className="font-semibold text-gray-700 mt-4 mb-2 text-lg">
                       Enter Admin PIN to view analytics
                     </div>
                     <Input.Password
                       value={pin}
                       onChange={(e) => setPin(e.target.value)}
-                      placeholder="Enter PIN"
-                      style={{ width: 180, marginBottom: 12 }}
+                      placeholder="Enter 4-digit PIN"
+                      style={{ width: 220, marginBottom: 16 }}
                       onPressEnter={handlePinSubmit}
+                      size="large"
                     />
+                    <br />
                     <Button
                       type="primary"
                       onClick={handlePinSubmit}
                       style={{ background: ACCENT }}
+                      size="large"
+                      className="w-[220px]"
                     >
-                      Unlock
+                      Unlock Insights
                     </Button>
                   </Card>
                 ) : (
-                  <div>Analytics content goes here.</div>
+                  <div className="py-2">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                        <LineChartOutlined className="text-blue-600" /> Financial Overview
+                      </h3>
+                      <div>
+                        <span className="text-gray-500 mr-2 text-sm">Timeframe:</span>
+                        <Select
+                          value={analyticsDays}
+                          onChange={(val: number) => setAnalyticsDays(val)}
+                          style={{ width: 120 }}
+                          options={[
+                            { value: 7, label: "Last 7 Days" },
+                            { value: 15, label: "Last 15 Days" },
+                            { value: 30, label: "Last 30 Days" },
+                            { value: 45, label: "Last 45 Days" }
+                          ]}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                      <Card className="bg-blue-50/50 border border-blue-100 shadow-sm" bodyStyle={{ padding: 16 }}>
+                        <Statistic title={<span className="text-blue-600 font-medium">Gross Sales</span>} value={Number(analyticsSummary.totalSales).toFixed(2)} prefix="₹" valueStyle={{ color: '#1e3a8a' }} />
+                      </Card>
+                      <Card className="bg-green-50/50 border border-green-100 shadow-sm" bodyStyle={{ padding: 16 }}>
+                        <Statistic title={<span className="text-green-600 font-medium">Total Profit</span>} value={Number(analyticsSummary.totalProfit).toFixed(2)} prefix="₹" valueStyle={{ color: '#166534' }} />
+                      </Card>
+                      <Card className="bg-purple-50/50 border border-purple-100 shadow-sm" bodyStyle={{ padding: 16 }}>
+                        <Statistic title={<span className="text-purple-600 font-medium">Payments Tracked</span>} value={Number(analyticsSummary.totalPayments).toFixed(2)} prefix="₹" valueStyle={{ color: '#6b21a8' }} />
+                      </Card>
+                    </div>
+
+                    {/* Multi-Area Graph */}
+                    <div className="bg-white p-4 border border-gray-100 rounded-lg shadow-sm" style={{ height: 400 }}>
+                      {analyticsLoading ? (
+                        <div className="w-full h-full flex justify-center items-center"><Spin /></div>
+                      ) : analyticsData.length === 0 ? (
+                        <div className="w-full h-full flex justify-center items-center text-gray-400">No analytical data available for this range.</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={analyticsData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                              </linearGradient>
+                              <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                              </linearGradient>
+                              <linearGradient id="colorPayment" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2} />
+                                <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.4} />
+                            <XAxis
+                              dataKey="date"
+                              tickFormatter={(dateStr) => dayjs(dateStr).format('MMM D')}
+                              tick={{ fontSize: 12, fill: '#6b7280' }}
+                              axisLine={false}
+                              tickLine={false}
+                              dy={10}
+                            />
+                            <YAxis
+                              tick={{ fontSize: 12, fill: '#6b7280' }}
+                              tickFormatter={(val) => `₹${Number(val).toFixed(0)}`}
+                              axisLine={false}
+                              tickLine={false}
+                              dx={-10}
+                            />
+                            <ChartTooltip
+                              formatter={(value: number) => [`₹${Number(value).toFixed(2)}`, ""]}
+                              labelFormatter={(label) => dayjs(label).format("MMMM D, YYYY")}
+                              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            />
+                            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '13px', paddingTop: '5px' }} />
+                            <Area type="monotone" name="Gross Sales" dataKey="sales" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
+                            <Area type="monotone" name="True Profit" dataKey="profit" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" />
+                            <Area type="monotone" name="Inbound Payments" dataKey="payment" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorPayment)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </div>
                 ),
               },
             ]}

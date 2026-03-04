@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { message, Spin, Alert } from "antd";
 import useCategoriesStore from "../store/categories.store";
+import useProductStore from "../store/product.store";
 import apiCaller from "../utils/apiCaller";
 import ProductForm, { ProductFormValues } from "../components/ProductForm";
 
@@ -10,6 +11,9 @@ const EditProductPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { categories } = useCategoriesStore();
+  const productFromStore = useProductStore((state) =>
+    state.products.find((p) => p._id === id)
+  );
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState<ProductFormValues | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -21,7 +25,7 @@ const EditProductPage = () => {
   }));
 
   useEffect(() => {
-    // If product is passed via navigation state, use it
+    // Priority 1: navigation state (fastest — set when clicking Edit from ProductPage)
     if (location.state) {
       const p = location.state;
       setProduct({
@@ -44,7 +48,30 @@ const EditProductPage = () => {
       setLoading(false);
       return;
     }
-    // Otherwise, fallback to fetch (for direct URL access)
+    // Priority 2: Zustand store (no network — covers in-app nav without state)
+    if (productFromStore) {
+      const p = productFromStore;
+      setProduct({
+        name: p.name || "",
+        measuring: p.measuring || "",
+        mrp: p.mrp ?? "",
+        costPrice: p.costPrice ?? "",
+        retailPrice: p.retailPrice ?? "",
+        wholesalePrice: p.wholesalePrice ?? "",
+        superWholesalePrice: p.superWholesalePrice ?? "",
+        barcode: Array.isArray(p.barcode)
+          ? String(p.barcode[0] ?? "")
+          : String(p.barcode ?? ""),
+        stock: p.stock ?? "",
+        packet: p.packet ?? "",
+        box: p.box ?? "",
+        minQuantity: p.minQuantity ?? 1,
+        category: p.category || "",
+      });
+      setLoading(false);
+      return;
+    }
+    // Priority 3: API fetch — covers direct URL, page refresh, shared links
     async function fetchProduct() {
       setLoading(true);
       setFetchError(null);
@@ -81,12 +108,12 @@ const EditProductPage = () => {
       setLoading(false);
     }
     if (id) fetchProduct();
-  }, [id, location.state]);
+  }, [id, location.state, productFromStore]);
 
   const handleSubmit = async (values: ProductFormValues) => {
     setSubmitting(true);
     try {
-      await apiCaller.put(`/products/update/${id}`, {
+      await apiCaller.put(`/products/${id}`, {
         name: values.name,
         mrp: Number(values.mrp),
         costPrice: Number(values.costPrice),

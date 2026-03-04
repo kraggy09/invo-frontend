@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { io, Socket } from "socket.io-client";
 
@@ -17,18 +18,18 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType>({
   socket: null,
   isConnected: false,
-  connect: () => {},
-  disconnect: () => {},
+  connect: () => { },
+  disconnect: () => { },
 });
 
 export const useSocket = () => useContext(SocketContext);
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const socket = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
   const connect = useCallback(() => {
-    if (socket?.connected) return;
+    if (socket.current?.connected) return;
 
     const token = localStorage.getItem("token");
     if (!token) {
@@ -37,7 +38,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const socketInstance = io(
-      import.meta.env.SOCKET_URL || "http://localhost:3000",
+      import.meta.env.VITE_SOCKET_URL || import.meta.env.SOCKET_URL || "http://localhost:3000",
       {
         autoConnect: true,
         reconnection: true,
@@ -87,13 +88,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
 
-    setSocket(socketInstance);
+    socket.current = socketInstance;
   }, [socket]);
 
   const disconnect = useCallback(() => {
-    if (socket) {
-      socket.disconnect();
-      setSocket(null);
+    if (socket.current) {
+      socket.current.disconnect();
+      socket.current = null;
       setIsConnected(false);
     }
   }, [socket]);
@@ -112,7 +113,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <SocketContext.Provider
-      value={{ socket, isConnected, connect, disconnect }}
+      value={{ socket: socket.current, isConnected, connect, disconnect }}
     >
       {children}
     </SocketContext.Provider>

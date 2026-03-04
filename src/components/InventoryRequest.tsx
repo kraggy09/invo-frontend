@@ -66,7 +66,7 @@ const InventoryRequest = ({
   const handleRejection = async (id: string) => {
     try {
       // API call to reject the inventory request
-      await apiCaller.get(`/products/reject-stock-request/${id}`);
+      await apiCaller.get(`/stocks/requests/${id}/reject`);
       message.success("Request Rejected");
       const updatedRequests = inventoryRequests.filter(
         (request) => request._id !== id
@@ -86,7 +86,7 @@ const InventoryRequest = ({
       setInventoryRequests((prev) => prev.filter((req) => req._id !== inv._id));
 
       // Call API with single ID in array
-      await apiCaller.post("/products/accept-stock-requests", {
+      await apiCaller.post("/stocks/requests/accept-all", {
         // Adjust endpoint if needed
         inventoryRequests: [inv._id],
       });
@@ -118,7 +118,7 @@ const InventoryRequest = ({
       setInventoryRequests([]);
 
       // Call API with all IDs
-      await apiCaller.post("/products/accept-stock-requests", {
+      await apiCaller.post("/stocks/requests/accept-all", {
         // Adjust endpoint if needed
         inventoryRequests: pendingIds,
       });
