@@ -3,6 +3,8 @@ import Barcode from "react-barcode";
 import { useReactToPrint } from "react-to-print";
 import useProductStore from "../store/product.store";
 import SearchWithSuggestions from "../components/SearchWithSuggestions";
+import { Modal, Button, InputNumber, Select, Card, Tag, message } from "antd";
+import { PrinterOutlined, PlusOutlined, BarcodeOutlined, CheckCircleFilled } from "@ant-design/icons";
 
 const BarcodePage = () => {
   const { products } = useProductStore();
@@ -11,7 +13,6 @@ const BarcodePage = () => {
   const [selectedBarcode, setSelectedBarcode] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [modalOpen, setModalOpen] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string>("");
   const componentRef = useRef<HTMLDivElement>(null);
 
   // Helper: flatten all barcodes to string for search
@@ -21,16 +22,13 @@ const BarcodePage = () => {
   // Enhanced onSelect for search
   const handleProductSelect = (prodOrInput: any) => {
     let prod = prodOrInput;
-    // If prodOrInput is a string (from manual input), try to match barcode
     if (typeof prodOrInput === "string") {
-      // Try exact barcode match
       const exactBarcodeMatch = products.find((p) =>
         getProductBarcodes(p).includes(prodOrInput)
       );
       if (exactBarcodeMatch) {
         prod = exactBarcodeMatch;
       } else {
-        // Try name match (case-insensitive)
         const nameMatch = products.find(
           (p) => p.name.toLowerCase() === prodOrInput.toLowerCase()
         );
@@ -44,7 +42,6 @@ const BarcodePage = () => {
     }
   };
 
-  // Modal add handler
   const handleAddToList = () => {
     if (!selectedProduct || !selectedBarcode || !quantity || quantity < 1)
       return;
@@ -56,149 +53,228 @@ const BarcodePage = () => {
         name: selectedProduct.name,
       },
     ]);
-    setSuccessMsg("Added to list!");
-    setTimeout(() => setSuccessMsg(""), 1200);
+    message.success("Barcode added to list");
     setSelectedProduct(null);
     setSelectedBarcode(null);
     setQuantity(1);
     setModalOpen(false);
   };
 
-  // Barcode grid for printing
   const barcodeGrid = barcodeList.reduce((acc: any[], bar, barIndex) => {
-    let currentIndex = acc.length;
     for (let i = 0; i < bar.quantity; i++) {
       acc.push({
         key: `${bar.barcode}-${barIndex}-${i}`,
         name: bar.name,
         barcode: bar.barcode,
       });
-      currentIndex++;
     }
     return acc;
   }, []);
 
-  // Print handler
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
     documentTitle: "Barcodes",
   });
 
   return (
-    <div className="min-h-screen bg-white p-4 md:p-8">
-      {/* Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/20">
-          <div className="bg-white rounded-xl p-6 w-full max-w-xs border border-gray-200">
-            <div className="text-center mb-4">
-              <div className="text-base font-semibold mb-1 text-gray-800">
-                {selectedProduct?.name}
+    <main className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-50/50">
+      <div className="max-w-7xl mx-auto">
+        <Modal
+          open={modalOpen}
+          onCancel={() => setModalOpen(false)}
+          onOk={handleAddToList}
+          okText="AUTHORIZE LABELS"
+          cancelText="CANCEL"
+          centered
+          className="premium-modal"
+          width={420}
+          title={
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-100">
+                <BarcodeOutlined className="text-indigo-600 text-xl" />
+              </div>
+              <div>
+                <span className="text-sm font-black text-gray-800 uppercase tracking-widest block">Label Sequencer</span>
+                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em]">Queue Initialization</span>
               </div>
             </div>
-            <div className="mb-4">
-              <div className="text-xs text-gray-500 mb-1">Select Barcode</div>
+          }
+          okButtonProps={{
+            className: "bg-indigo-600 border-none font-black rounded-xl h-12 hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all uppercase px-8"
+          }}
+          cancelButtonProps={{
+            className: "rounded-xl font-black h-12 border-gray-100 text-gray-400 uppercase"
+          }}
+        >
+          <div className="py-8 space-y-8">
+            <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-50">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Subject Identifier</label>
+              <p className="text-base font-black text-gray-800 capitalize leading-tight">{selectedProduct?.name}</p>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-3 ml-1">Select Active Index</label>
               <div className="flex flex-wrap gap-2">
                 {selectedProduct?.barcode.map((b: string) => (
                   <button
                     key={b}
                     onClick={() => setSelectedBarcode(b)}
-                    className={`px-2 py-1 rounded border text-xs font-mono transition-all ${
-                      selectedBarcode === b
-                        ? "bg-green-100 border-green-400 text-green-700"
-                        : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-green-50"
-                    }`}
+                    className={`px-5 py-2.5 rounded-xl border-2 text-[10px] font-black transition-all ${selectedBarcode === b
+                      ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100 scale-105"
+                      : "bg-white border-gray-50 text-gray-400 hover:border-indigo-100 hover:text-indigo-600"
+                      }`}
                   >
                     {b}
                   </button>
                 ))}
               </div>
             </div>
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-xs text-gray-500">Quantity</span>
-              <input
-                type="number"
+
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-3 ml-1">Label Density (Copies)</label>
+              <InputNumber
                 min={1}
                 value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-                className="border-b border-gray-300 outline-none px-2 py-1 w-16 text-sm rounded"
+                onChange={(v) => setQuantity(Number(v))}
+                className="w-full rounded-2xl h-14 flex items-center font-black border-2 border-gray-50 bg-gray-50/30 px-2"
               />
             </div>
-            <div className="flex justify-between mt-6">
-              <button
-                className="text-gray-400 hover:text-gray-600 text-xs"
-                onClick={() => setModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="bg-green-500 hover:bg-green-600 text-white rounded px-4 py-1 text-xs font-semibold"
-                onClick={handleAddToList}
-                disabled={!selectedBarcode || !quantity}
-              >
-                Add
-              </button>
+          </div>
+        </Modal>
+
+        {/* Header & Terminal Interface */}
+        <div className="bg-white rounded-[32px] shadow-sm p-6 sm:p-10 mb-10 border border-gray-100">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
+            <div className="w-full lg:max-w-2xl">
+              <div className="mb-8">
+                <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Barcode Terminal</h1>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Industrial Label Printing Interface</p>
+              </div>
+              <div className="relative group">
+                <SearchWithSuggestions
+                  data={products}
+                  onSelect={handleProductSelect}
+                  placeholder="Scan or Search Product Registry..."
+                  searchKeys={["name", "barcode"]}
+                  displayKeys={["name"]}
+                  primaryKey="name"
+                  autoSelect={true}
+                  stockRequired={false}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch lg:items-center gap-4 w-full lg:w-auto">
+              <div className="hidden lg:flex flex-col items-end px-8 border-r border-gray-100">
+                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Active Queue</span>
+                <span className="text-xl font-black text-indigo-600">{barcodeGrid.length} LABELS</span>
+              </div>
+              <div className="flex gap-3 flex-1 lg:flex-none">
+                <Button
+                  onClick={() => setBarcodeList([])}
+                  disabled={barcodeGrid.length === 0}
+                  className="h-14 flex-1 lg:w-auto px-8 rounded-2xl border-2 border-gray-50 text-[10px] font-black tracking-widest text-gray-400 hover:border-red-100 hover:text-red-500 transition-all uppercase"
+                >
+                  PURGE
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<PrinterOutlined />}
+                  onClick={() => handlePrint && handlePrint()}
+                  disabled={barcodeGrid.length === 0}
+                  className="h-14 flex-1 lg:w-auto px-10 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-[10px] font-black tracking-widest shadow-xl shadow-indigo-100 transition-all uppercase"
+                >
+                  EXECUTE PRINT
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Header & Search */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
-        <div className="w-full max-w-md">
-          <SearchWithSuggestions
-            data={products}
-            onSelect={handleProductSelect}
-            placeholder="Search product by name or barcode..."
-            searchKeys={["name", "barcode"]}
-            displayKeys={["name"]}
-            primaryKey="name"
-            className=""
-            autoSelect={true}
-            stockRequired={false}
-          />
-        </div>
-        <button
-          className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded font-semibold text-sm"
-          onClick={() => handlePrint && handlePrint()}
-        >
-          Print Barcodes
-        </button>
-      </div>
-      {/* Success message */}
-      {successMsg && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-2 rounded shadow z-50 animate-bounce">
-          {successMsg}
-        </div>
-      )}
-      {/* Barcode grid for printing */}
-      <div
-        className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 min-w-[900px] mx-auto print:bg-white print:shadow-none print:p-0"
-        ref={componentRef}
-      >
-        {barcodeGrid.length === 0 && (
-          <div className="col-span-full text-center text-gray-400 text-base font-medium py-16">
-            No barcodes added yet. Search and add products to print barcodes.
+        {/* Barcode Preview Grid */}
+        <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden relative">
+          <div className="p-8 sm:p-12">
+            <div className="flex items-center justify-between mb-10 border-b border-gray-50 pb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400">
+                  <PrinterOutlined className="text-xl" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-gray-800 tracking-tight">Print Layout Preview</h2>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Wysiwyg Output Rendering</p>
+                </div>
+              </div>
+              {barcodeGrid.length > 0 && (
+                <div className="px-6 py-2 bg-indigo-50 border border-indigo-100 rounded-full">
+                  <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{barcodeGrid.length} Units Manifested</span>
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-x-auto pb-4 scrollbar-hide">
+              <div
+                className={`grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-4 print:bg-white print:shadow-none print:p-0 min-w-[320px]`}
+                ref={componentRef}
+              >
+                {barcodeGrid.length === 0 ? (
+                  <div className="col-span-full py-32 bg-gray-50/30 rounded-[32px] border border-dashed border-gray-100 flex flex-col items-center justify-center animate-in fade-in duration-700">
+                    <div className="w-20 h-20 bg-white rounded-[24px] flex items-center justify-center mb-6 shadow-sm grayscale opacity-30">
+                      <BarcodeOutlined className="text-4xl text-gray-400" />
+                    </div>
+                    <p className="text-xs font-black text-gray-300 uppercase tracking-[0.3em]">Manifest empty: Waiting for input</p>
+                  </div>
+                ) : (
+                  barcodeGrid.map((item) => (
+                    <div
+                      key={item.key}
+                      className="bg-white rounded-2xl border border-gray-50 flex flex-col items-center justify-center p-5 transition-all hover:shadow-xl hover:shadow-indigo-50 hover:border-indigo-100 group relative"
+                    >
+                      <span className="text-center capitalize text-[8px] font-black mb-3 text-gray-400 tracking-tighter truncate w-full group-hover:text-indigo-600 transition-colors">
+                        {item.name}
+                      </span>
+                      <div className="group-hover:scale-110 transition-transform duration-500 origin-center bg-white">
+                        <Barcode
+                          width={1.2}
+                          value={item.barcode}
+                          height={40}
+                          fontSize={9}
+                          displayValue={true}
+                          background="transparent"
+                          font="Inter"
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
-        )}
-        {barcodeGrid.map((item) => (
-          <div
-            key={item.key}
-            className="bg-white rounded border border-gray-100 flex flex-col items-center justify-center p-3 min-h-[80px]"
-          >
-            <span className="text-center capitalize text-xs font-medium mb-1 text-gray-700">
-              {item.name}
-            </span>
-            <Barcode
-              width={2}
-              value={item.barcode}
-              height={30}
-              fontSize={10}
-              displayValue={true}
-            />
-          </div>
-        ))}
+        </div>
       </div>
-    </div>
+
+      <style>{`
+        @media print {
+          .scrollbar-hide { overflow: visible !important; }
+          body { background: white !important; }
+          main { padding: 0 !important; margin: 0 !important; }
+          .max-w-7xl { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+          
+          /* Hide everything except the ref */
+          body > * { display: none !important; }
+          #root { display: none !important; }
+          
+          /* Show print content */
+          .print-area { 
+            display: block !important;
+            visibility: visible !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+        }
+      `}</style>
+    </main>
   );
 };
 

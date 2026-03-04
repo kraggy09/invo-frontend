@@ -52,74 +52,71 @@ const BillingHeader = () => {
   };
 
   return (
-    <Card className="w-full mb-4 shadow-sm hover:shadow-md transition-shadow duration-200">
-      <div className="grid grid-cols-4 gap-6 items-center">
-        {/* Bill Information */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <FileTextOutlined className="text-blue-500" />
-            <span className="text-gray-500">Bill ID:</span>
-            <span className="font-semibold text-blue-600">
-              B-{billingId + 1}
+    <div className="w-full mb-6 bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100">
+      <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-6">
+        {/* Terminals & ID Info */}
+        <div className="flex flex-row xl:flex-col gap-4 xl:gap-2 shrink-0 border-b xl:border-b-0 xl:border-r border-gray-100 pb-4 xl:pb-0 xl:pr-6">
+          <div className="flex-1 xl:flex-none">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Bill ID</span>
+            <span className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 rounded-lg text-indigo-700 font-black text-sm border border-indigo-100">
+              <FileTextOutlined className="text-[10px]" /> B-{billingId + 1}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <FileTextOutlined className="text-blue-500" />
-            <span className="text-gray-500">Trans ID:</span>
-            <span className="font-semibold text-blue-600">
+          <div className="flex-1 xl:flex-none">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Transaction ID</span>
+            <span className="inline-flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-lg text-gray-600 font-bold text-sm border border-gray-100">
               T-{transactionId + 1}
             </span>
           </div>
         </div>
 
-        {/* Customer Search */}
-        <div className="space-y-1.5">
-          <SelectWithSuggestions<Customer>
-            data={customers}
-            onSelect={handleCustomerSelect}
-            onClear={handleCustomerClear}
-            label="Customer"
-            icon={<UserOutlined className="text-gray-400" />}
-            placeholder="Search customer..."
-            searchKeys={["name", "phone"]}
-            displayKeys={["name", "outstanding"]}
-            primaryKey="name"
-            value={customerName}
-          />
+        {/* Search Matrix */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <div className="group">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-2">
+              <UserOutlined className="text-indigo-400" /> Customer
+            </label>
+            <SelectWithSuggestions<Customer>
+              data={customers}
+              onSelect={handleCustomerSelect}
+              onClear={handleCustomerClear}
+              placeholder="Search by Name or Phone..."
+              searchKeys={["name", "phone"]}
+              displayKeys={["name", "outstanding"]}
+              primaryKey="name"
+              value={customerName}
+              className="pos-search-input"
+            />
+          </div>
+          <div className="group">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-2">
+              <ShoppingCartOutlined className="text-green-400" /> Inventory Catalog
+            </label>
+            <SearchWithSuggestions
+              data={products}
+              onSelect={handleProductSelect}
+              placeholder="Search by Product or Barcode..."
+              searchKeys={["name", "barcode"]}
+              autoSelect={true}
+              displayKeys={["name"]}
+              primaryKey="name"
+              className="pos-search-input"
+            />
+          </div>
         </div>
 
-        {/* Product Search */}
-        <div className="space-y-1.5">
-          <SearchWithSuggestions
-            data={products}
-            onSelect={handleProductSelect}
-            label="Product"
-            icon={<ShoppingCartOutlined className="text-gray-400" />}
-            placeholder="Search product..."
-            searchKeys={["name", "barcode"]}
-            autoSelect={true}
-            displayKeys={["name"]}
-            primaryKey="name"
-          />
-        </div>
-
-        {/* Summary Information */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <ShoppingCartOutlined className="text-green-500" />
-            <span className="text-gray-500">Total Products:</span>
-            <span className="font-semibold text-green-600">
-              {currentBill?.purchased?.length || 0}
-            </span>
+        {/* Quick Summary */}
+        <div className="flex xl:flex-col sm:flex-row items-center xl:items-end justify-between xl:justify-center gap-4 border-t xl:border-t-0 xl:border-l border-gray-100 pt-4 xl:pt-0 xl:pl-6 shrink-0">
+          <div className="text-right">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-0.5">Cart Items</span>
+            <span className="text-xl font-black text-indigo-600">{currentBill?.purchased?.length || 0}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Tag color="blue" className="px-2 py-0.5 rounded-full">
-              Retail
-            </Tag>
-          </div>
+          <Tag color="indigo" className="rounded-full px-4 border-0 font-black text-[10px] uppercase m-0 py-1">
+            Retail Standard
+          </Tag>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };
 

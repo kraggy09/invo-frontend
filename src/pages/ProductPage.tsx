@@ -21,6 +21,7 @@ import {
   ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
+import { convertToGramorKG, formatIndianNumber } from "../utils";
 
 const ACCENT = "#2563eb";
 
@@ -83,271 +84,243 @@ const ProductPage = () => {
 
   const columns = [
     {
-      title: "Barcode",
-      dataIndex: "barcode",
-      key: "barcode",
-      render: (barcodes: any[], record: any) => (
-        <div>
-          <Button
-            type="text"
-            icon={<BarcodeOutlined />}
-            onClick={() => navigate(`/products/barcode/${barcodes[0]}`)}
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Identification</span>,
+      key: "id",
+      fixed: "left" as const,
+      width: 180,
+      render: (record: any) => (
+        <div className="flex flex-col">
+          <span
+            className="font-black text-indigo-600 truncate cursor-pointer hover:text-indigo-800 transition-colors"
+            onClick={() => navigate(`/products/${record._id}`, { state: record })}
           >
-            {barcodes[0]}
-          </Button>
-          {barcodes.length > 1 && (
-            <Tag color="gold" className="ml-2">
-              +{barcodes.length - 1}
-            </Tag>
-          )}
+            {record.name}
+          </span>
+          <span className="text-[10px] font-bold text-gray-400 font-mono tracking-tighter">
+            {record.barcode[0]}
+          </span>
         </div>
       ),
     },
     {
-      title: "Name",
-      dataIndex: "name",
-      key: "name",
-      render: (name: string, record: any) => (
-        <span
-          className="font-semibold capitalize text-blue-700 cursor-pointer hover:underline"
-          onClick={() => navigate(`/products/${record._id}`, { state: record })}
-        >
-          {name}
-        </span>
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Base Value</span>,
+      key: "base_value",
+      render: (record: any) => (
+        <div className="flex flex-col">
+          <span className="text-xs font-black text-gray-700">MRP: ₹{record.mrp}</span>
+          <span className="text-[10px] font-bold text-green-600">CP: ₹{record.costPrice}</span>
+        </div>
       ),
     },
     {
-      title: "MRP",
-      dataIndex: "mrp",
-      key: "mrp",
-      render: (v: number) => `₹${v}`,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Trade Rates</span>,
+      key: "trade_rates",
+      render: (record: any) => (
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold text-gray-500">RT: ₹{record.retailPrice}</span>
+          <span className="text-[10px] font-bold text-gray-500">WS: ₹{record.wholesalePrice}</span>
+          <span className="text-[10px] font-bold text-gray-500">SW: ₹{record.superWholesalePrice}</span>
+
+        </div>
+      ),
     },
     {
-      title: "CP",
-      dataIndex: "costPrice",
-      key: "costPrice",
-      render: (v: number) => `₹${v}`,
-    },
-    {
-      title: "RP",
-      dataIndex: "retailPrice",
-      key: "retailPrice",
-      render: (v: number) => `₹${v}`,
-    },
-    {
-      title: "WP",
-      dataIndex: "wholesalePrice",
-      key: "wholesalePrice",
-      render: (v: number) => `₹${v}`,
-    },
-    {
-      title: "SWP",
-      dataIndex: "superWholesalePrice",
-      key: "superWholesalePrice",
-      render: (v: number) => `₹${v}`,
-    },
-    {
-      title: "Stock",
-      dataIndex: "stock",
-      key: "stock",
-      render: (v: number, record: any) => (
-        <span
-          className={`px-2 rounded-lg font-semibold ${v <= record.minQuantity ? "bg-red-500 text-white" : ""
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Inventory Stock</span>,
+      key: "inventory",
+      render: (record: any) => (
+        <div
+          className={`inline-flex flex-col items-center px-3 py-1.5 rounded-xl border cursor-pointer transition-all active:scale-95 ${record.stock <= record.minQuantity
+            ? "bg-red-50 border-red-100 text-red-600"
+            : "bg-green-50/50 border-green-100 text-green-600"
             }`}
-          onClick={() =>
-            navigate(`/products/updateStock/${record._id}`, { state: record })
-          }
-          style={{ cursor: "pointer" }}
+          onClick={() => navigate(`/products/updateStock/${record._id}`, { state: record })}
         >
-          {record.measuring === "kg" ? v.toFixed(2) : v}
-        </span>
+          <span className="text-xs font-black">{record.measuring === "kg" ? convertToGramorKG(record.stock) : record.stock % 1 === 0 ? record.stock : record.stock.toFixed(2)}</span>
+          <span className="text-[8px] font-black uppercase tracking-tighter opacity-60">
+            Min: {record.minQuantity}
+          </span>
+        </div>
       ),
     },
-    { title: "Packet", dataIndex: "packet", key: "packet" },
-    { title: "Box", dataIndex: "box", key: "box" },
     {
-      title: "Category",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Registry</span>,
       dataIndex: "category",
       key: "category",
-      render: (cat: string) => <span className="capitalize">{cat}</span>,
+      render: (cat: string) => <span className="px-2 py-1 bg-gray-50 border border-gray-100 rounded-lg text-[9px] font-black text-gray-400 uppercase tracking-widest">{cat}</span>,
     },
     {
-      title: "",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</span>,
       key: "actions",
+      align: "right" as const,
+      width: 100,
       render: (_: any, record: any) => (
-        <div className="flex gap-2">
-          <Tooltip title="Edit">
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={() =>
-                navigate(`/products/${record._id}`, { state: record })
-              }
-            />
-          </Tooltip>
-          <Tooltip title="Delete">
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => setDeleteModal({ open: true, product: record })}
-            />
-          </Tooltip>
+        <div className="flex justify-end gap-1">
+          <Button
+            type="text"
+            icon={<EditOutlined className="text-gray-400 group-hover:text-indigo-600" />}
+            onClick={() => navigate(`/products/${record._id}`, { state: record })}
+            className="group hover:bg-indigo-50 rounded-lg"
+          />
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => setDeleteModal({ open: true, product: record })}
+            className="hover:bg-red-50 rounded-lg"
+          />
         </div>
       ),
     },
   ];
 
   return (
-    <main className="min-h-screen bg-white p-4 md:p-10">
-      <Card
-        className="mb-6 shadow-md border border-gray-100"
-        bodyStyle={{ padding: 24 }}
-      >
-        {/* Horizontal Category Filter Bar */}
-        <div className="w-full overflow-x-auto mb-6 pb-2">
-          <div className="flex gap-2 whitespace-nowrap">
-            <Tag.CheckableTag
-              checked={category === "all"}
-              onChange={() => {
-                setCategory("all");
-                setCurrentPage(1);
-              }}
-              style={{
-                fontWeight: category === "all" ? 700 : 500,
-                fontSize: 16,
-                padding: "6px 18px",
-                borderRadius: 20,
-                background: category === "all" ? ACCENT : "#f5f5f5",
-                color: category === "all" ? "#fff" : "#222",
-                border:
-                  category === "all"
-                    ? `1.5px solid ${ACCENT}`
-                    : "1.5px solid #e5e7eb",
-                cursor: "pointer",
-                transition: "all 0.2s",
-              }}
-            >
-              All
-            </Tag.CheckableTag>
-            {categories.map((cat) => (
-              <Tag.CheckableTag
-                key={cat.name}
-                checked={category === cat.name}
-                onChange={() => {
-                  setCategory(cat.name);
-                  setCurrentPage(1);
-                }}
-                style={{
-                  fontWeight: category === cat.name ? 700 : 500,
-                  fontSize: 16,
-                  padding: "6px 18px",
-                  borderRadius: 20,
-                  background: category === cat.name ? ACCENT : "#f5f5f5",
-                  color: category === cat.name ? "#fff" : "#222",
-                  border:
-                    category === cat.name
-                      ? `1.5px solid ${ACCENT}`
-                      : "1.5px solid #e5e7eb",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
-              >
-                {cat.name}
-              </Tag.CheckableTag>
-            ))}
+    <main className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-50/50">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+          <div>
+            <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Registry Catalog</h1>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Enterprise Inventory Management</p>
+          </div>
+
+          <div className="bg-white px-8 py-5 rounded-[24px] border border-gray-100 shadow-sm flex flex-col items-end group transition-all hover:shadow-indigo-100">
+            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Cumulative Market Value</p>
+            <span className="text-2xl font-black text-indigo-600 tracking-tighter">₹{formatIndianNumber(totalStockValue)}</span>
           </div>
         </div>
-        {/* Search and Sort Controls */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex gap-2 items-center">
-            <Input.Search
-              placeholder="Search by name or barcode"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              allowClear
-              className="w-56"
-            />
-            <Select
-              value={sort}
-              onChange={setSort}
-              style={{ width: 120 }}
-              options={[
-                { value: "name", label: "Sort by Name" },
-                { value: "stock", label: "Sort by Stock" },
-              ]}
-            />
-          </div>
-          <div className="flex gap-4 items-center">
-            <span className="text-lg font-semibold">
-              Stock Value:{" "}
-              <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                {totalStockValue.toFixed(2)}
-              </span>
-            </span>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              style={{ background: ACCENT }}
-              onClick={() => navigate("/newProduct")}
-            >
-              Add Product
-            </Button>
-            <Button
-              type="default"
-              onClick={() => navigate("/products/updateStock")}
-            >
-              Update Stock
-            </Button>
+
+        {/* Global Controls Container */}
+        <div className="bg-white rounded-[32px] shadow-sm p-4 sm:p-8 mb-8 border border-gray-100">
+          <div className="flex flex-col gap-8">
+            {/* Horizontal Filter Bar */}
+            <div className="w-full overflow-x-auto scrollbar-hide -mx-2 px-2">
+              <div className="flex gap-2 whitespace-nowrap">
+                <div
+                  onClick={() => { setCategory("all"); setCurrentPage(1); }}
+                  className={`px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all duration-300 border ${category === "all" ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100" : "bg-gray-50 text-gray-500 border-gray-50 hover:bg-gray-100"
+                    }`}
+                >
+                  Global View
+                </div>
+                {categories.map((cat) => (
+                  <div
+                    key={cat.name}
+                    onClick={() => { setCategory(cat.name); setCurrentPage(1); }}
+                    className={`px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all duration-300 border ${category === cat.name ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100" : "bg-gray-50 text-gray-500 border-gray-50 hover:bg-gray-100"
+                      }`}
+                  >
+                    {cat.name}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Functional Tools */}
+            <div className="flex flex-col lg:flex-row gap-6 items-end justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                <div className="flex-1 sm:w-80">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1 block">Catalog Index Search</label>
+                  <Input.Search
+                    placeholder="Reference name or barcode..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                    className="w-full h-12 rounded-2xl overflow-hidden"
+                    allowClear
+                  />
+                </div>
+                <div className="w-full sm:w-52">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1 block">Sequence Order</label>
+                  <Select
+                    value={sort}
+                    onChange={setSort}
+                    className="w-full h-12 rounded-2xl"
+                    options={[
+                      { value: "name", label: "ALPHABETICAL" },
+                      { value: "stock", label: "LOW STOCK PRIORITY" },
+                    ]}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 w-full lg:w-auto">
+                <Button
+                  onClick={() => navigate("/products/updateStock")}
+                  className="flex-1 sm:flex-none h-12 px-6 rounded-2xl border-2 border-gray-50 text-[10px] font-black tracking-widest text-gray-500 hover:border-indigo-100 hover:text-indigo-600 transition-all uppercase"
+                >
+                  Add Stock
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate("/newProduct")}
+                  className="flex-1 sm:flex-none h-12 px-8 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-[10px] font-black tracking-widest shadow-xl shadow-indigo-100 uppercase"
+                >
+                  New Product
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
-      </Card>
-      <Card className="shadow-md border border-gray-100">
-        <Table
-          columns={columns}
-          dataSource={pagedProducts}
-          rowKey="_id"
-          pagination={{
-            current: currentPage,
-            pageSize,
-            total: filteredProducts.length,
-            onChange: setCurrentPage,
-            showSizeChanger: false,
-          }}
-        />
-      </Card>
+
+        <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+          <Table
+            columns={columns}
+            dataSource={pagedProducts}
+            rowKey="_id"
+            pagination={{
+              current: currentPage,
+              pageSize,
+              total: filteredProducts.length,
+              onChange: setCurrentPage,
+              showSizeChanger: false,
+              className: "px-8 py-6"
+            }}
+            scroll={{ x: 1000 }}
+            className="modern-table no-border-table"
+          />
+        </div>
+      </div>
+
       <Modal
         open={deleteModal.open}
         onCancel={() => setDeleteModal({ open: false })}
         onOk={() => handleDelete(deleteModal.product)}
-        okText="Delete"
+        okText="CONFIRM DELETE"
         okType="danger"
-        cancelText="Cancel"
+        cancelText="CANCEL"
         centered
-        title={
-          <span>
-            <ExclamationCircleOutlined className="text-red-500 mr-2" />
-            Delete Product
-          </span>
-        }
+        className="premium-modal"
+        title={<span className="text-sm font-black text-gray-800 uppercase tracking-widest">Security Authorization</span>}
       >
-        <div>
-          <p>
-            Are you sure you want to delete <b>{deleteModal.product?.name}</b>?
+        <div className="py-4">
+          <p className="text-gray-500 font-medium mb-4">
+            Are you sure you want to permanently remove <b className="text-gray-800">{deleteModal.product?.name}</b> from the central catalog?
           </p>
-          <p>Stock: {deleteModal.product?.stock}</p>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {deleteModal.product?.barcode?.map((b: any) => (
-              <Tag color="green" key={b}>
-                {b}
-              </Tag>
-            ))}
+          <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">Active Stock</span>
+              <span className="text-sm font-black text-red-700">{deleteModal.product?.stock} {deleteModal.product?.measuring}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {deleteModal.product?.barcode?.map((b: any) => (
+                <span key={b} className="px-2 py-0.5 bg-white rounded-lg text-[10px] font-black text-red-400 border border-red-100 font-mono">{b}</span>
+              ))}
+            </div>
           </div>
         </div>
       </Modal>
+
+      <style>{`
+        .modern-table .ant-table-thead > tr > th { 
+          background: #f8fafc !important; 
+          border-bottom: 1px solid #f1f5f9 !important;
+          padding: 1.25rem 1rem !important;
+        }
+        .modern-table .ant-table-tbody > tr > td { 
+          padding: 1.25rem 1rem !important;
+          border-bottom: 1px solid #f8fafc !important;
+        }
+        .modern-table .ant-table-row:hover > td { background: #f8fafc !important; }
+        .no-border-table .ant-table { background: transparent !important; }
+      `}</style>
     </main>
   );
 };

@@ -24,6 +24,7 @@ import InventoryRequest, {
 } from "../components/InventoryRequest";
 import { formatIndianNumber } from "../utils";
 import apiCaller from "../utils/apiCaller";
+import dayjs from "dayjs";
 
 interface SalesData {
   _id: string;
@@ -123,406 +124,257 @@ const DashboardPage = () => {
   }) || [];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 lg:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-        {/* Left Section - 60% width */}
-        <div className="lg:col-span-2 space-y-4 lg:space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-xs font-medium uppercase tracking-wider">Total Sales</p>
-                  <p className="text-xl sm:text-2xl font-bold mt-1">
-                    ₹
-                    {formatIndianNumber(
-                      dashboardData?.totalCurrSales?.[0]?.overallSales || 0
+    <main className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-[1600px] mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
+          <div>
+            <h1 className="text-3xl font-black text-gray-800 tracking-tighter leading-tight">Terminal Command</h1>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Cross-Terminal Analytical Intelligence</p>
+          </div>
+          <div className="flex items-center bg-white p-2 rounded-[24px] shadow-sm border border-gray-100/50">
+            {[7, 15, 30].map((day) => (
+              <button
+                key={day}
+                onClick={() => setDays(day)}
+                className={`px-8 py-2.5 rounded-[18px] text-[10px] font-black transition-all duration-500 uppercase tracking-widest ${days === day
+                  ? "bg-indigo-600 text-white shadow-xl shadow-indigo-100 scale-105"
+                  : "text-gray-400 hover:text-indigo-600 hover:bg-indigo-50/50"
+                  }`}
+              >
+                {day} Days
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Main Content Area - 8 Columns */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* Top Statistics */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+              {[
+                {
+                  label: "Gross Yield",
+                  value: dashboardData?.totalCurrSales?.[0]?.overallSales || 0,
+                  prev: dashboardData?.totalPreviousSales?.[0]?.overallSales || 0,
+                  icon: <LineChartOutlined />,
+                  color: "indigo",
+                  bg: "bg-indigo-50/30"
+                },
+                {
+                  label: "Net Inflow",
+                  value: dashboardData?.currentTransactions?.[0]?.overallPayment || 0,
+                  prev: dashboardData?.previousTransaction?.[0]?.overallPayment || 0,
+                  icon: <DollarOutlined />,
+                  color: "green",
+                  bg: "bg-green-50/30"
+                },
+                {
+                  label: "Passive Arrears",
+                  value: dashboardData?.outstanding || 0,
+                  prev: null,
+                  icon: <FileTextOutlined />,
+                  color: "orange",
+                  bg: "bg-orange-50/30"
+                }
+              ].map((stat, i) => (
+                <div key={i} className={`p-8 rounded-[32px] shadow-sm border border-gray-100 relative overflow-hidden group hover:border-gray-200 transition-all duration-500 ${stat.bg}`}>
+                  <div className={`absolute top-0 right-0 w-32 h-32 bg-${stat.color}-500 opacity-[0.03] rounded-full -mr-16 -mt-16 group-hover:scale-125 transition-transform duration-1000`} />
+                  <div className="relative z-10">
+                    <div className={`w-12 h-12 rounded-2xl bg-${stat.color}-500 text-white flex items-center justify-center mb-6 text-xl shadow-lg shadow-${stat.color}-100 group-hover:rotate-6 transition-transform duration-500`}>
+                      {stat.icon}
+                    </div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">{stat.label}</p>
+                    <h3 className="text-3xl font-black text-gray-800 tracking-tighter mb-2">₹{formatIndianNumber(stat.value)}</h3>
+                    {stat.prev !== null && (
+                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black ${getIncrease(stat.value, stat.prev) >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        }`}>
+                        {getIncrease(stat.value, stat.prev) >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                        {Math.abs(getIncrease(stat.value, stat.prev)).toFixed(1)}% Yield
+                      </div>
                     )}
-                  </p>
-                  <div className="mt-1">
-                    <span
-                      className={`${getIncrease(
-                        dashboardData?.totalCurrSales?.[0]?.overallSales || 0,
-                        dashboardData?.totalPreviousSales?.[0]?.overallSales || 0
-                      ) >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
-                        } text-xs`}
-                    >
-                      {getIncrease(
-                        dashboardData?.totalCurrSales?.[0]?.overallSales || 0,
-                        dashboardData?.totalPreviousSales?.[0]?.overallSales || 0
-                      ).toFixed(2)}
-                      % vs last month
-                    </span>
                   </div>
                 </div>
-                <div className="bg-blue-50 p-3 rounded-full">
-                  <LineChartOutlined className="text-blue-500 text-xl" />
+              ))}
+            </div>
+
+            {/* Area Chart Card */}
+            <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-12">
+                <div className="flex items-center gap-4">
+                  <div className="w-2 h-8 bg-indigo-600 rounded-full" />
+                  <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em]">Revenue Velocity Matrix</h3>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-indigo-600" />
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Yield</span>
+                </div>
+              </div>
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={mergedData}>
+                    <defs>
+                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.01} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f1f5f9" />
+                    <XAxis
+                      dataKey="date"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }}
+                      tickMargin={20}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }}
+                      tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: '24px',
+                        border: 'none',
+                        boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
+                        padding: '16px',
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        backdropFilter: 'blur(10px)'
+                      }}
+                      itemStyle={{ fontWeight: 900, fontSize: '12px', color: '#4f46e5' }}
+                      labelStyle={{ fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', color: '#94a3b8' }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="totalAmount"
+                      stroke="#4f46e5"
+                      strokeWidth={6}
+                      fillOpacity={1}
+                      fill="url(#chartGradient)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-xs font-medium uppercase tracking-wider">Total Payments</p>
-                  <p className="text-xl sm:text-2xl font-bold mt-1">
-                    ₹
-                    {formatIndianNumber(
-                      dashboardData?.currentTransactions?.[0]?.overallPayment || 0
-                    )}
-                  </p>
-                  <div className="mt-1">
-                    <span
-                      className={`${getIncrease(
-                        dashboardData?.currentTransactions?.[0]?.overallPayment || 0,
-                        dashboardData?.previousTransaction?.[0]?.overallPayment || 0
-                      ) >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
-                        } text-xs`}
-                    >
-                      {getIncrease(
-                        dashboardData?.currentTransactions?.[0]?.overallPayment || 0,
-                        dashboardData?.previousTransaction?.[0]?.overallPayment || 0
-                      ).toFixed(2)}
-                      % vs last month
-                    </span>
+            {/* Daily Breakdown */}
+            {dashboardData?.dailySummary && (
+              <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 relative overflow-hidden group">
+                <div className="flex items-center justify-between mb-10">
+                  <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em]">Operational Insight Logic</h3>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-indigo-50 rounded-full border border-indigo-100">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+                    <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Real-time Node</span>
                   </div>
                 </div>
-                <div className="bg-green-50 p-3 rounded-full">
-                  <DollarOutlined className="text-green-500 text-xl" />
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+                  {[
+                    { label: "Today's Sales", val: `₹${formatIndianNumber(dashboardData.dailySummary.todaySales)}`, icon: <DollarOutlined />, color: "text-blue-600" },
+                    { label: "Today's Transactions", val: dashboardData.dailySummary.todayTransactions, icon: <FileTextOutlined />, color: "text-green-600" },
+                    { label: "Average Ticket", val: `₹${formatIndianNumber(dashboardData.dailySummary.averageTicket)}`, icon: <ArrowUpOutlined />, color: "text-purple-600" },
+                    { label: "Peak Hour", val: dashboardData.dailySummary.peakHour, icon: <ClockCircleOutlined />, color: "text-orange-600" }
+                  ].map((x, i) => (
+                    <div key={i} className="group/item">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 group-hover/item:text-indigo-400 transition-colors">{x.label}</p>
+                      <p className={`text-2xl font-black ${x.color} tracking-tighter`}>{x.val}</p>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            </div>
 
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-xs font-medium uppercase tracking-wider">Outstanding</p>
-                  <p className="text-xl sm:text-2xl font-bold mt-1">
-                    ₹{formatIndianNumber(dashboardData?.outstanding || 0)}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1 italic">
-                    Total pending amount
-                  </p>
-                </div>
-                <div className="bg-yellow-50 p-3 rounded-full">
-                  <FileTextOutlined className="text-yellow-500 text-xl" />
+                <div className="bg-gray-50/30 rounded-[32px] p-8 border border-gray-50/50">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Top Products Today</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {dashboardData.dailySummary.topProductsToday?.map((p, i) => (
+                      <div key={i} className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-50 hover:border-indigo-100 transition-all group/asset">
+                        <span className="font-black text-gray-700 uppercase text-[11px] tracking-tight">{p.name}</span>
+                        <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 group-hover/asset:bg-indigo-600 group-hover/asset:border-indigo-600 transition-all">
+                          <span className="text-indigo-600 group-hover:text-white text-[10px] font-black uppercase tracking-widest">
+                            {p.sales.toFixed(0)} Units
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
+            )}
+
+            {/* Inventory Requests */}
+            <div className="bg-white p-2 rounded-[40px] border border-gray-100 shadow-sm overflow-hidden">
+              <InventoryRequest inventoryRequests={inventoryRequests} setInventoryRequests={setInventoryRequests} />
             </div>
           </div>
 
-          {/* Chart Section */}
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <h2 className="text-lg font-bold text-gray-800">Sales Overview</h2>
-              <div className="flex items-center bg-gray-50 p-1 rounded-lg border border-gray-100">
-                {[7, 15, 30].map((day) => (
-                  <button
-                    key={day}
-                    onClick={() => setDays(day)}
-                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${days === day
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-100"
-                      : "text-gray-500 hover:bg-white hover:text-blue-600"
-                      }`}
-                  >
-                    {day}d
-                  </button>
+          {/* Sidebar - 4 Columns */}
+          <div className="lg:col-span-4 space-y-8">
+            {/* Quick Access Matrix */}
+            <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+              <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">System Access Root</h3>
+              <div className="grid grid-cols-2 gap-6">
+                {[
+                  { to: "/new-bill", icon: <DollarOutlined />, label: "Billing", color: "text-indigo-600", bg: "hover:bg-indigo-50/50" },
+                  { to: "/products", icon: <ShoppingOutlined />, label: "Inventory", color: "text-green-600", bg: "hover:bg-green-50/50" },
+                  { to: "/customers", icon: <UserOutlined />, label: "CRM", color: "text-purple-600", bg: "hover:bg-purple-50/50" },
+                  { to: "/daily-report", icon: <FileTextOutlined />, label: "Audits", color: "text-orange-600", bg: "hover:bg-orange-50/50" }
+                ].map((act, i) => (
+                  <Link key={i} to={act.to} className={`group p-8 rounded-[32px] bg-gray-50/50 ${act.bg} shadow-none hover:shadow-2xl hover:shadow-gray-200/50 transition-all duration-500 border border-gray-50/50 text-center`}>
+                    <div className={`text-3xl mb-4 ${act.color} transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>{act.icon}</div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest group-hover:text-gray-800 transition-colors uppercase">{act.label}</p>
+                  </Link>
                 ))}
               </div>
             </div>
-            <div className="h-[250px] sm:h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mergedData}>
-                  <defs>
-                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 12 }}
-                    tickMargin={5}
-                  />
-                  <YAxis tick={{ fontSize: 12 }} tickMargin={5} />
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <Tooltip
-                    contentStyle={{
-                      fontSize: "12px",
-                      borderRadius: "8px",
-                      border: "none",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="totalAmount"
-                    stroke="#3B82F6"
-                    fillOpacity={1}
-                    fill="url(#colorSales)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
 
-        </div>
+            {/* Payment Velocity */}
+            <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+              <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">Settlement Velocity</h3>
+              <div className="space-y-4">
+                {dashboardData?.paymentStatus.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between p-6 rounded-[28px] bg-gray-50/30 border border-gray-100/50 hover:bg-white hover:border-indigo-100 transition-all duration-500 group">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-3 h-3 rounded-full animate-pulse ${s.status === "Paid" ? "bg-green-500 shadow-lg shadow-green-100" : s.status === "Pending" ? "bg-amber-500 shadow-lg shadow-amber-100" : "bg-red-500 shadow-lg shadow-red-100"
+                        }`} />
+                      <span className="font-black text-gray-700 text-[11px] tracking-widest uppercase">{s.status}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-gray-800">₹{formatIndianNumber(s.amount)}</p>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">{s.count} Operations</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        {/* Daily Summary */}
-        {dashboardData?.dailySummary && (
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-gray-800">Today's Summary</h2>
-              <div className="bg-gray-100 p-2 rounded-lg">
-                <ClockCircleOutlined className="text-gray-600" />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
-              <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                <p className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Today's Sales</p>
-                <p className="text-xl font-bold text-blue-700">
-                  ₹{formatIndianNumber(dashboardData.dailySummary.todaySales)}
-                </p>
-              </div>
-              <div className="bg-green-50/50 p-4 rounded-xl border border-green-100">
-                <p className="text-xs font-bold text-green-400 uppercase tracking-wider mb-1">Transactions</p>
-                <p className="text-xl font-bold text-green-700">
-                  {dashboardData.dailySummary.todayTransactions}
-                </p>
-              </div>
-              <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
-                <p className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">Avg. Ticket</p>
-                <p className="text-xl font-bold text-purple-700">
-                  ₹{formatIndianNumber(dashboardData.dailySummary.averageTicket)}
-                </p>
-              </div>
-              <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100">
-                <p className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-1">Peak Hour</p>
-                <p className="text-xl font-bold text-orange-700">
-                  {dashboardData.dailySummary.peakHour}
-                </p>
-              </div>
-            </div>
-            <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-100/50">
-              <p className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-3">Top Products Today</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {dashboardData.dailySummary.topProductsToday && dashboardData.dailySummary.topProductsToday.length > 0 ? (
-                  dashboardData.dailySummary.topProductsToday.map((product, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-white p-2.5 rounded-lg shadow-sm border border-indigo-50">
-                      <p className="text-sm font-bold text-indigo-900 capitalize">{product.name}</p>
-                      <div className="bg-indigo-600 px-2.5 py-1 rounded-md">
-                        <p className="text-[10px] text-white font-black">{product.sales.toFixed(0)} UNITS</p>
+            {/* Recent Registry Entries */}
+            <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
+              <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">Recent Registry</h3>
+              <div className="space-y-6">
+                {dashboardData?.recentCustomers.map((c, i) => (
+                  <div key={i} className="flex items-center justify-between group cursor-default">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-black text-lg group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
+                        {c.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-gray-800 truncate max-w-[140px] uppercase tracking-tight">{c.name}</p>
+                        <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-1">{dayjs(c.time).format("hh:mm A")}</p>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-sm font-medium text-indigo-400 italic">No sales recorded yet today.</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Inventory Requests Section */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <InventoryRequest
-            inventoryRequests={inventoryRequests}
-            setInventoryRequests={setInventoryRequests}
-          />
-        </div>
-      </div>
-
-      {/* Right Section - 40% width */}
-      <div className="space-y-4 lg:space-y-6">
-        {/* Quick Actions */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800 mb-6 font-display">Quick Actions</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3 lg:gap-4">
-            <Link
-              to="/new-bill"
-              className="group bg-blue-50/50 hover:bg-blue-600 p-4 rounded-xl text-center transition-all duration-300 border border-blue-100"
-            >
-              <DollarOutlined className="text-2xl mb-2 text-blue-600 group-hover:text-white transition-colors" />
-              <p className="text-xs font-bold text-blue-700 group-hover:text-white uppercase tracking-tight">New Bill</p>
-            </Link>
-            <Link
-              to="/products"
-              className="group bg-green-50/50 hover:bg-green-600 p-4 rounded-xl text-center transition-all duration-300 border border-green-100"
-            >
-              <ShoppingOutlined className="text-2xl mb-2 text-green-600 group-hover:text-white transition-colors" />
-              <p className="text-xs font-bold text-green-700 group-hover:text-white uppercase tracking-tight">Inventory</p>
-            </Link>
-            <Link
-              to="/customers"
-              className="group bg-purple-50/50 hover:bg-purple-600 p-4 rounded-xl text-center transition-all duration-300 border border-purple-100"
-            >
-              <UserOutlined className="text-2xl mb-2 text-purple-600 group-hover:text-white transition-colors" />
-              <p className="text-xs font-bold text-purple-700 group-hover:text-white uppercase tracking-tight">Customers</p>
-            </Link>
-            <Link
-              to="/daily-report"
-              className="group bg-orange-50/50 hover:bg-orange-600 p-4 rounded-xl text-center transition-all duration-300 border border-orange-100"
-            >
-              <FileTextOutlined className="text-2xl mb-2 text-orange-600 group-hover:text-white transition-colors" />
-              <p className="text-xs font-bold text-orange-700 group-hover:text-white uppercase tracking-tight">Reports</p>
-            </Link>
-          </div>
-        </div>
-        {/* Payment Status */}
-        {dashboardData?.paymentStatus && (
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-gray-800">Payment Status</h2>
-              <div className="bg-gray-100 p-2 rounded-lg">
-                <DollarOutlined className="text-gray-600" />
-              </div>
-            </div>
-            <div className="space-y-4">
-              {dashboardData.paymentStatus.map((status, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-3 h-3 rounded-full animate-pulse ${status.status === "Paid"
-                        ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"
-                        : status.status === "Pending"
-                          ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]"
-                          : "bg-red-500 shadow-[0_0_8px_rgba(239,44,44,0.4)]"
-                        }`}
-                    />
-                    <p className="font-bold text-gray-700">{status.status}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-gray-900 leading-tight">
-                      {status.count} <span className="text-[10px] text-gray-400 font-bold uppercase ml-1">Bills</span>
-                    </p>
-                    <p className="text-xs text-blue-600 font-bold mt-0.5">
-                      ₹{formatIndianNumber(status.amount)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Recent Customers */}
-        {dashboardData?.recentCustomers && (
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-gray-800">Recent Customers</h2>
-              <div className="bg-gray-100 p-2 rounded-lg">
-                <UserOutlined className="text-gray-600" />
-              </div>
-            </div>
-            <div className="space-y-4">
-              {dashboardData.recentCustomers.map((customer, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-xl border border-gray-50 bg-gray-50/30">
-                  <div className="flex-1 min-w-0 mr-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-bold text-gray-900 truncate">{customer.name}</p>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${customer.type === "VIP"
-                          ? "bg-purple-100 text-purple-700 border border-purple-200"
-                          : "bg-gray-100 text-gray-600 border border-gray-200"
-                          }`}
-                      >
-                        {customer.type}
-                      </span>
+                    <div className="text-right">
+                      <p className="text-xs font-black text-green-600">₹{formatIndianNumber(c.amount)}</p>
+                      <div className="w-full h-0.5 bg-green-50 mt-1 rounded-full overflow-hidden">
+                        <div className="w-full h-full bg-green-500 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-700" />
+                      </div>
                     </div>
-                    <p className="text-[10px] text-gray-400 flex items-center gap-1 font-bold">
-                      <ClockCircleOutlined className="text-[10px]" />
-                      {new Date(customer.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
                   </div>
-                  <p className="font-black text-green-600 whitespace-nowrap">
-                    ₹{formatIndianNumber(customer.amount)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Top Products */}
-        {dashboardData?.topProducts && (
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-gray-800">Top Products</h2>
-              <div className="bg-gray-100 p-2 rounded-lg">
-                <ShoppingOutlined className="text-gray-600" />
-              </div>
-            </div>
-            <div className="space-y-4">
-              {dashboardData.topProducts.map((product, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-xl border border-gray-50 hover:bg-gray-50 transition-all cursor-default group">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 capitalize truncate group-hover:text-blue-600 transition-colors">{product.name}</p>
-                    <p className="text-[10px] text-gray-400 font-bold mt-0.5">
-                      {product.sales.toFixed(0)} SALES • <span className="text-gray-600">₹{formatIndianNumber(product.revenue)}</span>
-                    </p>
-                  </div>
-                  <div
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black ${product.change.startsWith("+")
-                      ? "bg-green-50 text-green-600 border border-green-100"
-                      : "bg-red-50 text-red-600 border border-red-100"
-                      }`}
-                  >
-                    {product.change.startsWith("+") ? (
-                      <ArrowUpOutlined className="text-[10px]" />
-                    ) : (
-                      <ArrowDownOutlined className="text-[10px]" />
-                    )}
-                    <span>{product.change}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Customer Stats */}
-        {dashboardData?.quickStats && (
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-gray-800">Customer Stats</h2>
-              <div className="bg-gray-100 p-2 rounded-lg">
-                <UserOutlined className="text-gray-600" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 font-display">
-              <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 group transition-all duration-300">
-                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1 group-hover:text-blue-600">Total Customers</p>
-                <p className="text-2xl font-black text-blue-700 leading-none">
-                  {dashboardData.quickStats.totalCustomers}
-                </p>
-              </div>
-              <div className="bg-green-50/50 p-4 rounded-xl border border-green-100 group transition-all duration-300">
-                <p className="text-[10px] font-black text-green-400 uppercase tracking-widest mb-1 group-hover:text-green-600">Active</p>
-                <p className="text-2xl font-black text-green-700 leading-none">
-                  {dashboardData.quickStats.activeCustomers}
-                </p>
-              </div>
-              <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 group transition-all duration-300">
-                <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-1 group-hover:text-purple-600">New / Month</p>
-                <p className="text-2xl font-black text-purple-700 leading-none">
-                  {dashboardData.quickStats.newCustomers}
-                </p>
-              </div>
-              <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100 group transition-all duration-300">
-                <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1 group-hover:text-orange-600">Returning</p>
-                <p className="text-2xl font-black text-orange-700 leading-none">
-                  {dashboardData.quickStats.returningCustomers}
-                </p>
+                ))}
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </main>
   );
 };
 

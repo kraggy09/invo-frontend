@@ -42,7 +42,7 @@ const NewProductPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="bg-gray-50/50">
       <ProductForm
         onSubmit={handleSubmit}
         loading={loading}

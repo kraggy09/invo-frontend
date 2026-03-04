@@ -4,3 +4,11 @@ export const formatIndianNumber = (num: number): string => {
     minimumFractionDigits: 0,
   }).format(num);
 };
+
+
+export const convertToGramorKG = (num: number): string => {
+  if (num >= 1) {
+    return num.toFixed(2) + " kg";
+  }
+  return (num * 1000).toFixed(2) + " g";
+}

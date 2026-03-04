@@ -67,25 +67,15 @@ const DailyReportPage = () => {
   const [billSearch, setBillSearch] = useState("");
   const [transactionSearch, setTransactionSearch] = useState("");
   const [requestSearch, setRequestSearch] = useState("");
-  const [billFilterType, setBillFilterType] = useState("all");
   const [transactionFilterType, setTransactionFilterType] = useState("all");
   const [requestFilterType, setRequestFilterType] = useState("all");
   const [billAmountRange, setBillAmountRange] = useState<[number, number]>([
     0,
     Infinity,
   ]);
-  const [billDateRange, setBillDateRange] = useState<
-    [dayjs.Dayjs | null, dayjs.Dayjs | null]
-  >([null, null]);
   const [transactionAmountRange, setTransactionAmountRange] = useState<
     [number, number]
   >([0, Infinity]);
-  const [transactionDateRange, setTransactionDateRange] = useState<
-    [dayjs.Dayjs | null, dayjs.Dayjs | null]
-  >([null, null]);
-  const [requestDateRange, setRequestDateRange] = useState<
-    [dayjs.Dayjs | null, dayjs.Dayjs | null]
-  >([null, null]);
 
   // Zustand stores
   const billsFromStore = useBillStore((state) => state.bills);
@@ -156,8 +146,7 @@ const DailyReportPage = () => {
 
   // Filtered data
   const filteredBills = mappedBills.filter((bill: any) => {
-    if (billFilterType !== "all" && bill.status !== billFilterType)
-      return false;
+
     if (
       billSearch &&
       !(
@@ -167,11 +156,7 @@ const DailyReportPage = () => {
       )
     )
       return false;
-    if (billDateRange[0] && billDateRange[1]) {
-      const billDate = dayjs(bill.date, "DD/MM/YYYY");
-      if (!billDate.isBetween(billDateRange[0], billDateRange[1], null, "[]"))
-        return false;
-    }
+
     if (billAmountRange[0] > 0 && bill.billAmount < billAmountRange[0])
       return false;
     if (billAmountRange[1] < Infinity && bill.billAmount > billAmountRange[1])
@@ -191,18 +176,7 @@ const DailyReportPage = () => {
       )
     )
       return false;
-    if (transactionDateRange[0] && transactionDateRange[1]) {
-      const tDate = dayjs(t.date, "DD/MM/YYYY");
-      if (
-        !tDate.isBetween(
-          transactionDateRange[0],
-          transactionDateRange[1],
-          null,
-          "[]"
-        )
-      )
-        return false;
-    }
+
     if (transactionAmountRange[0] > 0 && t.payment < transactionAmountRange[0])
       return false;
     if (
@@ -228,18 +202,7 @@ const DailyReportPage = () => {
       )
     )
       return false;
-    if (requestDateRange[0] && requestDateRange[1]) {
-      const requestDate = dayjs(request.dateTime, "DD/MM/YYYY HH:mm");
-      if (
-        !requestDate.isBetween(
-          requestDateRange[0],
-          requestDateRange[1],
-          null,
-          "[]"
-        )
-      )
-        return false;
-    }
+
     return true;
   });
 
@@ -381,67 +344,103 @@ const DailyReportPage = () => {
 
   // Table columns for each tab
   const billColumns = [
-    { title: "Date", dataIndex: "date", key: "date" },
-    { title: "Time", dataIndex: "time", key: "time" },
-    { title: "Bill Id", dataIndex: "billId", key: "billId" },
-    { title: "Customer", dataIndex: "customerName", key: "customerName" },
     {
-      title: "Created By",
-      dataIndex: "createdBy",
-      key: "createdBy",
-      render: (_: any, record: any) => record.createdByName || "N/A",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Registry Date</span>,
+      dataIndex: "date",
+      key: "date",
+      render: (text: string, record: any) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-gray-800">{text}</span>
+          <span className="text-[10px] font-bold text-gray-400">{record.time}</span>
+        </div>
+      ),
     },
-    { title: "Bill Amount", dataIndex: "billAmount", key: "billAmount" },
-    { title: "Outstanding", dataIndex: "outstanding", key: "outstanding" },
-    { title: "Payment", dataIndex: "payment", key: "payment" },
-    { title: "Total", dataIndex: "total", key: "total" },
     {
-      title: "View",
-      dataIndex: "view",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Identifier</span>,
+      dataIndex: "billId",
+      key: "billId",
+      render: (id: string) => <span className="font-mono font-black text-indigo-500 text-xs">{id}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</span>,
+      dataIndex: "customerName",
+      key: "customerName",
+      render: (name: string) => <span className="font-black text-gray-700 capitalize">{name}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Settlement</span>,
+      dataIndex: "payment",
+      key: "payment",
+      align: "right" as const,
+      render: (val: number) => <span className="font-black text-green-600">₹{val.toLocaleString()}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Net Value</span>,
+      dataIndex: "total",
+      key: "total",
+      align: "right" as const,
+      render: (val: number) => <span className="font-black text-indigo-600">₹{val.toLocaleString()}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Action</span>,
       key: "view",
+      align: "center" as const,
       render: (_: any, record: any) => (
         <Button
+          type="text"
           icon={<EyeOutlined />}
-          onClick={() => {
-            console.log(record, "record");
-            navigate(`/bills/${record.key}`, {
-              state: { from: "daily-report" },
-            });
-          }}
+          onClick={() => navigate(`/bills/${record.key}`, { state: { from: "daily-report" } })}
+          className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
         />
       ),
     },
   ];
 
   const transactionColumns = [
-    { title: "Date", dataIndex: "date", key: "date" },
-    { title: "Time", dataIndex: "time", key: "time" },
-    { title: "Trans. Id", dataIndex: "transId", key: "transId" },
-    { title: "Purpose", dataIndex: "purpose", key: "purpose" },
-    { title: "Name", dataIndex: "name", key: "name" },
     {
-      title: "Previous Outstanding",
-      dataIndex: "previousOutstanding",
-      key: "previousOutstanding",
-    },
-    { title: "Payment", dataIndex: "payment", key: "payment" },
-    {
-      title: "New Outstanding",
-      dataIndex: "newOutstanding",
-      key: "newOutstanding",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Timestamp</span>,
+      dataIndex: "date",
+      key: "date",
+      render: (text: string, record: any) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-gray-800">{text}</span>
+          <span className="text-[10px] font-bold text-gray-400">{record.time}</span>
+        </div>
+      ),
     },
     {
-      title: "View",
-      dataIndex: "view",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Intent</span>,
+      dataIndex: "purpose",
+      key: "purpose",
+      render: (text: string) => <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-gray-50 rounded-lg text-gray-500 border border-gray-100">{text}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Party</span>,
+      dataIndex: "name",
+      key: "name",
+      render: (name: string) => <span className="font-black text-gray-700 capitalize">{name}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Amount</span>,
+      dataIndex: "payment",
+      key: "payment",
+      align: "right" as const,
+      render: (val: number, record: any) => (
+        <span className={`font-black ${record.taken ? "text-red-500" : "text-green-600"}`}>
+          {record.taken ? "-" : "+"} ₹{val.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Inspect</span>,
       key: "view",
+      align: "center" as const,
       render: (_: any, record: any) => (
         <Button
+          type="text"
           icon={<EyeOutlined />}
-          onClick={() =>
-            navigate(`/transactions/${record.key}`, {
-              state: { from: "daily-report" },
-            })
-          }
+          onClick={() => navigate(`/transactions/${record.key}`, { state: { from: "daily-report" } })}
+          className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
         />
       ),
     },
@@ -668,366 +667,387 @@ const DailyReportPage = () => {
   ];
 
   return (
-    <div className="p-4 min-h-screen bg-gray-50">
-      <h1 className="text-center font-bold mb-4 text-2xl">
-        Get the complete details here
-      </h1>
-
-      {/* Admin PIN */}
-      {!showAdmin ? (
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-3 mb-6">
-          <Input.Password
-            prefix={<LockOutlined className="text-gray-400" />}
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="Enter admin PIN"
-            className="w-full sm:w-64 max-w-xs"
-            onPressEnter={handlePinSubmit}
-          />
-          <Button type="primary" onClick={handlePinSubmit} className="w-full sm:w-auto">
-            Authorize View
-          </Button>
+    <main className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-10">
+          <h1 className="text-3xl font-black text-gray-800 tracking-tighter leading-tight">Operation Audits</h1>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Cross-Terminal Analytical Intelligence</p>
         </div>
-      ) : (
-        <div className="flex justify-center mb-6">
-          <Button
-            type="primary"
-            danger
-            ghost
-            icon={<EyeInvisibleOutlined />}
-            onClick={() => setShowAdmin(false)}
-          >
-            Hide Admin Summary
-          </Button>
-        </div>
-      )}
 
-      {/* Date Range Picker and Fetch */}
-      <div className="flex flex-col sm:flex-row justify-center items-center gap-3 mb-8">
-        <RangePicker
-          className="w-full sm:w-80"
-          value={dateRange}
-          onChange={(range) =>
-            setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])
-          }
-          allowClear={false}
-        />
-        <Button
-          type="primary"
-          onClick={fetchReport}
-          loading={loading}
-          className="w-full sm:w-auto min-w-[120px]"
-        >
-          {loading ? "Fetching..." : "Fetch Reports"}
-        </Button>
-      </div>
+        {/* Admin PIN */}
+        {!showAdmin ? (
+          <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex items-center gap-3 mb-10 max-w-md mx-auto">
+            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+              <LockOutlined className="text-indigo-600 text-sm" />
+            </div>
+            <Input.Password
+              prefix={<LockOutlined className="text-gray-300 mr-1" />}
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              placeholder="Enter PIN"
+              className="h-10 rounded-xl border-gray-100 bg-gray-50/50 font-bold text-xs flex-1"
+              onPressEnter={handlePinSubmit}
+              size="small"
+            />
+            <Button
+              type="primary"
+              onClick={handlePinSubmit}
+              className="h-10 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
+            >
+              Unlock
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-10 animate-in fade-in duration-700">
+            <div className="flex justify-center">
+              <Button
+                type="text"
+                icon={<EyeInvisibleOutlined className="text-xs" />}
+                onClick={() => setShowAdmin(false)}
+                className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] hover:text-red-500 transition-all flex items-center gap-2"
+              >
+                DECRYPT FINANCIALS / LOCK LAYER
+              </Button>
+            </div>
 
-      {/* Summary Cards */}
-      {showAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <Card
-            className="rounded-xl overflow-hidden shadow-sm border-0"
-            style={{ background: "linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)" }}
-            bodyStyle={{ padding: "16px 20px" }}
-          >
-            <Statistic
-              title={<span className="text-gray-600 font-medium">Profit</span>}
-              value={summary.profit}
-              prefix={<DollarOutlined className="text-green-600" />}
-              valueStyle={{ color: "#389e0d", fontWeight: 800, fontSize: "24px" }}
-            />
-          </Card>
-          <Card
-            className="rounded-xl overflow-hidden shadow-sm border-0"
-            style={{ background: "linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)" }}
-            bodyStyle={{ padding: "16px 20px" }}
-          >
-            <Statistic
-              title={<span className="text-gray-600 font-medium">Payment In</span>}
-              value={summary.totalPaymentIn}
-              prefix={<ArrowDownOutlined className="text-blue-600" />}
-              valueStyle={{ color: "#1890ff", fontWeight: 800, fontSize: "24px" }}
-            />
-          </Card>
-          <Card
-            className="rounded-xl overflow-hidden shadow-sm border-0"
-            style={{ background: "linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%)" }}
-            bodyStyle={{ padding: "16px 20px" }}
-          >
-            <Statistic
-              title={<span className="text-gray-600 font-medium">Payment Out</span>}
-              value={summary.totalPaymentOut}
-              prefix={<ArrowUpOutlined className="text-orange-600" />}
-              valueStyle={{ color: "#fa8c16", fontWeight: 800, fontSize: "24px" }}
-            />
-          </Card>
-          <Card
-            className="rounded-xl overflow-hidden shadow-sm border-0"
-            style={{ background: "linear-gradient(135deg, #f0f5ff 0%, #d6e4ff 100%)" }}
-            bodyStyle={{ padding: "16px 20px" }}
-          >
-            <Statistic
-              title={<span className="text-gray-600 font-medium">Total Billed</span>}
-              value={summary.totalBillAmount}
-              prefix={<FileTextOutlined className="text-indigo-600" />}
-              valueStyle={{ color: "#2f54eb", fontWeight: 800, fontSize: "24px" }}
-            />
-          </Card>
-          <Card
-            className="rounded-xl overflow-hidden shadow-sm border-0"
-            style={{ background: "linear-gradient(135deg, #fff2f0 0%, #ffccc7 100%)" }}
-            bodyStyle={{ padding: "16px 20px" }}
-          >
-            <div className="flex flex-col">
-              <span className="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1">Peak Business Hour</span>
-              <div className="flex items-center gap-2">
-                <ClockCircleOutlined className="text-red-500 text-xl" />
-                <span className="text-red-700 font-black text-lg">{summary.peakHour}</span>
+            {/* Performance Summary Matrix */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {[
+                {
+                  label: "Net Margin",
+                  val: `₹${summary.profit.toLocaleString()}`,
+                  icon: <DollarOutlined />,
+                  sub: `${summary.marginPercent}% yield`,
+                  color: "bg-green-600 shadow-green-100",
+                  bg: "bg-green-50/30"
+                },
+                {
+                  label: "Settlements",
+                  val: `₹${summary.totalPaymentIn.toLocaleString()}`,
+                  icon: <ArrowDownOutlined />,
+                  sub: "Inward Liquidity",
+                  color: "bg-indigo-600 shadow-indigo-100",
+                  bg: "bg-indigo-50/30"
+                },
+                {
+                  label: "Disbursements",
+                  val: `₹${summary.totalPaymentOut.toLocaleString()}`,
+                  icon: <ArrowUpOutlined />,
+                  sub: "Outward Flow",
+                  color: "bg-orange-600 shadow-orange-100",
+                  bg: "bg-orange-50/30"
+                },
+                {
+                  label: "Gross Billed",
+                  val: `₹${summary.totalBillAmount.toLocaleString()}`,
+                  icon: <FileTextOutlined />,
+                  sub: "Ledger Volume",
+                  color: "bg-blue-600 shadow-blue-100",
+                  bg: "bg-blue-50/30"
+                },
+                {
+                  label: "Peak Load",
+                  val: summary.peakHour,
+                  icon: <ClockCircleOutlined />,
+                  sub: "High Traffic Node",
+                  color: "bg-violet-600 shadow-violet-100",
+                  bg: "bg-violet-50/30"
+                }
+              ].map((m, i) => (
+                <div key={i} className={`p-8 rounded-[32px] shadow-sm border border-gray-100/50 relative overflow-hidden group hover:border-gray-200 hover:shadow-md transition-all duration-500 ${m.bg}`}>
+                  <div className={`w-12 h-12 rounded-2xl ${m.color.split(' ')[0]} text-white flex items-center justify-center mb-6 shadow-xl ${m.color.split(' ')[1]} group-hover:scale-110 transition-transform duration-500`}>
+                    {m.icon}
+                  </div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">{m.label}</p>
+                  <p className="text-2xl font-black text-gray-800 tracking-tighter mb-2">
+                    {m.val === "N/A" ? <span className="text-gray-300">N/A</span> : m.val}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 rounded-full bg-gray-300" />
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{m.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Filters for Bills */}
+        {activeTab === "bills" && (
+          <div className="bg-white rounded-[32px] shadow-sm p-6 sm:p-8 mb-8 flex flex-col lg:flex-row gap-6 lg:items-end border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Registry Search</label>
+              <Input.Search
+                placeholder="Find customer or bill ID"
+                value={billSearch}
+                onChange={(e) => setBillSearch(e.target.value)}
+                className="h-12 rounded-xl"
+                allowClear
+              />
+            </div>
+
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Value Range (₹)</label>
+              <div className="flex gap-2">
+                <InputNumber
+                  min={0}
+                  value={billAmountRange[0] === 0 ? undefined : billAmountRange[0]}
+                  onChange={(v) => setBillAmountRange([v || 0, billAmountRange[1]])}
+                  placeholder="Min"
+                  className="h-12 rounded-xl flex-1"
+                />
+                <InputNumber
+                  min={0}
+                  value={billAmountRange[1] === Infinity ? undefined : billAmountRange[1]}
+                  onChange={(v) => setBillAmountRange([billAmountRange[0], v || Infinity])}
+                  placeholder="Max"
+                  className="h-12 rounded-xl flex-1"
+                />
               </div>
             </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Filters for Bills */}
-      {activeTab === "bills" && (
-        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-6 flex flex-wrap gap-4 items-end border border-gray-100">
-          <div className="flex flex-col w-full sm:w-auto min-w-[200px]">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-1.5 ml-1">Search Records</label>
-            <Input.Search
-              placeholder="Customer or Bill ID"
-              value={billSearch}
-              onChange={(e) => setBillSearch(e.target.value)}
-              className="w-full"
-              allowClear
-            />
-          </div>
-          <div className="flex flex-col w-full sm:w-auto min-w-[120px]">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-1.5 ml-1">Status Filter</label>
-            <Select
-              className="w-full"
-              value={billFilterType}
-              onChange={setBillFilterType}
-              options={[
-                { value: "all", label: "All Status" },
-                { value: "Paid", label: "Paid" },
-                { value: "Pending", label: "Pending" },
-                { value: "Partial", label: "Partial" },
-              ]}
-            />
-          </div>
-          <div className="flex flex-col w-full sm:w-auto min-w-[220px]">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter mb-1.5 ml-1">Report Date Range</label>
-            <RangePicker
-              className="w-full"
-              value={billDateRange}
-              onChange={(range) =>
-                setBillDateRange(
-                  range as [dayjs.Dayjs | null, dayjs.Dayjs | null]
-                )
-              }
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Amount</label>
-            <div className="flex gap-2">
-              <InputNumber
-                min={0}
-                value={
-                  billAmountRange[0] === 0 ? undefined : billAmountRange[0]
-                }
-                onChange={(v) =>
-                  setBillAmountRange([v || 0, billAmountRange[1]])
-                }
-                placeholder="Min"
-                style={{ width: 80 }}
-              />
-              <InputNumber
-                min={0}
-                value={
-                  billAmountRange[1] === Infinity
-                    ? undefined
-                    : billAmountRange[1]
-                }
-                onChange={(v) =>
-                  setBillAmountRange([billAmountRange[0], v || Infinity])
-                }
-                placeholder="Max"
-                style={{ width: 80 }}
-              />
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Report Span</label>
+              <div className="flex gap-2">
+                <RangePicker
+                  className="h-12 flex-1 rounded-xl border-gray-100"
+                  value={dateRange}
+                  onChange={(range) => setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
+                  allowClear={false}
+                />
+                <Button
+                  type="primary"
+                  onClick={fetchReport}
+                  loading={loading}
+                  className="h-12 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
+                >
+                  Fetch
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Filters for Transactions */}
-      {activeTab === "transactions" && (
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-2 flex flex-wrap gap-4 items-end border border-gray-200">
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Search</label>
-            <Input.Search
-              placeholder="Name or transaction id"
-              value={transactionSearch}
-              onChange={(e) => setTransactionSearch(e.target.value)}
-              style={{ width: 200 }}
-              allowClear
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Purpose</label>
-            <Select
-              value={transactionFilterType}
-              onChange={setTransactionFilterType}
-              style={{ width: 140 }}
-              options={[
-                { value: "all", label: "All Purposes" },
-                { value: "Payment", label: "Payment" },
-                { value: "Refund", label: "Refund" },
-                { value: "Purchase", label: "Purchase" },
-              ]}
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Date Range</label>
-            <RangePicker
-              value={transactionDateRange}
-              onChange={(range) =>
-                setTransactionDateRange(
-                  range as [dayjs.Dayjs | null, dayjs.Dayjs | null]
-                )
-              }
-              style={{ width: 220 }}
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Amount</label>
-            <div className="flex gap-2">
-              <InputNumber
-                min={0}
-                value={
-                  transactionAmountRange[0] === 0
-                    ? undefined
-                    : transactionAmountRange[0]
-                }
-                onChange={(v) =>
-                  setTransactionAmountRange([v || 0, transactionAmountRange[1]])
-                }
-                placeholder="Min"
-                style={{ width: 80 }}
-              />
-              <InputNumber
-                min={0}
-                value={
-                  transactionAmountRange[1] === Infinity
-                    ? undefined
-                    : transactionAmountRange[1]
-                }
-                onChange={(v) =>
-                  setTransactionAmountRange([
-                    transactionAmountRange[0],
-                    v || Infinity,
-                  ])
-                }
-                placeholder="Max"
-                style={{ width: 80 }}
+        {/* Filters for Transactions */}
+        {activeTab === "transactions" && (
+          <div className="bg-white rounded-[32px] shadow-sm p-6 sm:p-8 mb-8 flex flex-col lg:flex-row gap-6 lg:items-end border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Ledger Search</label>
+              <Input.Search
+                placeholder="Find name or transaction id"
+                value={transactionSearch}
+                onChange={(e) => setTransactionSearch(e.target.value)}
+                className="h-12 rounded-xl"
+                allowClear
               />
             </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Registry Intent</label>
+              <Select
+                value={transactionFilterType}
+                onChange={setTransactionFilterType}
+                className="h-12 w-full premium-select"
+                options={[
+                  { value: "all", label: "All Logic Intents" },
+                  { value: "Payment", label: "Payment" },
+                  { value: "Refund", label: "Refund" },
+                  { value: "Purchase", label: "Purchase" },
+                ]}
+              />
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Capital Bounds (₹)</label>
+              <div className="flex gap-2">
+                <InputNumber
+                  min={0}
+                  value={transactionAmountRange[0] === 0 ? undefined : transactionAmountRange[0]}
+                  onChange={(v) => setTransactionAmountRange([v || 0, transactionAmountRange[1]])}
+                  placeholder="Min"
+                  className="h-12 rounded-xl flex-1"
+                />
+                <InputNumber
+                  min={0}
+                  value={transactionAmountRange[1] === Infinity ? undefined : transactionAmountRange[1]}
+                  onChange={(v) => setTransactionAmountRange([transactionAmountRange[0], v || Infinity])}
+                  placeholder="Max"
+                  className="h-12 rounded-xl flex-1"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Report Span</label>
+              <div className="flex gap-2">
+                <RangePicker
+                  className="h-12 flex-1 rounded-xl border-gray-100"
+                  value={dateRange}
+                  onChange={(range) => setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
+                  allowClear={false}
+                />
+                <Button
+                  type="primary"
+                  onClick={fetchReport}
+                  loading={loading}
+                  className="h-12 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
+                >
+                  Fetch
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Filters for Requests */}
-      {activeTab === "requests" && (
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-2 flex flex-wrap gap-4 items-end border border-gray-200">
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Search</label>
-            <Input.Search
-              placeholder="Product or user name"
-              value={requestSearch}
-              onChange={(e) => setRequestSearch(e.target.value)}
-              style={{ width: 200 }}
-              allowClear
-            />
+        {/* Filters for Requests */}
+        {activeTab === "requests" && (
+          <div className="bg-white rounded-[32px] shadow-sm p-6 sm:p-8 mb-8 flex flex-col lg:flex-row gap-6 lg:items-end border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Asset Logic Search</label>
+              <Input.Search
+                placeholder="Product or operator name"
+                value={requestSearch}
+                onChange={(e) => setRequestSearch(e.target.value)}
+                className="h-12 rounded-xl"
+                allowClear
+              />
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Validation State</label>
+              <Select
+                value={requestFilterType}
+                onChange={setRequestFilterType}
+                className="h-12 w-full premium-select"
+                options={[
+                  { value: "all", label: "All Validation States" },
+                  { value: "Approved", label: "Approved" },
+                  { value: "Rejected", label: "Rejected" },
+                  { value: "Pending", label: "Pending" },
+                ]}
+              />
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Report Span</label>
+              <div className="flex gap-2">
+                <RangePicker
+                  className="h-12 flex-1 rounded-xl border-gray-100"
+                  value={dateRange}
+                  onChange={(range) => setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
+                  allowClear={false}
+                />
+                <Button
+                  type="primary"
+                  onClick={fetchReport}
+                  loading={loading}
+                  className="h-12 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
+                >
+                  Fetch
+                </Button>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Status</label>
-            <Select
-              value={requestFilterType}
-              onChange={setRequestFilterType}
-              style={{ width: 120 }}
-              options={[
-                { value: "all", label: "All Status" },
-                { value: "Approved", label: "Approved" },
-                { value: "Rejected", label: "Rejected" },
-                { value: "Pending", label: "Pending" },
+        )}
+
+        <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12">
+          <div className="p-4 sm:p-6 bg-gray-50/30 border-b border-gray-50">
+            <Tabs
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              className="premium-tabs"
+              items={[
+                { key: "bills", label: "Bills" },
+                { key: "transactions", label: "Transaction " },
+                { key: "payment", label: "Payments" },
+                { key: "requests", label: "Inventory History" }
               ]}
             />
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Date Range</label>
-            <RangePicker
-              value={requestDateRange}
-              onChange={(range) =>
-                setRequestDateRange(
-                  range as [dayjs.Dayjs | null, dayjs.Dayjs | null]
-                )
-              }
-              style={{ width: 220 }}
-            />
+
+          <div className="p-0 sm:p-4">
+            {activeTab === "bills" && (
+              <Table
+                columns={billColumns}
+                dataSource={filteredBills || []}
+                loading={loading}
+                rowKey="billId"
+                scroll={{ x: 1000 }}
+                className="modern-table no-border-table"
+                pagination={{ pageSize: 12, showSizeChanger: false }}
+              />
+            )}
+            {activeTab === "transactions" && (
+              <Table
+                columns={transactionColumns}
+                dataSource={filteredTransactions || []}
+                loading={loading}
+                rowKey="transId"
+                scroll={{ x: 1000 }}
+                className="modern-table no-border-table"
+                pagination={{ pageSize: 12, showSizeChanger: false }}
+              />
+            )}
+            {activeTab === "payment" && (
+              <Table
+                columns={transactionColumns}
+                dataSource={transactions?.filter((t: any) => t.taken) || []}
+                loading={loading}
+                rowKey="transId"
+                scroll={{ x: 1000 }}
+                className="modern-table no-border-table"
+                pagination={{ pageSize: 12, showSizeChanger: false }}
+              />
+            )}
+            {activeTab === "requests" && (
+              <Table
+                columns={requestColumns}
+                dataSource={filteredRequests || []}
+                loading={loading}
+                rowKey="key"
+                scroll={{ x: 1000 }}
+                className="modern-table no-border-table"
+                rowClassName={(record) => (record.rejected ? "opacity-60 grayscale" : "")}
+                pagination={{ pageSize: 15 }}
+              />
+            )}
           </div>
         </div>
-      )}
 
-      {/* Tabs for Bills, Transactions, Payments, Stock Updates */}
-      <Tabs activeKey={activeTab} onChange={setActiveTab} className="mb-4">
-        <Tabs.TabPane tab="Bills" key="bills">
-          <Table
-            columns={billColumns}
-            dataSource={filteredBills || []}
-            loading={loading}
-            rowKey="billId"
-            scroll={{ x: "max-content" }}
-          />
-        </Tabs.TabPane>
-        <Tabs.TabPane tab="Transactions" key="transactions">
-          <Table
-            columns={transactionColumns}
-            dataSource={filteredTransactions || []}
-            loading={loading}
-            rowKey="transId"
-            scroll={{ x: "max-content" }}
-          />
-        </Tabs.TabPane>
-        <Tabs.TabPane tab="Payment" key="payment">
-          <Table
-            columns={paymentColumns}
-            dataSource={transactions?.filter((t: any) => t.taken) || []}
-            loading={loading}
-            rowKey="transId"
-            scroll={{ x: "max-content" }}
-          />
-        </Tabs.TabPane>
-        <Tabs.TabPane tab="Inventory Requests" key="requests">
-          <Table
-            columns={requestColumns}
-            dataSource={filteredRequests || []}
-            loading={loading}
-            rowKey="key"
-            scroll={{ x: "max-content" }}
-            rowClassName={(record) => (record.rejected ? "opacity-60" : "")}
-            size="small"
-            pagination={{
-              pageSize: 20,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) =>
-                `${range[0]}-${range[1]} of ${total} requests`,
-            }}
-          />
-        </Tabs.TabPane>
-      </Tabs>
-      {loading && <Spin className="block mx-auto" />}
-    </div>
+      </div>
+      <style>{`
+        .premium-tabs .ant-tabs-nav { margin: 0 !important; }
+        .premium-tabs .ant-tabs-nav::before { display: none !important; }
+        .premium-tabs .ant-tabs-tab { 
+          padding: 1.25rem 2rem !important; 
+          border-radius: 20px !important;
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          margin: 0 4px !important;
+        }
+        .premium-tabs .ant-tabs-tab-active { background: #fff !important; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05) !important; }
+        .premium-tabs .ant-tabs-tab-btn { font-weight: 900 !important; text-transform: uppercase !important; letter-spacing: 0.1em !important; font-size: 10px !important; color: #94a3b8 !important; }
+        .premium-tabs .ant-tabs-tab-active .ant-tabs-tab-btn { color: #4f46e5 !important; }
+        .premium-tabs .ant-tabs-ink-bar { display: none !important; }
+
+        .premium-select .ant-select-selector {
+          height: 48px !important;
+          border-radius: 12px !important;
+          border-color: #f1f5f9 !important;
+          display: flex !important;
+          align-items: center !important;
+          font-weight: 900 !important;
+          font-size: 10px !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.05em !important;
+        }
+
+        .no-border-table .ant-table { background: transparent !important; }
+        .no-border-table .ant-table-thead > tr > th { 
+          background: transparent !important; 
+          border-bottom: 2px solid #f8fafc !important;
+          padding: 1.5rem 1rem !important;
+        }
+        .no-border-table .ant-table-tbody > tr > td { 
+          border-bottom: 1px solid #f8fafc !important;
+          padding: 1.25rem 1rem !important;
+        }
+        .no-border-table .ant-table-row:hover > td { background: #fdfdfd !important; }
+      `}</style>
+    </main>
   );
 };
 

@@ -208,158 +208,201 @@ const UpdateStock = () => {
       ),
     },
     {
-      title: "Product",
+      title: "Product Detail",
       key: "name",
       render: (_: any, record: RequestItem) => (
-        <div>
-          <div className="font-medium capitalize">{record.name}</div>
-          <Tag color="processing" className="mt-1 text-xs">
-            Stock:{" "}
-            {getStockBreakdown(record.stock, record.boxSize, record.packetSize)}
-          </Tag>
+        <div className="py-2">
+          <div className="font-black text-gray-800 capitalize leading-tight mb-1">{record.name}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-gray-400 tracking-wider uppercase">Current:</span>
+            <Tag color="indigo" className="text-[10px] font-black rounded-lg border-0 bg-indigo-50 text-indigo-600 m-0 leading-tight py-0.5 px-2">
+              {getStockBreakdown(record.stock, record.boxSize, record.packetSize)}
+            </Tag>
+          </div>
         </div>
       ),
     },
     {
-      title: "Piece",
+      title: <span className="text-xs font-black uppercase tracking-widest text-gray-400">Piece</span>,
       key: "piece",
-      width: 100,
+      width: 120,
       render: (_: any, record: RequestItem) => (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center gap-1 py-1">
           <InputNumber
             min={0}
             value={record.piece}
             onChange={(val) => updateQuantity(record._id, "piece", val ?? 0)}
-            className="w-20"
+            className="w-24 rounded-lg font-black"
           />
-          {/* Empty span for alignment with Packet/Box */}
-          <span
-            className="text-xs text-gray-500 mt-1 text-center"
-            style={{ visibility: "hidden" }}
-          >
-            0 /piece
-          </span>
         </div>
       ),
     },
     {
-      title: "Packet",
+      title: <span className="text-xs font-black uppercase tracking-widest text-gray-400">Packet</span>,
       key: "packet",
-      width: 100,
+      width: 120,
       render: (_: any, record: RequestItem) => (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center gap-1 py-1">
           <InputNumber
             min={0}
             value={record.packet}
             onChange={(val) => updateQuantity(record._id, "packet", val ?? 0)}
-            className="w-20"
+            className={`w-24 rounded-lg font-black ${!record.packetSize && "opacity-20 select-none pointer-events-none"}`}
+            disabled={!record.packetSize}
           />
-          <span className="text-xs text-gray-500 mt-1 text-center">
-            {record.packetSize ? `${record.packetSize} /packet` : "\u00A0"}
-          </span>
+          {record.packetSize > 0 && (
+            <span className="text-[10px] font-black text-gray-300 uppercase tracking-tighter">
+              {record.packetSize} / pkt
+            </span>
+          )}
         </div>
       ),
     },
     {
-      title: "Box",
+      title: <span className="text-xs font-black uppercase tracking-widest text-gray-400">Box</span>,
       key: "box",
-      width: 100,
+      width: 120,
       render: (_: any, record: RequestItem) => (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center gap-1 py-1">
           <InputNumber
             min={0}
             value={record.box}
             onChange={(val) => updateQuantity(record._id, "box", val ?? 0)}
-            className="w-20"
+            className={`w-24 rounded-lg font-black ${!record.boxSize && "opacity-20 select-none pointer-events-none"}`}
+            disabled={!record.boxSize}
           />
-          <span className="text-xs text-gray-500 mt-1 text-center">
-            {record.boxSize ? `${record.boxSize} /box` : "\u00A0"}
-          </span>
+          {record.boxSize > 0 && (
+            <span className="text-[10px] font-black text-gray-300 uppercase tracking-tighter">
+              {record.boxSize} / box
+            </span>
+          )}
         </div>
       ),
     },
   ];
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6 flex justify-center items-start">
-      {contextHolder}
-      <Card
-        className="w-full max-w-5xl shadow-lg"
-        bordered
-        bodyStyle={{ padding: "24px 24px 0 24px" }}
-      >
-        <Title level={3} className="text-center mb-6">
-          Update Product Stock
-        </Title>
+    <main className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-50/50">
+      <div className="max-w-6xl mx-auto">
+        {contextHolder}
 
-        <div className="flex justify-center mb-6">
-          <AutoComplete
-            style={{ width: 400 }}
-            value={search}
-            onChange={handleChange}
-            onSelect={handleSelect}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            placeholder="🔍 Enter product name or barcode"
-            allowClear
-            autoFocus
-            options={suggestions.map((p) => ({
-              value: p._id,
-              label: (
-                <div className="flex flex-col">
-                  <span className="font-medium text-sm">{p.name}</span>
-                  <span className="text-xs text-gray-500">
-                    {p.barcode?.[0]}
-                  </span>
-                </div>
-              ),
-            }))}
-          />
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+          <div>
+            <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Stock Logistics</h1>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Multi-Node Inventory Adjustment Terminal</p>
+          </div>
         </div>
 
-        <Table
-          columns={columns}
-          dataSource={requestList}
-          rowKey="_id"
-          pagination={false}
-          bordered
-          size="middle"
-          className="mb-6"
-          scroll={{ y: 350 }}
-          locale={{ emptyText: "No products added yet." }}
-        />
+        <div className="bg-white rounded-[32px] shadow-sm p-6 sm:p-10 mb-8 border border-gray-100">
+          <div className="flex flex-col items-center mb-10">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">Global SKU Lookup</label>
+            <div className="w-full sm:w-[500px] relative group">
+              <AutoComplete
+                className="w-full h-14"
+                value={search}
+                onChange={handleChange}
+                onSelect={handleSelect}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                placeholder="Scan Registry or Type Identifier..."
+                allowClear
+                autoFocus
+                options={suggestions.map((p) => ({
+                  value: p._id,
+                  label: (
+                    <div className="flex flex-col py-2 px-1">
+                      <span className="font-black text-gray-800 capitalize leading-tight">{p.name}</span>
+                      <div className="flex items-center gap-3 mt-1.5 font-mono text-[9px] font-black">
+                        <span className="text-indigo-400 uppercase tracking-widest">{p.barcode?.[0]}</span>
+                        <span className="text-gray-300">|</span>
+                        <span className="text-gray-400">STOCK: {p.stock} {p.measuring}</span>
+                      </div>
+                    </div>
+                  ),
+                }))}
+              />
+            </div>
+          </div>
 
-        <div className="flex justify-end mt-4 mb-6">
-          <Button
-            type="primary"
-            icon={<ExclamationCircleOutlined />}
-            loading={submitting}
-            onClick={handleSubmit}
-            size="large"
-            disabled={requestList.length === 0}
-          >
-            Submit Stock Request
-          </Button>
+          <div className="bg-white rounded-[24px] border border-gray-100 overflow-hidden shadow-sm">
+            <Table
+              columns={columns}
+              dataSource={requestList}
+              rowKey="_id"
+              pagination={false}
+              size="middle"
+              scroll={{ x: 800 }}
+              className="modern-table no-border-table"
+              locale={{
+                emptyText: (
+                  <div className="py-24 flex flex-col items-center justify-center grayscale opacity-30">
+                    <ExclamationCircleOutlined className="text-5xl text-gray-300 mb-6" />
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Adjustment Queue Manifested Empty</p>
+                  </div>
+                )
+              }}
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-end mt-10 gap-4">
+            <Button
+              onClick={() => setRequestList([])}
+              disabled={requestList.length === 0 || submitting}
+              className="h-14 font-black px-8 rounded-2xl border-2 border-gray-50 text-[10px] font-black tracking-widest text-gray-400 hover:border-red-100 hover:text-red-500 transition-all uppercase order-2 sm:order-1"
+            >
+              PURGE QUEUE
+            </Button>
+            <Button
+              type="primary"
+              loading={submitting}
+              onClick={handleSubmit}
+              disabled={requestList.length === 0}
+              className="h-14 bg-indigo-600 border-none font-black px-12 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 order-1 sm:order-2 text-[10px] tracking-widest uppercase"
+            >
+              COMMIT ADJUSTMENTS
+            </Button>
+          </div>
         </div>
-      </Card>
+      </div>
 
       <Modal
         open={showModal}
         onCancel={() => setShowModal(false)}
         footer={null}
-        title="✅ Request Submitted"
         centered
+        className="premium-modal text-center"
+        width={400}
+        title={null}
       >
-        <p>
-          Your stock update request was successfully submitted for admin
-          approval.
-        </p>
-        <div className="text-right">
-          <Button type="primary" onClick={() => setShowModal(false)}>
-            OK
+        <div className="py-10">
+          <div className="w-20 h-20 bg-green-50 rounded-[32px] flex items-center justify-center mx-auto mb-8 shadow-inner border border-green-100">
+            <ExclamationCircleOutlined className="text-3xl text-green-600 rotate-180" />
+          </div>
+          <h2 className="text-xl font-black text-gray-800 tracking-tight leading-tight mb-2 uppercase">Logistics Synchronized</h2>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-10 px-8">Your stock update request has been successfully committed to the verification queue.</p>
+          <Button
+            type="primary"
+            onClick={() => setShowModal(false)}
+            className="h-12 w-full bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl font-black text-[10px] tracking-widest uppercase"
+          >
+            DISMISS TERMINAL
           </Button>
         </div>
       </Modal>
+
+      <style>{`
+        .modern-table .ant-table-thead > tr > th { 
+          background: #f8fafc !important; 
+          border-bottom: 1px solid #f1f5f9 !important;
+          padding: 1.25rem !important;
+        }
+        .modern-table .ant-table-tbody > tr > td { 
+          padding: 1rem 1.25rem !important;
+          border-bottom: 1px solid #f8fafc !important;
+        }
+        .modern-table .ant-table-row:hover > td { background: #f8fafc !important; }
+        .no-border-table .ant-table { background: transparent !important; }
+      `}</style>
     </main>
   );
 };

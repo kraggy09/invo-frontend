@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Table, Spin, Button, message } from "antd";
-import { PrinterOutlined } from "@ant-design/icons";
+import { PrinterOutlined, ArrowLeftOutlined, DollarOutlined, FileTextOutlined } from "@ant-design/icons";
 import BillPrint from "../billing/BillPrint";
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
@@ -39,36 +39,40 @@ const SingleBillPage = () => {
 
   const columns = [
     {
-      title: "Product Name",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Item Details</span>,
       dataIndex: ["product", "name"],
       key: "name",
-      render: (_: any, record: any) =>
-        record.product ? record.product.name : "Deleted Product",
+      render: (_: any, record: any) => (
+        <div className="flex flex-col">
+          <span className="font-black text-gray-800 capitalize leading-tight">
+            {record.product ? record.product.name : "Deleted Product"}
+          </span>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+            Unit Price: ₹{record.quantity ? (record.total / record.quantity).toFixed(2) : "-"}
+          </span>
+        </div>
+      ),
     },
     {
-      title: "Quantity",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Quantity</span>,
       dataIndex: "quantity",
       key: "quantity",
       align: "center" as const,
+      render: (q: number) => <span className="font-black text-gray-700">{q}</span>,
     },
     {
-      title: "Price",
-      key: "price",
-      align: "center" as const,
-      render: (_: any, record: any) =>
-        record.quantity ? (record.total / record.quantity).toFixed(2) : "-",
-    },
-    {
-      title: "Total",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Sub-Total</span>,
       dataIndex: "total",
       key: "total",
       align: "center" as const,
+      render: (t: number) => <span className="font-black text-indigo-600">₹{t.toLocaleString()}</span>,
     },
     {
-      title: "Discount",
+      title: <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest text-center block">Markdown</span>,
       dataIndex: "discount",
       key: "discount",
       align: "center" as const,
+      render: (d: number) => <span className="font-black text-orange-600">₹{d.toLocaleString()}</span>,
     },
   ];
 
@@ -131,224 +135,177 @@ const SingleBillPage = () => {
     : undefined;
 
   return (
-    <div className="p-6 min-h-screen bg-white">
-      {/* Back Button */}
-      <button
-        onClick={() => {
-          if (from === "daily-report") navigate("/daily-report");
-          else if (from === "bill") navigate("/bills");
-          else navigate("/bills");
-        }}
-        className="mb-6 flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors text-sm font-medium focus:outline-none"
-        style={{
-          background: "none",
-          border: "none",
-          padding: 0,
-          cursor: "pointer",
-        }}
-      >
-        <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
-          <path
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12.5 16L7.5 10L12.5 4"
-          />
-        </svg>
-        {from === "daily-report" ? "Back to Daily Report" : "Back to Bills"}
-      </button>
-      {loading ? (
-        <Spin size="large" className="block mx-auto mt-32" />
-      ) : bill ? (
-        <div className="max-w-3xl mx-auto space-y-8">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                Bill Details
-              </h1>
-              <div className="flex flex-wrap items-center gap-3 text-gray-500 text-sm">
-                <span>
-                  Bill ID:{" "}
-                  <b className="text-gray-800">
-                    {bill?.id ? `B-${bill.id}` : "Old Bill"}
-                  </b>
-                </span>
-                <span className="hidden sm:inline">·</span>
-                <span>
-                  {bill?.createdAt
-                    ? dayjs(bill.createdAt).format("DD/MM/YYYY hh:mm A")
-                    : "-"}
-                </span>
-                <span className="hidden sm:inline">·</span>
-                <span
-                  className={
-                    bill?.status === "Paid" ||
-                      bill?.total - bill?.payment - bill?.discount <= 0
-                      ? "text-green-600 font-semibold"
-                      : "text-yellow-600 font-semibold"
-                  }
+    <main className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-50/50 flex flex-col items-center">
+      <div className="w-full max-w-4xl">
+        <div className="flex items-center justify-between mb-8">
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined className="text-[10px]" />}
+            onClick={() => {
+              if (from === "daily-report") navigate("/daily-report");
+              else navigate("/bills");
+            }}
+            className="flex items-center gap-2 font-black text-gray-400 hover:text-indigo-600 transition-all p-0 h-auto uppercase tracking-widest text-[10px]"
+          >
+            {from === "daily-report" ? "Terminal Root / Report" : "Terminal Root / Archives"}
+          </Button>
+          <div className="text-right hidden sm:block">
+            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block">Invoice Record</span>
+            <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest text-right">
+              ID: {bill?.id ? `B-${bill.id}` : bill?._id?.slice(-8).toUpperCase()}
+            </span>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-40 text-center"><Spin size="large" /></div>
+        ) : bill ? (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header Card */}
+            <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden group">
+              <div className="bg-indigo-600 p-8 sm:p-12 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative overflow-hidden">
+                <div className="relative z-10">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500 rounded-full mb-4 border border-indigo-400/30">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    <span className="text-[8px] font-black uppercase tracking-widest">Authorized Transaction</span>
+                  </div>
+                  <h1 className="text-3xl font-black tracking-tighter leading-tight mb-2">Invoice Details</h1>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-[10px] font-black text-indigo-100/70 border border-indigo-100/20 px-3 py-1 rounded-xl bg-white/5 backdrop-blur-sm">
+                      {dayjs(bill.createdAt).format("DD MMM YYYY · hh:mm A")}
+                    </span>
+                    <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-xl border flex items-center gap-2 ${bill?.total - bill?.payment - bill?.discount <= 0
+                      ? "bg-green-500/20 border-green-500/30 text-green-100"
+                      : "bg-orange-500/20 border-orange-500/30 text-orange-100"
+                      }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${bill?.total - bill?.payment - bill?.discount <= 0 ? "bg-green-300" : "bg-orange-300"}`} />
+                      {bill?.total - bill?.payment - bill?.discount <= 0 ? "Fully Settled" : "Payment Pending"}
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  icon={<PrinterOutlined />}
+                  onClick={() => handlePrint()}
+                  className="h-14 px-10 bg-white/10 hover:bg-white/20 border-white/20 text-white font-black rounded-2xl backdrop-blur-md transition-all flex items-center gap-2 text-[10px] tracking-widest uppercase relative z-10"
                 >
-                  {bill?.status ||
-                    (bill?.total - bill?.payment - bill?.discount > 0
-                      ? "Pending"
-                      : "Paid")}
+                  PRINT TRANSACTION
+                </Button>
+
+                <div className="absolute top-0 right-0 p-20 opacity-5 group-hover:scale-110 transition-transform duration-1000 rotate-12">
+                  <PrinterOutlined style={{ fontSize: 280 }} />
+                </div>
+              </div>
+
+              <div className="p-8 sm:p-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-2">Client Identification</span>
+                  <p className="text-base font-black text-gray-800 tracking-tight capitalize">{bill?.customer?.name}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-1.5">Direct Communication</span>
+                  <p className="text-base font-bold text-gray-600">{bill?.customer?.phone}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-1.5">Current Liability</span>
+                  <p className="text-base font-black text-red-500 tracking-tight">₹{Number(bill?.customer?.outstanding || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-1.5">System Operator</span>
+                  <p className="text-base font-black text-indigo-600 tracking-tight">{bill?.createdBy?.name ?? "Terminal Admin"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm text-center group hover:border-gray-200 transition-all">
+                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-1">Sub-Total</span>
+                <span className="text-2xl font-black text-gray-800 tracking-tighter">₹{Number(bill?.total).toLocaleString()}</span>
+              </div>
+              <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm text-center group hover:border-orange-100 transition-all">
+                <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest block mb-1">Rebate</span>
+                <span className="text-2xl font-black text-orange-600 tracking-tighter">₹{Number(bill?.discount).toLocaleString()}</span>
+              </div>
+              <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm text-center group hover:border-green-100 transition-all">
+                <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-1">Liquidity</span>
+                <span className="text-2xl font-black text-green-600 tracking-tighter">₹{Number(bill?.payment).toLocaleString()}</span>
+              </div>
+              <div className="bg-indigo-600 rounded-[32px] p-6 shadow-xl shadow-indigo-100 text-center relative overflow-hidden group">
+                <span className="text-[10px] font-black text-indigo-200 uppercase tracking-widest block mb-1 relative z-10">Net Balance</span>
+                <span className="text-2xl font-black text-white tracking-tighter relative z-10">
+                  ₹{Number(bill.total - bill.payment - bill.discount).toLocaleString()}
                 </span>
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-700">
+                  <DollarOutlined style={{ fontSize: 40 }} />
+                </div>
               </div>
             </div>
-            <Button
-              icon={<PrinterOutlined />}
-              onClick={() => handlePrint()}
-              type="default"
-              size="middle"
-              className="font-medium border-gray-300"
-              style={{
-                borderRadius: 8,
-                boxShadow: "none",
-                background: "#fafbfc",
-              }}
-            >
-              Print
-            </Button>
-          </div>
 
-          {/* Customer & Bill Info */}
-          <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-8">
-              <div>
-                <div className="text-xs text-gray-500 mb-1 font-medium">
-                  Customer Name
-                </div>
-                <div className="text-base text-gray-900 font-semibold">
-                  {bill?.customer?.name}
-                </div>
+            {/* Line Items Table */}
+            <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Inventory Manifest</h3>
+                <span className="px-4 py-1.5 bg-gray-50 rounded-xl text-[10px] font-black text-gray-400 border border-gray-100 uppercase tracking-widest">{bill?.items?.length} Validated Entries</span>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1 font-medium">
-                  Mobile
-                </div>
-                <div className="text-base text-gray-900">
-                  {bill?.customer?.phone}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1 font-medium">
-                  Current Outstanding
-                </div>
-                <div className="text-base text-red-600 font-bold">
-                  ₹{bill?.customer?.outstanding}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1 font-medium">
-                  Created By
-                </div>
-                <div className="text-base text-gray-900">{bill?.createdBy?.name ?? bill?.createdBy}</div>
-              </div>
+              <Table
+                dataSource={bill?.items || []}
+                columns={columns}
+                rowKey="_id"
+                pagination={false}
+                scroll={{ x: 800 }}
+                className="modern-table no-border-table"
+                summary={(pageData: readonly any[]) => {
+                  const total = pageData.reduce((sum: number, item: any) => sum + (item.total || 0), 0);
+                  return (
+                    <Table.Summary.Row className="bg-gray-50/50">
+                      <Table.Summary.Cell index={0} colSpan={2} className="py-8">
+                        <div className="text-right pr-6 text-[10px] font-black text-gray-300 uppercase tracking-widest">Statement Total Identification</div>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={1} colSpan={2} className="py-8">
+                        <div className="text-3xl font-black text-indigo-600 tracking-tighter">₹{total.toLocaleString()}</div>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  );
+                }}
+              />
             </div>
           </div>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col items-center">
-              <div className="text-xs text-gray-500 mb-1">Total</div>
-              <div className="text-lg font-bold text-green-700">
-                ₹{bill?.total}
-              </div>
+        ) : (
+          <div className="py-40 text-center flex flex-col items-center">
+            <div className="w-20 h-20 rounded-[32px] bg-red-50 text-red-500 flex items-center justify-center mb-6">
+              <FileTextOutlined style={{ fontSize: 32 }} />
             </div>
-            <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col items-center">
-              <div className="text-xs text-gray-500 mb-1">Discount</div>
-              <div className="text-lg font-bold text-yellow-600">
-                ₹{bill?.discount}
-              </div>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col items-center">
-              <div className="text-xs text-gray-500 mb-1">Payment</div>
-              <div className="text-lg font-bold text-blue-700">
-                ₹{bill?.payment}
-              </div>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col items-center">
-              <div className="text-xs text-gray-500 mb-1">Remaining</div>
-              <div className="text-lg font-bold text-red-600">
-                ₹{bill ? bill.total - bill.payment - bill.discount : 0}
-              </div>
-            </div>
+            <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Transaction Registry Not Found</p>
           </div>
+        )}
 
-          {/* Items Table */}
-          <div className="bg-gray-50 rounded-xl border border-gray-100 p-0 overflow-hidden">
-            <Table
-              dataSource={bill?.items || []}
-              columns={columns}
-              rowKey={(item: any, idx?: number) =>
-                item && item._id
-                  ? item._id
-                  : typeof idx === "number"
-                    ? idx
-                    : `row-${Math.random()}`
-              }
-              pagination={false}
-              bordered={false}
-              size="middle"
-              summary={(pageData: readonly any[]) => {
-                const total = pageData.reduce(
-                  (sum: number, item: any) => sum + (item.total || 0),
-                  0
-                );
-                return (
-                  <Table.Summary.Row style={{ background: "#f5f7fa" }}>
-                    <Table.Summary.Cell index={0} colSpan={3} align="right">
-                      <b>Total</b>
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={1}>
-                      <b>₹{total}</b>
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={2} />
-                  </Table.Summary.Row>
-                );
-              }}
-              style={{ borderRadius: 12, overflow: "hidden" }}
-              rowClassName={() => "hover:bg-gray-100 transition-all"}
-              components={{
-                header: {
-                  cell: (props: any) => (
-                    <th
-                      {...props}
-                      style={{
-                        ...props.style,
-                        background: "#f5f7fa",
-                        fontWeight: 600,
-                        fontSize: 15,
-                        color: "#22223b",
-                        borderBottom: "1px solid #e5e7eb",
-                      }}
-                    />
-                  ),
-                },
-              }}
+        {/* Hidden BillPrint for printing only */}
+        {bill && (
+          <div style={{ display: "none" }}>
+            <BillPrint
+              onClose={() => { }}
+              contentRef={printContentRef}
+              handlePrint={() => { }}
+              payment={bill?.payment?.toString() || "0"}
+              printBillData={printBillData}
             />
           </div>
-        </div>
-      ) : (
-        <div className="text-center text-gray-400 mt-32 text-base">
-          No bill found.
-        </div>
-      )}
-      {/* Hidden BillPrint for printing only */}
-      {bill && (
-        <div style={{ display: "none" }}>
-          <BillPrint
-            onClose={() => { }}
-            contentRef={printContentRef}
-            handlePrint={() => { }}
-            payment={bill?.payment?.toString() || "0"}
-            printBillData={printBillData}
-          />
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      <style>{`
+        .no-border-table .ant-table { background: transparent !important; }
+        .no-border-table .ant-table-thead > tr > th { 
+          background: transparent !important; 
+          border-bottom: 1px solid #f8fafc !important;
+          padding: 1.5rem 1rem !important;
+        }
+        .no-border-table .ant-table-tbody > tr > td { 
+          border-bottom: 1px solid #f8fafc !important;
+          padding: 1.25rem 1rem !important;
+        }
+      `}</style>
+    </main>
   );
 };
 

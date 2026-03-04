@@ -41,6 +41,8 @@ const BillingBody = () => {
   const [showPrint, setShowPrint] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const [tableHeight, setTableHeight] = useState(400);
   const [delayMs, setDelayMs] = useState(2000); // Default 2 seconds
   const [paymentMode, setPaymentMode] = useState("CASH");
   const [printBillData, setPrintBillData] = useState(null);
@@ -75,6 +77,20 @@ const BillingBody = () => {
   }, [bills, currentBillingId]);
 
   const dataSource = [...(currentBill?.purchased || [])].reverse();
+
+  useEffect(() => {
+    if (!tableContainerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        // Ant Design small table header is approx 40px
+        setTableHeight(entry.contentRect.height - 42);
+      }
+    });
+
+    resizeObserver.observe(tableContainerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -194,317 +210,298 @@ const BillingBody = () => {
 
   const columns: ColumnType<PurchasedProduct>[] = [
     {
-      title: "Action",
-      key: "action",
-      align: "center",
-      render: (_: unknown, record: PurchasedProduct) => (
-        <Button
-          type="text"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => handleRemove(record.id)}
-          tabIndex={-1}
-        />
-      ),
-    },
-    {
-      title: "Stock",
-      dataIndex: "stock",
-      key: "stock",
-      align: "center",
-      render: (_: unknown, record: PurchasedProduct) => (
-        <span className="text-gray-600 text-xs">
-          {record.stock % 1 === 0
-            ? record.stock
-            : record.stock.toFixed(2) + " kg"}
-        </span>
-      ),
-    },
-    {
-      title: "Name",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Item</span>,
       dataIndex: "name",
       key: "name",
-      width: 200,
-      align: "left",
+      width: 180,
       render: (name: string, record: PurchasedProduct) => (
-        <div className="flex items-center gap-2">
-          <p className="capitalize text-start">{name}</p>
+        <div className="flex items-center gap-2 group">
+          <div className="flex flex-col">
+            <span className="font-black text-gray-800 capitalize leading-tight">{name}</span>
+            <span className="text-[10px] font-bold text-gray-400">Stock: {record.stock} {record.measuring}</span>
+          </div>
           {record.measuring === "kg" && (
-            <CalculatorOutlined
-              className="text-blue-500 cursor-pointer hover:text-blue-600"
+            <Button
+              type="text"
+              size="small"
+              icon={<CalculatorOutlined />}
               onClick={() => handleCalculatorClick(record)}
+              className="text-indigo-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-all"
             />
           )}
         </div>
       ),
     },
     {
-      title: "Price",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Price (₹)</span>,
       dataIndex: "price",
       key: "price",
+      width: 80,
       align: "center",
+      render: (price: number) => <span className="font-black text-gray-700">{price}</span>,
     },
     {
-      title: "Price Type",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Type</span>,
       key: "priceType",
       align: "center",
-      width: 150,
+      width: 140,
       render: (_: unknown, record: PurchasedProduct) => (
-        <div tabIndex={-1}>
-          <Radio.Group
-            size="small"
-            value={record.type}
-            onChange={(e) => handlePriceChange(record, e.target.value)}
-            buttonStyle="outline"
-          >
-            <Radio.Button value="RETAIL">RP</Radio.Button>
-            <Radio.Button value="WHOLESALE">WP</Radio.Button>
-            <Radio.Button value="SUPERWHOLESALE">SWP</Radio.Button>
-          </Radio.Group>
-        </div>
+        <Radio.Group
+          size="small"
+          value={record.type}
+          onChange={(e) => handlePriceChange(record, e.target.value)}
+          className="pos-type-selector"
+        >
+          <Radio.Button value="RETAIL">RT</Radio.Button>
+          <Radio.Button value="WHOLESALE">WS</Radio.Button>
+          <Radio.Button value="SUPERWHOLESALE">SW</Radio.Button>
+        </Radio.Group>
       ),
     },
     {
-      title: "Piece",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">PCS</span>,
       dataIndex: "piece",
       key: "piece",
       align: "center",
+      width: 70,
       render: (_: unknown, record: PurchasedProduct) => (
         <Input
           size="small"
-          className="w-16 text-right"
-          placeholder="0"
-          style={{ paddingRight: "2px" }}
+          className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50"
           value={record.piece}
-          onChange={(e) =>
-            handleQuantityChange(record.id, "piece", e.target.value)
-          }
+          onChange={(e) => handleQuantityChange(record.id, "piece", e.target.value)}
         />
       ),
     },
     {
-      title: "Packet",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">PKT</span>,
       dataIndex: "packet",
       key: "packet",
       align: "center",
+      width: 70,
       render: (_: unknown, record: PurchasedProduct) => (
         <Input
           size="small"
-          className="w-16 text-right"
-          placeholder="0"
-          style={{ paddingRight: "2px" }}
+          className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50"
           value={record.packet}
-          onChange={(e) =>
-            handleQuantityChange(record.id, "packet", e.target.value)
-          }
+          onChange={(e) => handleQuantityChange(record.id, "packet", e.target.value)}
         />
       ),
     },
     {
-      title: "Box",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">BOX</span>,
       dataIndex: "box",
       key: "box",
       align: "center",
+      width: 70,
       render: (_: unknown, record: PurchasedProduct) => (
         <Input
           size="small"
-          className="w-16 text-right"
-          placeholder="0"
-          style={{ paddingRight: "2px" }}
+          className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50"
           value={record.box}
-          onChange={(e) =>
-            handleQuantityChange(record.id, "box", e.target.value)
-          }
+          onChange={(e) => handleQuantityChange(record.id, "box", e.target.value)}
         />
       ),
     },
     {
-      title: "Discount",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Disc.</span>,
       dataIndex: "discount",
       key: "discount",
       align: "center",
+      width: 80,
       render: (_: unknown, record: PurchasedProduct) => (
         <Input
           size="small"
-          className="w-16 text-right"
-          placeholder="0"
-          prefix="₹"
-          style={{ paddingRight: "2px" }}
+          className="text-center font-black h-8 rounded-lg border-red-50 text-red-600 bg-red-50/20"
           value={record.discount}
-          onChange={(e) =>
-            handleQuantityChange(record.id, "discount", e.target.value)
-          }
+          onChange={(e) => handleQuantityChange(record.id, "discount", e.target.value)}
         />
       ),
     },
     {
-      title: "Total",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right block pr-4">Total</span>,
       dataIndex: "total",
       key: "total",
+      align: "right",
+      width: 100,
+      render: (_: unknown, record: PurchasedProduct) => (
+        <span className="font-black text-indigo-600 pr-4">
+          ₹{formatIndianNumber(record.total)}
+        </span>
+      ),
+    },
+    {
+      title: "",
+      key: "action",
+      width: 50,
       align: "center",
       render: (_: unknown, record: PurchasedProduct) => (
-        <span className="font-semibold">
-          {formatIndianNumber(record.total)}₹
-        </span>
+        <Button
+          type="text"
+          danger
+          icon={<DeleteOutlined className="text-xs" />}
+          onClick={() => handleRemove(record.id)}
+          className="hover:bg-red-50 flex items-center justify-center mx-auto"
+        />
       ),
     },
   ];
 
   return (
-    <div
-      className="w-[98%] h-full mb-4 shadow-sm hover:shadow-md transition-shadow duration-200"
-    // bodyStyle={{ padding: "16px 24px" }}
-    >
-      <div className="flex flex-col flex-1 h-full">
-        <div className="h-[70%] flex  overflow-auto">
-          <Table
-            className="h-full"
-            bordered
-            pagination={false}
-            dataSource={dataSource}
-            columns={columns}
-            rowKey="id"
-            size="small"
-            scroll={{ y: "calc(100vh - 450px)" }}
-            tableLayout="fixed"
-          />
-        </div>
+    <div className="flex-1 flex flex-col min-h-0 bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+      {/* Table Section - High Density Scroll */}
+      <div ref={tableContainerRef} className="flex-1 overflow-hidden flex flex-col">
+        <Table
+          bordered
+          pagination={false}
+          dataSource={dataSource}
+          columns={columns}
+          rowKey="id"
+          size="small"
+          scroll={{ x: "max-content", y: tableHeight }}
+          className="pos-table no-border-table flex-1"
+        />
+      </div>
 
-        <div className="h-[30%] mr-12 bg-white p-2">
-          <div className="h-full flex flex-col justify-end">
-            <div className="space-y-1 text-right max-w-[250px] ml-auto">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 text-xs">Total Bill</span>
-                <span className="font-semibold text-gray-800 text-sm">
-                  {formatIndianNumber(currentBill?.total || 0)}₹
+      {/* Optimized Summary Footer - Compressed for Efficiency */}
+      <div className="bg-gray-50/50 p-4 sm:px-8 sm:py-6 border-t border-gray-100">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-center">
+          {/* Quick Controls - 3 Cols */}
+          <div className="xl:col-span-3 flex items-center gap-4">
+            <div className="flex-1 min-w-[100px]">
+              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 block">Vocal Latency</label>
+              <Select
+                size="middle"
+                value={delayMs}
+                className="w-full rounded-xl h-10"
+                onChange={setDelayMs}
+                options={[
+                  { value: 2000, label: "2.0s" },
+                  { value: 3000, label: "3.0s" },
+                  { value: 5000, label: "5.0s" }
+                ]}
+              />
+            </div>
+            <Button
+              type="default"
+              size="middle"
+              icon={<SoundOutlined className="text-xs" />}
+              disabled={!currentBill || !currentBill.purchased.length}
+              onClick={async () => {
+                if (!currentBill || !currentBill.purchased.length) return;
+                const synth = window.speechSynthesis;
+                synth.cancel();
+                const voices = synth.getVoices();
+                const indianVoice = voices.find(v => v.lang === "en-IN" || v.name.toLowerCase().includes("india")) || voices.find(v => v.lang.startsWith("en"));
+                const products = currentBill.purchased;
+                let idx = 0;
+                function speakNext() {
+                  if (idx >= products.length) return;
+                  const product = products[idx];
+                  const text = `${product.name}, quantity: ${product.piece + product.packet * product.packetQuantity + product.box * product.boxQuantity}`;
+                  const utter = new window.SpeechSynthesisUtterance(text);
+                  if (indianVoice) utter.voice = indianVoice;
+                  utter.rate = 0.8;
+                  utter.onend = () => setTimeout(() => { idx++; speakNext(); }, delayMs);
+                  synth.speak(utter);
+                }
+                speakNext();
+              }}
+              className="h-10 px-4 rounded-xl bg-white border-gray-200 flex items-center justify-center font-black text-[9px] uppercase tracking-widest hover:border-indigo-400 hover:text-indigo-600 transition-all flex-none"
+            >
+              Vocal
+            </Button>
+          </div>
+
+          {/* Pricing Grid - 6 Cols */}
+          <div className="xl:col-span-6 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="border-r border-gray-50 pr-2">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Base</span>
+                <span className="text-sm font-black text-gray-800">₹{formatIndianNumber(currentBill?.total || 0)}</span>
+              </div>
+              <div className="border-r border-gray-50 pr-2">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Arrears</span>
+                <span className="text-sm font-black text-red-500">₹{formatIndianNumber(currentBill?.customer?.outstanding || 0)}</span>
+              </div>
+              <div className="border-r border-gray-50 pr-2">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Disc.</span>
+                <span className="text-sm font-black text-green-500">-₹{formatIndianNumber(currentBill?.discount || 0)}</span>
+              </div>
+              <div className="pl-2">
+                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-1">Grand Total</span>
+                <span className="text-xl font-black text-indigo-600 tracking-tighter">
+                  ₹{currentBill && formatIndianNumber(currentBill.total + (currentBill?.customer?.outstanding || 0) - currentBill.discount)}
                 </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 text-xs">Outstanding</span>
-                <span className="font-semibold text-gray-800 text-sm">
-                  {formatIndianNumber(currentBill?.customer?.outstanding || 0)}₹
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 text-xs">Discount</span>
-                <span className="font-semibold text-gray-800 text-sm">
-                  {formatIndianNumber(currentBill?.discount || 0)}₹
-                </span>
-              </div>
-              <div className="flex justify-between items-center border-t border-gray-200 pt-1">
-                <span className="text-gray-600 text-xs font-medium">Total</span>
-                <span className="font-bold text-sm text-gray-900">
-                  {currentBill &&
-                    formatIndianNumber(
-                      currentBill?.total +
-                      (currentBill?.customer?.outstanding || 0) -
-                      currentBill?.discount
-                    )}
-                  ₹
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-600 text-xs">Payment</span>
-                  <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-600 font-medium">
-                    F9
-                  </span>
-                </div>
-                <Input
-                  ref={paymentInputRef}
-                  size="small"
-                  className="w-6 text-right h-6"
-                  placeholder="0"
-                  prefix="₹"
-                  style={{
-                    paddingRight: "2px",
-                    textAlign: "right",
-                    width: "90px",
-                  }}
-                />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 text-xs ">Payment Mode</span>
-                <Select
-                  size="small"
-                  value={paymentMode}
-                  className=" h-6"
-                  options={[
-                    { value: "CASH", label: "Cash" },
-                    { value: "ONLINE", label: "Online" },
-                  ]}
-                  style={{ width: "100px" }}
-                  onChange={setPaymentMode}
-                />
-              </div>
-              <div className="flex justify-end mt-2 gap-2">
-                <Select
-                  size="small"
-                  value={delayMs}
-                  style={{ width: 80 }}
-                  onChange={setDelayMs}
-                  options={[
-                    { value: 2000, label: "2 sec" },
-                    { value: 3000, label: "3 sec" },
-                    { value: 5000, label: "5 sec" },
-                    { value: 10000, label: "10 sec" },
-                  ]}
-                />
-                <Button
-                  type="default"
-                  icon={<SoundOutlined />}
-                  className="bg-gray-100 hover:bg-gray-200"
-                  disabled={!currentBill || !currentBill.purchased.length}
-                  onClick={async () => {
-                    if (!currentBill || !currentBill.purchased.length) return;
-                    const synth = window.speechSynthesis;
-                    synth.cancel(); // Cancel any ongoing speech
-                    const voices = synth.getVoices();
-                    const indianVoice =
-                      voices.find(
-                        (v) =>
-                          v.lang === "en-IN" ||
-                          v.name.toLowerCase().includes("india")
-                      ) || voices.find((v) => v.lang.startsWith("en"));
-                    const products = currentBill.purchased;
-                    let idx = 0;
-                    function speakNext() {
-                      if (idx >= products.length) return;
-                      const product = products[idx];
-                      const text = `${product.name}, quantity: ${product.piece +
-                        product.packet * product.packetQuantity +
-                        product.box * product.boxQuantity
-                        }`;
-                      const utter = new window.SpeechSynthesisUtterance(text);
-                      if (indianVoice) utter.voice = indianVoice;
-                      utter.rate = 0.8;
-                      utter.pitch = 1;
-                      utter.onend = () => {
-                        setTimeout(() => {
-                          idx++;
-                          speakNext();
-                        }, delayMs); // Use selected delay
-                      };
-                      synth.speak(utter);
-                    }
-                    speakNext();
-                  }}
-                />
-                <Button
-                  type="primary"
-                  size="middle"
-                  icon={<PlusOutlined />}
-                  className="bg-blue-500 hover:bg-blue-600"
-                  onClick={handleCreateBill}
-                  loading={isCreating}
-                >
-                  Create Bill
-                </Button>
               </div>
             </div>
           </div>
+
+          {/* Checkout Logic - 3 Cols */}
+          <div className="xl:col-span-3 flex flex-row items-end gap-3">
+            <div className="flex-1 group">
+              <div className="relative">
+                <Input
+                  ref={paymentInputRef}
+                  size="large"
+                  placeholder="Payment"
+                  prefix={<span className="text-indigo-400 font-black mr-1">₹</span>}
+                  className="h-12 rounded-xl text-lg font-black border-2 border-transparent bg-white shadow-sm transition-all group-hover:border-indigo-100 focus:border-indigo-600 pr-10"
+                />
+                <div className="absolute right-0 top-0 bottom-0 flex items-center">
+                  <Select
+                    value={paymentMode}
+                    className="h-full w-20 custom-compact-select"
+                    bordered={false}
+                    options={[
+                      { value: "CASH", label: <span className="text-[8px] font-black uppercase">Cash</span> },
+                      { value: "ONLINE", label: <span className="text-[8px] font-black uppercase">Digi</span> },
+                    ]}
+                    onChange={setPaymentMode}
+                  />
+                </div>
+              </div>
+            </div>
+            <Button
+              type="primary"
+              onClick={handleCreateBill}
+              loading={isCreating}
+              className="h-12 px-6 bg-indigo-600 border-none text-[10px] font-black rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 uppercase tracking-widest flex-none"
+            >
+              Finish
+            </Button>
+          </div>
         </div>
       </div>
+
+      <style>{`
+        .pos-table .ant-table-body {
+          scrollbar-width: thin;
+          scrollbar-color: #e2e8f0 transparent;
+        }
+        .pos-table .ant-table-body::-webkit-scrollbar {
+          width: 4px;
+        }
+        .pos-table .ant-table-body::-webkit-scrollbar-thumb {
+          background-color: #e2e8f0;
+          border-radius: 10px;
+        }
+        .custom-compact-select .ant-select-selector {
+          padding: 0 8px !important;
+          background: transparent !important;
+        }
+        .pos-table .ant-table-cell {
+          padding: 8px 12px !important;
+        }
+        .custom-radio-group .ant-radio-button-wrapper {
+          border-radius: 6px !important;
+          margin: 0 1px !important;
+          border: 1px solid #f1f5f9 !important;
+          height: 24px !important;
+          line-height: 22px !important;
+          padding: 0 8px !important;
+        }
+      `}</style>
 
       {selectedProduct && (
         <WeightCalculatorModal

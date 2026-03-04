@@ -37,8 +37,8 @@ const EditProductPage = () => {
         wholesalePrice: p.wholesalePrice ?? "",
         superWholesalePrice: p.superWholesalePrice ?? "",
         barcode: Array.isArray(p.barcode)
-          ? p.barcode[0] || ""
-          : p.barcode || "",
+          ? p.barcode.map(String)
+          : p.barcode ? [String(p.barcode)] : [],
         stock: p.stock ?? "",
         packet: p.packet ?? "",
         box: p.box ?? "",
@@ -60,8 +60,8 @@ const EditProductPage = () => {
         wholesalePrice: p.wholesalePrice ?? "",
         superWholesalePrice: p.superWholesalePrice ?? "",
         barcode: Array.isArray(p.barcode)
-          ? String(p.barcode[0] ?? "")
-          : String(p.barcode ?? ""),
+          ? p.barcode.map(String)
+          : p.barcode ? [String(p.barcode)] : [],
         stock: p.stock ?? "",
         packet: p.packet ?? "",
         box: p.box ?? "",
@@ -93,8 +93,8 @@ const EditProductPage = () => {
           wholesalePrice: p.wholesalePrice ?? "",
           superWholesalePrice: p.superWholesalePrice ?? "",
           barcode: Array.isArray(p.barcode)
-            ? p.barcode[0] || ""
-            : p.barcode || "",
+            ? p.barcode.map(String)
+            : p.barcode ? [String(p.barcode)] : [],
           stock: p.stock ?? "",
           packet: p.packet ?? "",
           box: p.box ?? "",
@@ -152,7 +152,7 @@ const EditProductPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="bg-gray-50/50">
       <ProductForm
         initialValues={product || undefined}
         onSubmit={handleSubmit}

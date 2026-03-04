@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import useCategoriesStore, { Category } from "../store/categories.store";
-import { Card, Modal, Button, Input, Tooltip } from "antd";
+import { Card, Modal, Button, Input, Tooltip, message } from "antd";
+import apiCaller from "../utils/apiCaller";
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -49,40 +50,62 @@ const CategoryModal = ({
           _id: initial?._id,
         })
       }
-      okText={initial?._id ? "Update" : "Add"}
+      okText={initial?._id ? "Update Category" : "Add Category"}
       cancelText="Cancel"
       confirmLoading={loading}
       title={
-        <span style={{ color: ACCENT }}>
-          {initial?._id ? "Edit Category" : "Add Category"}
-        </span>
+        <div className="flex items-center gap-3">
+          <div className="bg-indigo-100 p-2 rounded-lg">
+            {initial?._id ? <EditOutlined className="text-indigo-600" /> : <PlusOutlined className="text-indigo-600" />}
+          </div>
+          <span className="text-lg font-black text-gray-800 tracking-tight">
+            {initial?._id ? "Edit Category" : "Add New Category"}
+          </span>
+        </div>
       }
       centered
       maskClosable={false}
-      bodyStyle={{ background: "#fff" }}
+      width={400}
+      okButtonProps={{
+        className: "bg-indigo-600 border-indigo-600 font-bold rounded-lg h-9 hover:bg-indigo-700 transition-all"
+      }}
+      cancelButtonProps={{
+        className: "rounded-lg font-bold h-9"
+      }}
     >
-      <div className="space-y-4 mt-4">
-        <Input
-          placeholder="Category Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          size="large"
-          autoFocus
-        />
-        <Input
-          placeholder="Wholesale"
-          value={wholesale}
-          onChange={(e) => setWholesale(e.target.value)}
-          type="number"
-          size="large"
-        />
-        <Input
-          placeholder="Super Wholesale"
-          value={superWholeSale}
-          onChange={(e) => setSuperWholeSale(e.target.value)}
-          type="number"
-          size="large"
-        />
+      <div className="space-y-6 mt-8 py-2">
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Category Name</label>
+          <Input
+            placeholder="e.g. Beverages, Snacks..."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="rounded-xl h-11 font-bold"
+            autoFocus
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Wholesale %</label>
+            <Input
+              placeholder="0.00"
+              value={wholesale}
+              onChange={(e) => setWholesale(e.target.value)}
+              type="number"
+              className="rounded-xl h-11 font-bold"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Super WS %</label>
+            <Input
+              placeholder="0.00"
+              value={superWholeSale}
+              onChange={(e) => setSuperWholeSale(e.target.value)}
+              type="number"
+              className="rounded-xl h-11 font-bold"
+            />
+          </div>
+        </div>
       </div>
     </Modal>
   );
@@ -94,154 +117,148 @@ const CategoryPage = () => {
   const [selected, setSelected] = useState<Category | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Fetch categories from backend (mocked here)
   useEffect(() => {
     async function fetchCategories() {
       setLoading(true);
-      // Simulate API
-      const res = await fetch("/api/categories");
-      if (res.ok) {
-        const data = await res.json();
-        setCategories(data.categories || []);
+      try {
+        const res = await apiCaller.get("/categories");
+        setCategories(res.data.categories || []);
+      } catch (err) {
+        console.error("Failed to sync registry categories", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     if (categories.length === 0) fetchCategories();
   }, [setCategories, categories.length]);
 
-  // Add or update category
   const handleSubmit = async (cat: Partial<Category>) => {
     setLoading(true);
-    if (cat._id) {
-      setCategories(
-        categories.map((c) => (c._id === cat._id ? { ...c, ...cat } : c))
-      );
-    } else {
-      setCategories([
-        ...categories,
-        { ...cat, _id: Math.random().toString() } as Category,
-      ]);
+    try {
+      if (cat._id && !cat._id.includes(".")) {
+        await apiCaller.put(`/categories/${cat._id}`, cat);
+        setCategories(categories.map((c) => (c._id === cat._id ? { ...c, ...cat } : c)));
+      } else {
+        const res = await apiCaller.post("/categories", cat);
+        setCategories([...categories, res.data.category]);
+      }
+      message.success("Registry partition updated");
+      setModalOpen(false);
+      setSelected(null);
+    } catch (err) {
+      message.error("Registry write operation failed");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    setModalOpen(false);
-    setSelected(null);
   };
 
-  // Delete category with confirmation
   const handleDelete = (cat: Category) => {
     confirm({
-      title: `Delete category "${cat.name}"?`,
-      icon: <ExclamationCircleOutlined />,
-      content: "This action cannot be undone.",
-      okText: "Delete",
+      title: `Decommission Category: ${cat.name}`,
+      icon: <ExclamationCircleOutlined className="text-red-500" />,
+      content: "All associated data will be archived. Confirm deletion?",
+      okText: "REJECT",
       okType: "danger",
-      cancelText: "Cancel",
+      cancelText: "CANCEL",
       centered: true,
-      onOk() {
-        setCategories(categories.filter((c) => c._id !== cat._id));
-        setModalOpen(false);
-        setSelected(null);
+      okButtonProps: { className: "rounded-lg font-black" },
+      cancelButtonProps: { className: "rounded-lg font-black" },
+      async onOk() {
+        try {
+          await apiCaller.delete(`/categories/${cat._id}`);
+          setCategories(categories.filter((c) => c._id !== cat._id));
+          message.success("Category archived from registry");
+        } catch (err) {
+          message.error("Archeve operation aborted");
+        }
       },
     });
   };
 
   return (
-    <main className="min-h-screen bg-white p-4 md:p-10 relative">
-      <CategoryModal
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setSelected(null);
-        }}
-        onSubmit={handleSubmit}
-        initial={selected || undefined}
-        loading={loading}
-      />
-      <div className="flex items-center justify-between max-w-7xl mx-auto mb-10">
-        <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">
-          Categories
-        </h1>
-        <Button
-          type="primary"
-          icon={<PlusOutlined style={{ fontSize: 20 }} />}
-          style={{
-            background: ACCENT,
-            fontWeight: 600,
-            height: 44,
-            fontSize: 18,
-          }}
-          onClick={() => {
-            setModalOpen(true);
+    <main className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-50/50">
+      <div className="max-w-7xl mx-auto">
+        <CategoryModal
+          open={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
             setSelected(null);
           }}
-        >
-          Add Category
-        </Button>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
-        {categories.map((cat) => (
-          <Card
-            key={cat._id}
-            className="relative group rounded-xl shadow-md border border-gray-200 bg-white hover:shadow-lg transition-all"
-            bodyStyle={{ padding: 24, paddingTop: 32 }}
-            style={{ borderRadius: 14, minHeight: 180 }}
-            actions={[
-              <Tooltip title="Edit" key="edit">
-                <Button
-                  type="text"
-                  icon={<EditOutlined />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelected(cat);
-                    setModalOpen(true);
-                  }}
-                />
-              </Tooltip>,
-              <Tooltip title="Delete" key="delete">
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(cat);
-                  }}
-                />
-              </Tooltip>,
-            ]}
+          onSubmit={handleSubmit}
+          initial={selected || undefined}
+          loading={loading}
+        />
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+          <div>
+            <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Taxonomy Management</h1>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Cross-Catalog Logical Partitions</p>
+          </div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
             onClick={() => {
-              setSelected(cat);
               setModalOpen(true);
+              setSelected(null);
             }}
+            className="h-12 px-8 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-[10px] font-black tracking-widest shadow-xl shadow-indigo-100 uppercase w-full sm:w-auto"
           >
+            Create Partition
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {categories.map((cat) => (
             <div
-              className="w-12 h-12 rounded-full flex items-center justify-center mb-3 mx-auto border-2"
-              style={{ borderColor: ACCENT }}
+              key={cat._id}
+              className="group bg-white rounded-[32px] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-indigo-100 transition-all duration-500 overflow-hidden cursor-pointer flex flex-col items-center p-8 relative"
+              onClick={() => {
+                setSelected(cat);
+                setModalOpen(true);
+              }}
             >
-              <span
-                className="text-xl font-bold capitalize"
-                style={{ color: ACCENT }}
-              >
-                {cat.name[0]}
-              </span>
-            </div>
-            <h2 className="capitalize text-center text-base font-semibold mb-2 text-gray-800 tracking-tight">
-              {cat.name}
-            </h2>
-            <div className="text-sm text-gray-500 w-full text-center space-y-1">
-              <div>
-                <span>Wholesale:</span>{" "}
-                <span className="font-medium">{cat.wholesale}</span>
+              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all">
+                <div className="flex gap-1">
+                  <Button
+                    type="text"
+                    icon={<EditOutlined className="text-gray-400 hover:text-indigo-600" />}
+                    onClick={(e) => { e.stopPropagation(); setSelected(cat); setModalOpen(true); }}
+                    className="w-8 h-8 rounded-lg hover:bg-indigo-50 flex items-center justify-center p-0"
+                  />
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(cat); }}
+                    className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center p-0"
+                  />
+                </div>
               </div>
-              <div>
-                <span>Super Wholesale:</span>{" "}
-                <span className="font-medium">{cat.superWholeSale}</span>
+
+              <div className="w-20 h-20 rounded-[32px] bg-indigo-50 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner border border-indigo-100 grayscale hover:grayscale-0">
+                <span className="text-3xl font-black text-indigo-600">
+                  {cat.name[0].toUpperCase()}
+                </span>
+              </div>
+
+              <h2 className="text-lg font-black text-gray-800 capitalize tracking-tighter mb-6 text-center">
+                {cat.name}
+              </h2>
+
+              <div className="w-full space-y-3 bg-gray-50/50 p-5 rounded-2.5xl border border-gray-50">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Wholesale Partition</span>
+                  <span className="text-xs font-black text-indigo-600">{cat.wholesale}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Super Wholesale Partition</span>
+                  <span className="text-xs font-black text-indigo-600">{cat.superWholeSale}</span>
+                </div>
               </div>
             </div>
-          </Card>
-        ))}
+          ))}
+        </div>
       </div>
-      {/* Floating button removed, now at top right */}
     </main>
   );
 };

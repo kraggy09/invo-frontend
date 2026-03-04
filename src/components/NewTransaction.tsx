@@ -1,41 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  Card,
   Form,
   Input,
   InputNumber,
   Select,
   Button,
-  Switch,
-  Typography,
-  Space,
-  Tag,
-  AutoComplete,
-  Row,
-  Col,
-  Divider,
   message,
 } from "antd";
 import {
   DollarOutlined,
-  UserOutlined,
-  CreditCardOutlined,
-  FileTextOutlined,
-  ReloadOutlined,
+  SwapOutlined,
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  SendOutlined,
+  WalletOutlined,
 } from "@ant-design/icons";
 import useCustomerStore from "../store/customer.store";
 import apiCaller from "../utils/apiCaller";
-
-const { Title, Text } = Typography;
-const { Option } = Select;
-
 
 const NewTransaction: React.FC = () => {
   const [form] = Form.useForm();
   const [isPaymentIn, setIsPaymentIn] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [transactionId, setTransactionId] = useState("Loading...");
+  const [transactionId, setTransactionId] = useState<number | string>("...");
   const { customers, setCustomers } = useCustomerStore();
 
   const fetchInitialData = async () => {
@@ -46,59 +34,46 @@ const NewTransaction: React.FC = () => {
       }
       const resId = await apiCaller.get("/transactions/latest-id");
       setTransactionId(resId.data.transactionId);
-    } catch (e) {
+    } catch {
       message.error("Error fetching initial data");
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchInitialData();
   }, [customers.length]);
 
-  const handleModeChange = (checked: boolean) => {
-    setIsPaymentIn(checked);
-    form.resetFields(["purpose"]);
+  const handleModeChange = (mode: string) => {
+    setIsPaymentIn(mode === "in");
+    form.resetFields(["purpose", "name", "amount", "paymentMode"]);
     setSelectedCustomer(null);
   };
 
-  const handleCustomerSearch = (value: string) => {
-    return customers
-      .filter((customer) =>
-        customer.name.toLowerCase().includes(value.toLowerCase())
-      )
-      .map((customer) => ({
-        value: customer.name,
-        label: (
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>{customer.name}</span>
-            <Tag color={customer.outstanding > 0 ? "orange" : "green"}>
-              ₹{customer.outstanding}
-            </Tag>
-          </div>
-        ),
-        customer,
-      }));
-  };
-
-  const handleCustomerSelect = (value: string, option: any) => {
-    setSelectedCustomer(option.customer);
-    form.setFieldsValue({ name: value });
+  const handleCustomerSelect = (customerId: string) => {
+    const customer = customers.find((c) => c._id === customerId);
+    if (customer) {
+      setSelectedCustomer(customer);
+      form.setFieldsValue({ name: customer.name });
+    }
   };
 
   const handleSubmit = async (values: any) => {
     setLoading(true);
     try {
       if (isPaymentIn) {
-        // Handle Payment In -> createNewPayment
+        if (!selectedCustomer) {
+          message.error("Please select a customer");
+          setLoading(false);
+          return;
+        }
         await apiCaller.post("/transactions/payments", {
-          name: values.name,
+          name: selectedCustomer.name,
           amount: values.amount,
           paymentMode: values.paymentMode,
-          customerId: selectedCustomer?._id,
+          customerId: selectedCustomer._id,
           transactionId: transactionId,
         });
       } else {
-        // Handle Cash Out -> createNewTransaction
         await apiCaller.post("/transactions", {
           name: values.name,
           amount: values.amount,
@@ -111,257 +86,368 @@ const NewTransaction: React.FC = () => {
       );
       form.resetFields();
       setSelectedCustomer(null);
-      fetchInitialData(); // Refresh transaction ID and stuff
+      fetchInitialData();
     } catch (error: any) {
-      message.error(error.response?.data?.message || "Failed to submit transaction");
+      message.error(
+        error.response?.data?.message || "Failed to submit transaction"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRefresh = () => {
-    console.log("Refreshing data...");
-    message.info("Data refreshed");
-  };
+  const labelCls =
+    "text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1";
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f5f7fa",
-        padding: "24px",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Card
-        style={{
-          width: "100%",
-          maxWidth: 600,
-          borderRadius: 12,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
-        }}
-        bodyStyle={{ padding: "32px" }}
-      >
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <Title level={2} style={{ marginBottom: 8 }}>
-            {isPaymentIn ? "New Payment" : "New Transaction"}
-          </Title>
-          <Text type="secondary">Create a new financial transaction</Text>
-        </div>
+    <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50/50 p-4 sm:p-6 relative overflow-hidden">
+      {/* BG decor */}
+      <div className="absolute top-0 left-0 w-full h-full opacity-[0.03] pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-violet-600 rounded-full blur-[120px]" />
+      </div>
 
-        {/* Transaction ID and Refresh */}
-        <Row
-          justify="space-between"
-          align="middle"
-          style={{ marginBottom: 24 }}
-        >
-          <Col>
-            <Space>
-              <Text strong>Transaction ID:</Text>
-              <Tag color="green" style={{ fontSize: 14 }}>
-                {transactionId}
-              </Tag>
-            </Space>
-          </Col>
-          <Col>
-            <Button
-              type="text"
-              icon={<ReloadOutlined />}
-              onClick={handleRefresh}
-            >
-              Refresh
-            </Button>
-          </Col>
-        </Row>
+      <div className="w-full max-w-[560px] relative z-10">
+        {/* Card */}
+        <div className="bg-white rounded-[32px] shadow-2xl shadow-indigo-100/50 overflow-hidden border border-gray-100">
+          {/* Header with Transaction ID */}
+          <div
+            className={`p-8 text-white flex items-center justify-between relative overflow-hidden group transition-colors duration-500 ${isPaymentIn
+              ? "bg-gradient-to-r from-emerald-600 to-emerald-700"
+              : "bg-gradient-to-r from-orange-600 to-orange-700"
+              }`}
+          >
+            <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-white/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-1000" />
+            <div className="flex items-center gap-5">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-lg group-hover:rotate-6 transition-all duration-500">
+                {isPaymentIn ? (
+                  <ArrowDownOutlined className="text-2xl" />
+                ) : (
+                  <ArrowUpOutlined className="text-2xl" />
+                )}
+              </div>
+              <div className="relative z-10">
+                <p className="text-[10px] font-black text-white/70 uppercase tracking-widest mb-1">
+                  {isPaymentIn ? "Payment Inward" : "Cash Outward"}
+                </p>
+                <h2 className="text-xl font-black tracking-tight leading-none">
+                  {isPaymentIn ? "Receive Payment" : "Record Expense"}
+                </h2>
+              </div>
+            </div>
+            <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 relative z-10">
+              <p className="text-[9px] font-black text-white/60 uppercase tracking-widest leading-none mb-1">
+                Txn ID
+              </p>
+              <p className="text-lg font-black tracking-tight leading-none font-mono">
+                #{transactionId}
+              </p>
+            </div>
+          </div>
 
-        {/* Mode Toggle */}
-        <Card
-          size="small"
-          style={{
-            marginBottom: 24,
-            background: "#fafafa",
-            border: "1px solid #e8e8e8",
-          }}
-        >
-          <Row justify="space-between" align="middle">
-            <Col>
-              <Space>
-                <Switch
-                  checked={isPaymentIn}
-                  onChange={handleModeChange}
-                  checkedChildren="Payment In"
-                  unCheckedChildren="Cash Out"
-                  style={{ minWidth: 120 }}
-                />
-                <Text
-                  strong
-                  style={{ color: isPaymentIn ? "#52c41a" : "#ff4d4f" }}
+          {/* Form Body */}
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            autoComplete="off"
+            requiredMark={false}
+            className="p-6 sm:p-10"
+          >
+            {/* Mode Toggle */}
+            <div className="mb-6">
+              <label className={labelCls}>Transaction Mode</label>
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("in")}
+                  className={`flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${isPaymentIn
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                    : "bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-200"
+                    }`}
                 >
-                  {isPaymentIn ? "Receiving Payment" : "Making Payment"}
-                </Text>
-              </Space>
-            </Col>
-          </Row>
-        </Card>
+                  <ArrowDownOutlined /> Payment In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("out")}
+                  className={`flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${!isPaymentIn
+                    ? "bg-orange-50 border-orange-200 text-orange-700"
+                    : "bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-200"
+                    }`}
+                >
+                  <ArrowUpOutlined /> Cash Out
+                </button>
+              </div>
+            </div>
 
-        {/* Form */}
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          size="large"
-        >
-          {/* Customer Name */}
-          <Form.Item
-            name="name"
-            label="Customer Name"
-            rules={[{ required: true, message: "Please enter customer name" }]}
-          >
-            <AutoComplete
-              placeholder="Search and select customer"
-              options={[]}
-              onSearch={(value) => {
-                const options = handleCustomerSearch(value);
-                form.setFieldsValue({
-                  name: { options },
-                });
-              }}
-              onSelect={handleCustomerSelect}
-              prefix={<UserOutlined />}
-            />
-          </Form.Item>
-
-          {/* Amount */}
-          <Form.Item
-            name="amount"
-            label="Amount"
-            rules={[
-              { required: true, message: "Please enter amount" },
-              {
-                type: "number",
-                min: 1,
-                message: "Amount must be greater than 0",
-              },
-            ]}
-          >
-            <InputNumber
-              style={{ width: "100%" }}
-              placeholder="Enter amount"
-              prefix="₹"
-              formatter={(value) =>
-                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-              }
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, "")}
-            />
-          </Form.Item>
-
-          {/* Purpose */}
-          <Form.Item
-            name="purpose"
-            label="Purpose"
-            rules={[{ required: true, message: "Please select purpose" }]}
-          >
+            {/* Customer / Name */}
             {isPaymentIn ? (
-              <Input value="Payment" disabled prefix={<FileTextOutlined />} />
+              <>
+                <Form.Item
+                  label={<span className={labelCls}>Customer</span>}
+                  rules={[
+                    {
+                      validator: () =>
+                        selectedCustomer
+                          ? Promise.resolve()
+                          : Promise.reject("Please select a customer"),
+                    },
+                  ]}
+                >
+                  <Select
+                    showSearch
+                    placeholder="Search customer by name"
+                    className="txn-select"
+                    optionFilterProp="label"
+                    value={selectedCustomer?._id || undefined}
+                    onChange={handleCustomerSelect}
+                    options={customers.map((c) => ({
+                      value: c._id,
+                      label: c.name,
+                    }))}
+                    optionRender={(option) => {
+                      const customer = customers.find(
+                        (c) => c._id === option.value
+                      );
+                      return (
+                        <div className="flex justify-between items-center py-1">
+                          <span className="font-bold capitalize">
+                            {customer?.name}
+                          </span>
+                          <span
+                            className={`text-[10px] font-black px-2 py-0.5 rounded-md ${(customer?.outstanding || 0) > 0
+                              ? "bg-orange-50 text-orange-600"
+                              : "bg-green-50 text-green-600"
+                              }`}
+                          >
+                            ₹{(customer?.outstanding || 0).toLocaleString()}
+                          </span>
+                        </div>
+                      );
+                    }}
+                  />
+                </Form.Item>
+
+                {/* Outstanding display */}
+                {selectedCustomer && (
+                  <div
+                    className={`rounded-2xl p-4 mb-6 flex items-center justify-between border ${selectedCustomer.outstanding > 0
+                      ? "bg-orange-50/50 border-orange-100"
+                      : "bg-green-50/50 border-green-100"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${selectedCustomer.outstanding > 0
+                          ? "bg-orange-100 text-orange-600"
+                          : "bg-green-100 text-green-600"
+                          }`}
+                      >
+                        <DollarOutlined className="text-sm" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          Outstanding
+                        </p>
+                        <p
+                          className={`text-lg font-black tracking-tight ${selectedCustomer.outstanding > 0
+                            ? "text-orange-600"
+                            : "text-green-600"
+                            }`}
+                        >
+                          ₹{selectedCustomer.outstanding.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest capitalize">
+                      {selectedCustomer.name}
+                    </p>
+                  </div>
+                )}
+              </>
             ) : (
-              <Select
-                placeholder="Select purpose"
-                prefix={<FileTextOutlined />}
+              <Form.Item
+                name="name"
+                label={<span className={labelCls}>Party Name</span>}
+                rules={[
+                  { required: true, message: "Please enter party name" },
+                ]}
               >
-                <Option value="home">Home Purpose</Option>
-                <Option value="party">Party Payment</Option>
-                <Option value="cash">Cash Requirement</Option>
-                <Option value="other">Other</Option>
-              </Select>
+                <Input
+                  placeholder="e.g. Electricity Board"
+                  className="txn-field"
+                />
+              </Form.Item>
             )}
-          </Form.Item>
 
-          {/* Outstanding (only for Payment In) */}
-          {isPaymentIn && selectedCustomer && (
-            <Form.Item label="Outstanding Amount">
-              <Input
-                value={`₹${selectedCustomer.outstanding.toLocaleString()}`}
-                disabled
-                prefix={<DollarOutlined />}
-                style={{
-                  color:
-                    selectedCustomer.outstanding > 0 ? "#fa8c16" : "#52c41a",
-                  fontWeight: "bold",
-                }}
-              />
-            </Form.Item>
-          )}
-
-          {/* Payment Mode (only for Payment In) */}
-          {isPaymentIn && (
+            {/* Amount */}
             <Form.Item
-              name="paymentMode"
-              label="Payment Mode"
+              name="amount"
+              label={<span className={labelCls}>Amount (₹)</span>}
               rules={[
-                { required: true, message: "Please select payment mode" },
+                { required: true, message: "Please enter amount" },
+                {
+                  type: "number",
+                  min: 1,
+                  message: "Amount must be greater than 0",
+                },
               ]}
             >
-              <Select
-                placeholder="Select payment mode"
-                prefix={<CreditCardOutlined />}
-              >
-                <Option value="cash">Cash</Option>
-                <Option value="online">Online Transfer</Option>
-                <Option value="card">Card Payment</Option>
-                <Option value="cheque">Cheque</Option>
-              </Select>
+              <InputNumber
+                className="txn-number"
+                placeholder="0.00"
+                min={1}
+                formatter={(value) =>
+                  `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                }
+                parser={(value) =>
+                  value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                }
+              />
             </Form.Item>
-          )}
 
-          <Divider />
-
-          {/* Submit Button */}
-          <Form.Item style={{ marginBottom: 0 }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              size="large"
-              style={{
-                width: "100%",
-                height: 50,
-                fontSize: 16,
-                fontWeight: "bold",
-                background: isPaymentIn ? "#52c41a" : "#ff4d4f",
-                borderColor: isPaymentIn ? "#52c41a" : "#ff4d4f",
-              }}
-            >
-              Create {isPaymentIn ? "Payment" : "Transaction"}
-            </Button>
-          </Form.Item>
-        </Form>
-
-        {/* Summary Card */}
-        {selectedCustomer && isPaymentIn && (
-          <Card
-            size="small"
-            style={{
-              marginTop: 16,
-              background: "#f6ffed",
-              border: "1px solid #b7eb8f",
-            }}
-          >
-            <Text strong>Customer Summary:</Text>
-            <div style={{ marginTop: 8 }}>
-              <Text>{selectedCustomer.name} • </Text>
-              <Text
-                type={selectedCustomer.outstanding > 0 ? "warning" : "success"}
+            {/* Purpose / Payment Mode */}
+            {isPaymentIn ? (
+              <Form.Item
+                name="paymentMode"
+                label={<span className={labelCls}>Payment Mode</span>}
+                rules={[
+                  { required: true, message: "Please select payment mode" },
+                ]}
               >
-                Outstanding: ₹{selectedCustomer.outstanding.toLocaleString()}
-              </Text>
-            </div>
-          </Card>
-        )}
-      </Card>
-    </div>
+                <Select placeholder="Select mode" className="txn-select">
+                  <Select.Option value="CASH">
+                    <div className="flex items-center gap-2">
+                      <WalletOutlined /> Cash
+                    </div>
+                  </Select.Option>
+                  <Select.Option value="ONINE">
+                    <div className="flex items-center gap-2">
+                      <SwapOutlined /> Online Transfer
+                    </div>
+                  </Select.Option>
+                </Select>
+              </Form.Item>
+            ) : (
+              <Form.Item
+                name="purpose"
+                label={<span className={labelCls}>Purpose</span>}
+                rules={[
+                  { required: true, message: "Please select purpose" },
+                ]}
+              >
+                <Select placeholder="Select purpose" className="txn-select">
+                  <Select.Option value="home">Home Purpose</Select.Option>
+                  <Select.Option value="party">Party Payment</Select.Option>
+                  <Select.Option value="cash">Cash Requirement</Select.Option>
+                  <Select.Option value="other">Other</Select.Option>
+                </Select>
+              </Form.Item>
+            )}
+
+            {/* Submit */}
+            <Form.Item className="pt-2 mb-0">
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                icon={<SendOutlined />}
+                className={`w-full h-14 border-none rounded-2xl text-xs font-black tracking-[0.15em] shadow-xl transition-all hover:translate-y-[-2px] active:scale-95 uppercase flex items-center justify-center gap-2 ${isPaymentIn
+                  ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
+                  : "bg-orange-600 hover:bg-orange-700 shadow-orange-100"
+                  }`}
+              >
+                {isPaymentIn ? "Receive Payment" : "Record Expense"}
+              </Button>
+            </Form.Item>
+          </Form>
+        </div>
+      </div>
+
+      <style>{`
+        .txn-field {
+          height: 52px !important;
+          border-radius: 14px !important;
+          border: 2px solid #f1f5f9 !important;
+          background: #f8fafc !important;
+          font-weight: 700 !important;
+          color: #1e293b !important;
+          padding: 0 20px !important;
+          transition: all 0.3s ease !important;
+          width: 100% !important;
+          font-size: 14px !important;
+        }
+        .txn-field:hover { border-color: #e2e8f0 !important; }
+        .txn-field:focus, .txn-field.ant-input-focused {
+          border-color: #818cf8 !important;
+          background: #fff !important;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05) !important;
+        }
+
+        .txn-number {
+          width: 100% !important;
+          height: 52px !important;
+          border-radius: 14px !important;
+          border: 2px solid #f1f5f9 !important;
+          background: #f8fafc !important;
+          transition: all 0.3s ease !important;
+        }
+        .txn-number:hover { border-color: #e2e8f0 !important; }
+        .txn-number.ant-input-number-focused,
+        .txn-number:focus-within {
+          border-color: #818cf8 !important;
+          background: #fff !important;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05) !important;
+        }
+        .txn-number .ant-input-number-handler-wrap { display: none !important; }
+        .txn-number .ant-input-number-input-wrap { height: 100% !important; }
+        .txn-number .ant-input-number-input {
+          height: 48px !important;
+          padding: 0 20px !important;
+          font-weight: 700 !important;
+          font-size: 14px !important;
+        }
+
+        .txn-select .ant-select-selector {
+          height: 52px !important;
+          border-radius: 14px !important;
+          border: 2px solid #f1f5f9 !important;
+          background: #f8fafc !important;
+          padding: 0 20px !important;
+          padding-right: 36px !important;
+          display: flex !important;
+          align-items: center !important;
+          transition: all 0.3s ease !important;
+        }
+        .txn-select .ant-select-selector:hover { border-color: #e2e8f0 !important; }
+        .txn-select.ant-select-focused .ant-select-selector {
+          border-color: #818cf8 !important;
+          background: #fff !important;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05) !important;
+        }
+        .txn-select .ant-select-selection-item,
+        .txn-select .ant-select-selection-placeholder {
+          font-weight: 700 !important;
+          font-size: 14px !important;
+          line-height: 48px !important;
+          padding-inline-start: 0 !important;
+          padding-inline-end: 0 !important;
+        }
+        .txn-select .ant-select-selection-search {
+          inset-inline-start: 20px !important;
+          inset-inline-end: 36px !important;
+        }
+        .txn-select .ant-select-selection-search-input {
+          height: 48px !important;
+          font-weight: 700 !important;
+          font-size: 14px !important;
+        }
+        .txn-select .ant-select-arrow {
+          inset-inline-end: 16px !important;
+        }
+      `}</style>
+    </main>
   );
 };
 
