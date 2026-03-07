@@ -36,6 +36,7 @@ import isBetween from "dayjs/plugin/isBetween";
 dayjs.extend(isBetween);
 import useBillStore, { BillCustomer, BillCreatedBy, Bill } from "../store/bill.store";
 import useTransactionStore from "../store/transaction.store";
+import useReturnBillStore from "../store/returnBill.store";
 import { useNavigate } from "react-router-dom";
 import { useInventoryRequestStore } from "../store/requests.store";
 import apiCaller from "../utils/apiCaller";
@@ -53,7 +54,7 @@ const DailyReportPage = () => {
     [dayjs.Dayjs | null, dayjs.Dayjs | null]
   >([dayjs(), dayjs()]);
   const [loading, setLoading] = useState(false);
-  const [reportData, setReportData] = useState<{ bills: any[]; transactions: any[] } | null>(null);
+  const [reportData, setReportData] = useState<{ bills: any[]; transactions: any[]; returnBills?: any[] } | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [pin, setPin] = useState("");
   const [summary, setSummary] = useState({
@@ -83,10 +84,12 @@ const DailyReportPage = () => {
     (state) => state.transactions
   );
   const { requests: inventoryRequests } = useInventoryRequestStore();
+  const returnBillsFromStore = useReturnBillStore((state) => state.returnBills);
 
   // Use fetched report data if in historical mode, otherwise use live store
   const bills = reportData ? reportData.bills : billsFromStore;
   const transactions = reportData ? reportData.transactions : transactionsFromStore;
+  const returnBills = reportData ? reportData.returnBills || [] : returnBillsFromStore;
 
   const getOutstanding = (b: any) => b.total - (b.payment || 0);
 
@@ -97,9 +100,8 @@ const DailyReportPage = () => {
     return "Pending";
   };
 
-  const mappedBills = bills
+  const pureMappedBills = bills
     .map((bill: any) => {
-      const isHistorical = !!bill.createdAt;
       const dateVal = bill.createdAt || bill.date;
       return {
         key: bill._id || bill.id,
@@ -115,8 +117,32 @@ const DailyReportPage = () => {
         status: bill.status || getStatus(bill),
         rawData: bill,
       };
-    })
-    .reverse();
+    });
+
+  const mappedReturnBills = returnBills.map((rb: any) => {
+    const dateVal = rb.createdAt || rb.date;
+    return {
+      key: `return_${rb.id || rb._id}`,
+      date: dateVal ? dayjs(dateVal).format("DD/MM/YYYY") : "",
+      time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
+      billId: `R-${rb.id || rb._id}`, // Distinct prefix
+      billTotal: -rb.productsTotal, // Negative to stand out
+      outstanding: rb.previousOutstanding - rb.productsTotal,
+      payment: rb.paymentMode === "CASH" ? -rb.totalAmount : 0,
+      total: rb.previousOutstanding - rb.productsTotal,
+      customer: rb.customer,
+      createdBy: rb.createdBy,
+      status: "Returned",
+      rawData: rb,
+      isReturn: true
+    };
+  });
+
+  const mappedBills = [...pureMappedBills, ...mappedReturnBills].sort((a, b) => {
+    const timeA = new Date(a.rawData.createdAt || a.rawData.date).getTime();
+    const timeB = new Date(b.rawData.createdAt || b.rawData.date).getTime();
+    return timeB - timeA;
+  });
 
   const mappedTransactions = transactions
     .map((t: any) => ({
@@ -317,7 +343,7 @@ const DailyReportPage = () => {
 
     setLoading(true);
     try {
-      const [billsRes, transactionsRes] = await Promise.all([
+      const [billsRes, transactionsRes, returnBillsRes] = await Promise.all([
         apiCaller.get("/bills", {
           params: {
             startDate: dateRange[0].startOf("day").toISOString(),
@@ -330,6 +356,12 @@ const DailyReportPage = () => {
             endDate: dateRange[1].endOf("day").toISOString(),
           },
         }),
+        apiCaller.get("/return-bills", {
+          params: {
+            startDate: dateRange[0].startOf("day").toISOString(),
+            endDate: dateRange[1].endOf("day").toISOString(),
+          },
+        })
       ]);
 
       setReportData({
@@ -338,6 +370,7 @@ const DailyReportPage = () => {
           transactionsRes.data.data?.transactions ??
           transactionsRes.data.transactions ??
           [],
+        returnBills: returnBillsRes.data.data?.returnBills ?? returnBillsRes.data.returnBills ?? [],
       });
       message.success("Report data loaded successfully");
     } catch (error) {
@@ -436,7 +469,13 @@ const DailyReportPage = () => {
         <Button
           type="text"
           icon={<EyeOutlined />}
-          onClick={() => navigate(`/bills/${record.key}`, { state: { from: "daily-report" } })}
+          onClick={() => {
+            if (record.isReturn) {
+              navigate(`/return-bills/${record.rawData._id}`, { state: { from: "daily-report" } });
+            } else {
+              navigate(`/bills/${record.key}`, { state: { from: "daily-report" } });
+            }
+          }}
           className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
         />
       ),
@@ -1101,7 +1140,7 @@ const DailyReportPage = () => {
             {activeTab === "transactions" && (
               <Table
                 columns={transactionColumns}
-                dataSource={filteredTransactions.filter((trans) => trans.paymentIn === true) || []}
+                dataSource={filteredTransactions.filter((trans: any) => trans.paymentIn === true) || []}
                 loading={loading}
                 rowKey="transId"
                 scroll={{ x: 1000 }}

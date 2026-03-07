@@ -308,8 +308,14 @@ const ProductForm = ({
                   label={<span className={labelCls}>Stock</span>}
                   name="stock"
                   rules={[{ required: true, message: "Stock required" }]}
+                  tooltip={mode === "edit" ? "Stock cannot be manipulated directly while editing. Please generate an inventory request." : undefined}
                 >
-                  <InputNumber min={0} className="product-number" placeholder="0" />
+                  <InputNumber
+                    min={0}
+                    className="product-number"
+                    placeholder="0"
+                    disabled={mode === "edit"}
+                  />
                 </Form.Item>
                 <Form.Item
                   label={<span className={labelCls}>Packet Size</span>}

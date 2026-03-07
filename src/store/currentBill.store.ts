@@ -146,6 +146,8 @@ type BillingStore = {
       productId: string;
     }[]
   ) => void;
+  afterProductUpdated: (product: IProduct) => void;
+  afterProductDeleted: (productId: string) => void;
 };
 
 const useCurrentBillStore = create<BillingStore>((set, get) => {
@@ -479,7 +481,76 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
       // Finally, update the state only if needed
       set({ bills: newBills });
     },
-    afterProductUpdated: (productId: string) => { },
+    afterProductUpdated: (updatedProduct: IProduct) => {
+      set((state) => {
+        const newBills = state.bills.map((bill) => {
+          let billUpdated = false;
+          const newPurchased = bill.purchased.map((item) => {
+            if (item.id === updatedProduct._id) {
+              billUpdated = true;
+              const newItem = { ...item };
+              newItem.name = updatedProduct.name;
+              newItem.mrp = updatedProduct.mrp;
+              newItem.category = updatedProduct.category;
+              newItem.measuring = updatedProduct.measuring;
+              newItem.barcode = updatedProduct.barcode;
+
+              newItem.retailPrice = updatedProduct.retailPrice;
+              newItem.wholesalePrice = updatedProduct.wholesalePrice;
+              newItem.superWholesalePrice = updatedProduct.superWholesalePrice;
+
+              if (newItem.type === "SUPERWHOLESALE") {
+                newItem.price = updatedProduct.superWholesalePrice;
+              } else if (newItem.type === "WHOLESALE") {
+                newItem.price = updatedProduct.wholesalePrice;
+              } else {
+                newItem.price = updatedProduct.retailPrice;
+              }
+
+              const totalPieces =
+                newItem.piece +
+                newItem.box * newItem.boxQuantity +
+                newItem.packet * newItem.packetQuantity;
+
+              newItem.total = totalPieces * newItem.price - (newItem.discount || 0);
+              return newItem;
+            }
+            return item;
+          });
+
+          if (billUpdated) {
+            return {
+              ...bill,
+              purchased: newPurchased,
+              total: newPurchased.reduce((sum, item) => sum + item.total, 0),
+            };
+          }
+          return bill;
+        });
+
+        return { bills: newBills };
+      });
+    },
+    afterProductDeleted: (productId: string) => {
+      set((state) => {
+        const newBills = state.bills.map((bill) => {
+          // Check if product is in this bill
+          const hasProduct = bill.purchased.some((item) => item.id === productId);
+
+          if (hasProduct) {
+            const newPurchased = bill.purchased.filter((item) => item.id !== productId);
+            return {
+              ...bill,
+              purchased: newPurchased,
+              total: newPurchased.reduce((sum, item) => sum + item.total, 0),
+            };
+          }
+          return bill;
+        });
+
+        return { bills: newBills };
+      });
+    },
     afterStockUpdated: (updatedProduct) => {
       const updatedProductMap = new Map(
         updatedProduct.map((prod) => [prod.productId, prod])

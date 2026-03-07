@@ -11,7 +11,7 @@ import {
 } from "antd";
 import { ArrowLeftOutlined, PlusOutlined, UserAddOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import useCustomerStore, { Customer } from "../store/customer.store";
+import useCustomerStore, { ICustomer } from "../store/customer.store";
 import apiCaller from "../utils/apiCaller";
 
 const { Title, Text } = Typography;

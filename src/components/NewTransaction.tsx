@@ -315,7 +315,7 @@ const NewTransaction: React.FC = () => {
                   `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                 }
                 parser={(value) =>
-                  value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                  value!.replace(/\$\s?|(,*)/g, "") as any
                 }
               />
             </Form.Item>

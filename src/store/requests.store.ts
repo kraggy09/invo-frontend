@@ -54,10 +54,12 @@ export const useInventoryRequestStore = create<InventoryRequestStore>(
       const { requests } = get();
       const updatedRequests = requests.map((request) => {
         if (requestsMap.has(request._id)) {
+          const updates = requestsMap.get(request._id);
           return {
             ...request,
-            stockAtUpdate: requestsMap.get(request._id)?.stockAtUpdate,
-            newStock: requestsMap.get(request._id)?.newStock as number,
+            stockAtUpdate: updates?.stockAtUpdate,
+            newStock: updates?.newStock as number,
+            approved: true,
           };
         }
         return request;

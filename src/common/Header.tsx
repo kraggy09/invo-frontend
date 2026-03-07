@@ -14,6 +14,7 @@ import {
   RollbackOutlined,
   AppstoreOutlined,
   MenuOutlined,
+  HistoryOutlined,
 } from "@ant-design/icons";
 
 const navLinks = [
@@ -61,6 +62,11 @@ const navLinks = [
     label: "Categories",
     path: "/categories",
     icon: <AppstoreOutlined className="text-base mr-2" />,
+  },
+  {
+    label: "Journey Logs",
+    path: "/journey-logs",
+    icon: <HistoryOutlined className="text-base mr-2" />,
   },
 ];
 

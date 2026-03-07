@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Table, Spin, Button, message } from "antd";
-import { PrinterOutlined, ArrowLeftOutlined, DollarOutlined, FileTextOutlined } from "@ant-design/icons";
+import { PrinterOutlined, ArrowLeftOutlined, DollarOutlined, FileTextOutlined, ReloadOutlined } from "@ant-design/icons";
 import BillPrint from "../billing/BillPrint";
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import apiCaller from "../utils/apiCaller";
 import dayjs from "dayjs";
+import ReturnProductModal from "../components/ReturnProductModal";
 
 const SingleBillPage = () => {
   const { id } = useParams();
@@ -15,6 +16,7 @@ const SingleBillPage = () => {
   const from = location.state?.from;
   const [loading, setLoading] = useState(false);
   const [bill, setBill] = useState<any>(null);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
 
   const billProductTotal = useMemo(() => {
     return bill?.productsTotal ?? bill?.items?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) ?? 0;
@@ -193,13 +195,22 @@ const SingleBillPage = () => {
                     </span>
                   </div>
                 </div>
-                <Button
-                  icon={<PrinterOutlined />}
-                  onClick={() => handlePrint()}
-                  className="h-14 px-10 bg-white/10 hover:bg-white/20 border-white/20 text-white font-black rounded-2xl backdrop-blur-md transition-all flex items-center gap-2 text-[10px] tracking-widest uppercase relative z-10"
-                >
-                  PRINT TRANSACTION
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3 relative z-10 w-full md:w-auto mt-4 md:mt-0">
+                  <Button
+                    icon={<ReloadOutlined />}
+                    onClick={() => setIsReturnModalOpen(true)}
+                    className="h-14 px-8 bg-orange-500 hover:bg-orange-400 border-none text-white font-black rounded-2xl transition-all flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase shadow-lg shadow-orange-500/20"
+                  >
+                    RETURN ITEMS
+                  </Button>
+                  <Button
+                    icon={<PrinterOutlined />}
+                    onClick={() => handlePrint()}
+                    className="h-14 px-10 bg-white/10 hover:bg-white/20 border-white/20 text-white font-black rounded-2xl backdrop-blur-md transition-all flex items-center gap-2 text-[10px] tracking-widest uppercase"
+                  >
+                    PRINT TRANSACTION
+                  </Button>
+                </div>
 
                 <div className="absolute top-0 right-0 p-20 opacity-5 group-hover:scale-110 transition-transform duration-1000 rotate-12">
                   <PrinterOutlined style={{ fontSize: 280 }} />
@@ -311,6 +322,15 @@ const SingleBillPage = () => {
             />
           </div>
         )}
+
+        <ReturnProductModal
+          isOpen={isReturnModalOpen}
+          onClose={() => setIsReturnModalOpen(false)}
+          bill={bill}
+          onSuccess={() => {
+            navigate("/bills");
+          }}
+        />
       </div>
 
       <style>{`

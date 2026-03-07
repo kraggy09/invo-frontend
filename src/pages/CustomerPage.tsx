@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import useCustomerStore, { Customer } from "../store/customer.store";
+import useCustomerStore, { ICustomer } from "../store/customer.store";
 import { Table, Button, Select, Input } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 
 const ACCENT = "#2563eb";
 
-type CustomerWithTransactions = Customer & { transactions?: any[] };
+type CustomerWithTransactions = ICustomer & { transactions?: any[] };
 
 const sorters: Record<
   string,

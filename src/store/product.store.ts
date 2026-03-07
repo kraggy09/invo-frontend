@@ -63,11 +63,17 @@ const useProductStore = create<ProductStore>((set) => ({
     });
   },
 
-  updateProduct: (product: IProduct) => {
+  updateProduct: (product: Partial<IProduct> & { _id: string }) => {
     set((state) => {
-      const newProducts = state.products.map((p) =>
-        p._id === product._id ? product : p
-      ).sort((a, b) => a.name.localeCompare(b.name));
+      const newProducts = state.products.map((p) => {
+        if (p._id === product._id) {
+          // Explicitly prevent stock from being manipulated during a general product update
+          // as stock is only allowed to be explicitly updated via updateStock globally.
+          const { stock, ...restOfFields } = product as any;
+          return { ...p, ...restOfFields };
+        }
+        return p;
+      }).sort((a, b) => a.name.localeCompare(b.name));
       const newMap = new Map<string, number>();
       newProducts.forEach((p, index) => newMap.set(p._id, index));
       return { products: newProducts, productMap: newMap };

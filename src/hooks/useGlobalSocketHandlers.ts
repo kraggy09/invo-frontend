@@ -15,6 +15,8 @@ import useCurrentBillStore from "../store/currentBill.store";
 import useTransactionStore, { ITransaction } from "../store/transaction.store";
 import useBillStore from "../store/bill.store";
 import { Product, useInventoryRequestStore } from "../store/requests.store";
+import { useJourneyStore } from "../store/journey.store";
+import useReturnBillStore from "../store/returnBill.store";
 
 export const useGlobalSocketHandlers = () => {
   const { socket, isConnected } = useSocket();
@@ -38,7 +40,6 @@ export const useGlobalSocketHandlers = () => {
     (state) => state.updateOutstanding
   );
   const addCustomer = useCustomerStore((state) => state.addCustomer);
-  const updateCustomer = useCustomerStore((state) => state.updateCustomer);
 
   // Category store
   const setCategories = useCategoriesStore((state) => state.setCategories);
@@ -62,12 +63,26 @@ export const useGlobalSocketHandlers = () => {
 
   const requests = useInventoryRequestStore((state) => state.requests);
   const setRequests = useInventoryRequestStore((state) => state.setRequests);
+
+  // Return Bill store
+  const addReturnBill = useReturnBillStore((state) => state.addReturnBill);
+  const setReturnBills = useReturnBillStore((state) => state.setReturnBills);
+
+  // Journey logs store
+  const addLogFromSocket = useJourneyStore((state) => state.addLogFromSocket);
+
   // Current bill store
   const afterBillCreated = useCurrentBillStore(
     (state) => state.afterBillCreated
   );
   const afterStockUpdated = useCurrentBillStore(
     (state) => state.afterStockUpdated
+  );
+  const afterProductUpdated = useCurrentBillStore(
+    (state) => state.afterProductUpdated
+  );
+  const afterProductDeleted = useCurrentBillStore(
+    (state) => state.afterProductDeleted
   );
 
   const productsRef = useRef(products);
@@ -172,6 +187,44 @@ export const useGlobalSocketHandlers = () => {
     []
   );
 
+  const handleReturnBillCreated = useCallback((data: any) => {
+    console.log("New return bill created globally:", data);
+    addReturnBill(data.returnBill);
+    if (data.transaction) {
+      addTransaction(data.transaction);
+    }
+
+    let currentCustomer = null;
+    if (data.returnBill.customer) {
+      const customerId = typeof data.returnBill.customer === 'string' ? data.returnBill.customer : data.returnBill.customer._id;
+      currentCustomer = updateOutstanding(customerId, data.updatedOutstanding);
+    }
+    // Also we should update the old products stock
+    if (data.returnBill.items && data.returnBill.items.length > 0) {
+      let updatedProducts = [...productsRef.current];
+      const productsIdMap = productMapRef.current;
+      const itemsMap = new Map();
+
+      data.returnBill.items.forEach((item: any) => {
+        const productId = typeof item.product === 'string' ? item.product : item.product._id;
+        const productIndex = productsIdMap.get(productId);
+        if (productIndex !== undefined) {
+          updatedProducts[productIndex].stock += item.quantityReturned;
+          itemsMap.set(productId, { newQuantity: updatedProducts[productIndex].stock });
+        }
+      });
+      setProducts(updatedProducts);
+
+      if (currentCustomer) {
+        afterBillCreated(currentCustomer, itemsMap);
+      }
+    } else {
+      if (currentCustomer) {
+        afterBillCreated(currentCustomer);
+      }
+    }
+  }, [addReturnBill, addTransaction, updateOutstanding, setProducts, afterBillCreated]);
+
   const handleInventoryUpdateRequest = useCallback(
     (data: any) => {
       console.log("CALLING INVENTORY UPDATE REQUEST HANDLER");
@@ -196,7 +249,7 @@ export const useGlobalSocketHandlers = () => {
           productId: string;
           quantityAdded: number;
         }[];
-        todayStockUpdates: {
+        updatedRequests?: {
           createdAt: string;
           product: string;
           quantity: number;
@@ -246,9 +299,20 @@ export const useGlobalSocketHandlers = () => {
       });
       afterStockUpdated(updatedProducts);
 
+      if (data.data.updatedRequests) {
+        const requestsMap = new Map();
+        data.data.updatedRequests.forEach((req) => {
+          requestsMap.set(req._id, {
+            stockAtUpdate: req.previousStock,
+            newStock: req.newStock,
+          });
+        });
+        useInventoryRequestStore.getState().afterStockUpdated(requestsMap);
+      }
+
       setProducts(newProducts);
     },
-    []
+    [afterStockUpdated, setProducts]
   );
 
   const handleStockRejected = useCallback((requestId: string) => {
@@ -290,21 +354,30 @@ export const useGlobalSocketHandlers = () => {
 
   }, [approveTransaction, rejectTransaction, updateOutstanding, afterBillCreated])
 
-  const handleProductCreated = useCallback((product: IProduct) => addProduct(product), [addProduct]);
-  const handleProductUpdated = useCallback((product: IProduct) => updateProduct(product), [updateProduct]);
-  const handleProductDeleted = useCallback((productId: string) => removeProduct(productId), [removeProduct]);
+  const handleProductCreated = useCallback((product: IProduct) => {
+    console.log("New product created globally:", product);
+    addProduct(product);
+    message.success(`Product ${product.name} created successfully`);
+  }, [addProduct]);
+
+  const handleProductUpdated = useCallback((product: IProduct) => {
+    console.log("Product updated globally:", product);
+    updateProduct(product);
+    afterProductUpdated(product);
+  }, [updateProduct, afterProductUpdated]);
+
+  const handleProductDeleted = useCallback((productId: string) => {
+    removeProduct(productId);
+    afterProductDeleted(productId);
+    message.info("A product was removed from the catalog");
+  }, [removeProduct, afterProductDeleted]);
 
   const handleCustomerCreated = useCallback((customer: any) => addCustomer(customer), [addCustomer]);
-  const handleCustomerUpdated = useCallback((customer: any) => updateCustomer(customer), [updateCustomer]);
 
+  const handleJourneyLogCreated = useCallback((log: any) => {
+    addLogFromSocket(log);
+  }, [addLogFromSocket]);
 
-  const handleBillUpdated = useCallback(
-    (data: any) => {
-      console.log("Bill updated via socket:", data);
-      updateBill(data);
-    },
-    [updateBill]
-  );
 
   const handleWelcomeMessage = useCallback(
     async (data: { socketId: string }) => {
@@ -357,6 +430,14 @@ export const useGlobalSocketHandlers = () => {
       })
     );
     promiseData.push(apiCaller.get("/transactions/approvals"));
+    promiseData.push(
+      apiCaller.get("/return-bills", {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      })
+    );
 
     await Promise.all(promiseData)
       .then((responses) => {
@@ -369,6 +450,7 @@ export const useGlobalSocketHandlers = () => {
         const transactionId = responses[6].data.data.transactionId;
         const requests = responses[7].data.data.requests;
         const approvals = responses[8].data.data.transactions;
+        const returnBillsRes = responses[9]?.data?.data?.returnBills;
         console.log(requests, "This are the requests");
 
         const productsMap: Map<string, number> = new Map(
@@ -381,6 +463,7 @@ export const useGlobalSocketHandlers = () => {
         setBillingId(billingId);
         setProducts(products);
         setBills(bills);
+        setReturnBills(returnBillsRes || []);
         setTransactions(transactions);
         setTransactionId(transactionId);
         setCategories(categories);
@@ -402,19 +485,20 @@ export const useGlobalSocketHandlers = () => {
     );
     socket.on(SocketEvents.INVENTORY.REJECTED, handleStockRejected);
     socket.on(SocketEvents.BILL.CREATED, handleBillCreated);
-    socket.on(SocketEvents.BILL.UPDATED, handleBillUpdated);
+    socket.on(SocketEvents.BILL.RETURN_CREATED, handleReturnBillCreated);
     socket.on(SocketEvents.PRODUCT.CREATED, handleProductCreated);
     socket.on(SocketEvents.PRODUCT.UPDATED, handleProductUpdated);
     socket.on(SocketEvents.PRODUCT.DELETED, handleProductDeleted);
     socket.on(SocketEvents.CUSTOMER.CREATED, handleCustomerCreated);
-    socket.on(SocketEvents.CUSTOMER.UPDATED, handleCustomerUpdated);
     socket.on(SocketEvents.TRANSACTION.CREATED, handleTransactionCreated);
     socket.on(SocketEvents.TRANSACTION.UPDATED, handleTransactionUpdated);
+    socket.on("JOURNEY_LOG_CREATED", handleJourneyLogCreated);
 
     // Cleanup on unmount (though these should persist)
     return () => {
       socket.off(SocketEvents.NOTIFICATION);
       socket.off(SocketEvents.BILL.CREATED);
+      socket.off(SocketEvents.BILL.RETURN_CREATED);
       socket.off(SocketEvents.BILL.UPDATED);
       socket.off("welcome");
       socket.off(SocketEvents.INVENTORY.UPDATED);
@@ -427,6 +511,7 @@ export const useGlobalSocketHandlers = () => {
       socket.off(SocketEvents.CUSTOMER.UPDATED);
       socket.off(SocketEvents.TRANSACTION.CREATED);
       socket.off(SocketEvents.TRANSACTION.UPDATED);
+      socket.off("JOURNEY_LOG_CREATED");
     };
-  }, [socket, isConnected, handleWelcomeMessage, handleNotification, handleBillCreated, handleBillUpdated, handleInventoryUpdateRequest, handleStockUpdated, handleStockRejected, handleProductCreated, handleProductUpdated, handleProductDeleted, handleCustomerCreated, handleCustomerUpdated, handleTransactionCreated, handleTransactionUpdated]);
+  }, [socket, isConnected, handleWelcomeMessage, handleNotification, handleBillCreated, handleInventoryUpdateRequest, handleStockUpdated, handleStockRejected, handleProductCreated, handleProductUpdated, handleProductDeleted, handleCustomerCreated, handleTransactionCreated, handleTransactionUpdated, handleJourneyLogCreated]);
 };

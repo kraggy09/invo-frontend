@@ -73,8 +73,7 @@ const ProductPage = () => {
     setLoading(true);
     try {
       await apiCaller.delete(`/products/${product._id}`);
-      setProducts(products.filter((p) => p._id !== product._id));
-      message.success("Product deleted");
+      // Rely entirely on global socket handler to update global state and show success message
     } catch {
       message.error("Failed to delete product");
     }

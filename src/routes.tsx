@@ -21,6 +21,10 @@ import NewTransaction from "./components/NewTransaction";
 import TransactionPage from "./pages/TransactionPage";
 import SingleTransactionPage from "./pages/SingleTransactionPage";
 import UpdateStockRequest from "./pages/UpdateStockRequest";
+import JourneyLogsPage from "./pages/JourneyLogsPage";
+import ReturnBillPage from "./pages/ReturnBillPage";
+import SingleReturnBillPage from "./pages/SingleReturnBillPage";
+
 const AppRoutes = () => {
   const location = useLocation();
   const path = location.pathname;
@@ -164,6 +168,30 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <NewTransaction />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/journey-logs"
+          element={
+            <ProtectedRoute>
+              <JourneyLogsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/returns"
+          element={
+            <ProtectedRoute>
+              <ReturnBillPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/return-bills/:id"
+          element={
+            <ProtectedRoute>
+              <SingleReturnBillPage />
             </ProtectedRoute>
           }
         />

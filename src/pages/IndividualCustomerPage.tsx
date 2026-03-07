@@ -104,7 +104,7 @@ const IndividualCustomerPage = () => {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
       dataIndex: "id",
       key: "id",
-      render: (id: number) => <span className="font-mono font-black text-indigo-500 text-xs">#{id}</span>,
+      render: (id: string | number) => <span className="font-mono font-black text-indigo-500 text-xs">#{id}</span>,
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Products Total</span>,
@@ -134,11 +134,15 @@ const IndividualCustomerPage = () => {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Outstanding</span>,
       key: "outstanding",
       align: "right" as const,
-      render: (_: unknown, record: Bill) => {
-        const o = (record.total || 0) - (record.payment || 0);
+      render: (_: unknown, record: any) => {
+        let o = (record.total || 0) - (record.payment || 0);
+        if (record.isReturn && record.paymentMode === 'ADJUSTMENT') {
+          o = record.total;
+        }
+
         return (
-          <span className={`font-black ${o > 0 ? "text-orange-500" : "text-gray-300"}`}>
-            ₹{formatIndianNumber(o)}
+          <span className={`font-black ${o > 0 ? "text-orange-500" : o < 0 ? "text-green-500" : "text-gray-300"}`}>
+            {o < 0 ? "-" : ""}₹{formatIndianNumber(Math.abs(o))}
           </span>
         );
       },
@@ -155,11 +159,17 @@ const IndividualCustomerPage = () => {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">View</span>,
       key: "view",
       align: "center" as const,
-      render: (_: unknown, record: Bill) => (
+      render: (_: unknown, record: any) => (
         <Button
           type="text"
           icon={<EyeOutlined />}
-          onClick={() => navigate(`/bills/${record._id}`, { state: { from: "customer" } })}
+          onClick={() => {
+            if (record.isReturn) {
+              navigate(`/return-bills/${record._id}`, { state: { from: "customer" } });
+            } else {
+              navigate(`/bills/${record._id}`, { state: { from: "customer" } });
+            }
+          }}
           className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
         />
       ),
@@ -316,7 +326,19 @@ const IndividualCustomerPage = () => {
                   <div className="p-2 sm:p-8">
                     <Table
                       columns={billColumns}
-                      dataSource={customer?.bills || []}
+                      dataSource={
+                        [
+                          ...(customer?.bills || []).map((b: any) => ({ ...b, isReturn: false })),
+                          ...(customer?.returnBills || []).map((rb: any) => ({
+                            ...rb,
+                            id: `R-${rb.id || rb._id}`,
+                            productsTotal: rb.productsTotal,
+                            total: rb.previousOutstanding - rb.productsTotal,
+                            payment: rb.paymentMode === "CASH" ? -rb.totalAmount : 0,
+                            isReturn: true
+                          }))
+                        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      }
                       rowKey="id"
                       pagination={{ pageSize: 10, showSizeChanger: true, className: "px-6 py-4" }}
                       scroll={{ x: 800 }}
