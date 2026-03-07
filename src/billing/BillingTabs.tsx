@@ -108,8 +108,8 @@ const BillingTabs = () => {
               key={tab.key}
               onClick={() => setCurrentBillingId(parseInt(tab.key, 10))}
               className={`group relative p-4 rounded-2xl border-2 transition-all cursor-pointer ${currentBillingId.toString() === tab.key
-                  ? "bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100 scale-[1.02]"
-                  : "bg-white border-gray-50 text-gray-600 hover:border-indigo-100 hover:bg-indigo-50/30"
+                ? "bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100 scale-[1.02]"
+                : "bg-white border-gray-50 text-gray-600 hover:border-indigo-100 hover:bg-indigo-50/30"
                 }`}
             >
               <div className="flex items-center justify-between mb-2">

@@ -1,80 +1,70 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
-  Card,
   Button,
-  Empty,
-  Typography,
-  Row,
-  Col,
-  Space,
-  Tag,
-  Statistic,
   Spin,
   message,
   Popconfirm,
-  Badge,
 } from "antd";
 import {
   CheckOutlined,
-  CloseOutlined,
   PlusOutlined,
-  UserOutlined,
-  CalendarOutlined,
   CreditCardOutlined,
-  ExclamationCircleOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import { calculateDate, calculateTime } from "../utils/bill.util";
+import dayjs from "dayjs";
 import useUserStore from "../store/user.store";
 import apiCaller from "../utils/apiCaller";
-
-const { Title, Text } = Typography;
-
+import useTransactionStore from "../store/transaction.store";
 
 const TransactionPage: React.FC = () => {
-  const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const user = useUserStore((user) => user.user);
 
-  const fetchTransactions = async () => {
-    setLoading(true);
-    try {
-      const res = await apiCaller.get("/transactions/approvals");
-      setTransactions(res.data.transactions);
-      setLoading(false);
-    } catch (error) {
-      console.error(error);
-      setLoading(false);
-      message.error("Failed to fetch transactions");
-    }
-  };
+  // Use global store for realtime approvals
+  const transactions = useTransactionStore((state) => state.transactionApprovals);
 
   const approveTransaction = async (id: string) => {
     setLoading(true);
     try {
       const res = await apiCaller.post(`/transactions/${id}/approve`);
       message.success(res.data.msg || "Transaction approved successfully");
-      setTransactions((prev) => prev.filter((tr) => tr._id !== id));
-      setLoading(false);
+      // Removals from list will be handled automatically by socket events
     } catch (error: any) {
-      setLoading(false);
       console.error(error);
-      if (error.response?.data?.customer?.outstanding) {
+      if (error.response?.data?.data?.customer?.outstanding !== undefined) {
+        const { customer, transaction } = error.response.data.data;
         message.error({
           content: (
-            <div>
-              <div>
-                Current outstanding: ₹{error.response.data.customer.outstanding}
+            <div className="flex flex-col gap-1.5 py-1">
+              <div className="font-black text-red-600 text-sm tracking-tight leading-tight mb-1">
+                {error.response.data.msg || "Outstanding mismatch detected"}
               </div>
-              <div>{error.response.data.msg}</div>
+              <div className="flex justify-between items-center bg-gray-50 rounded-lg p-2 border border-gray-100">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Expected</span>
+                <span className="font-mono font-black text-gray-500 line-through">₹{transaction.previousOutstanding}</span>
+              </div>
+              <div className="flex justify-between items-center bg-red-50 rounded-lg p-2 border border-red-100">
+                <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">Actual (Now)</span>
+                <span className="font-mono font-black text-red-600">₹{customer.outstanding}</span>
+              </div>
+              <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest text-center mt-2.5">
+                Reject this log and request a new one
+              </div>
             </div>
           ),
-          duration: 5,
+          duration: 8,
+          className: "custom-error-message",
         });
       } else {
-        message.error("Failed to approve transaction");
+        message.error({
+          content: error.response?.data?.msg || "Failed to approve transaction",
+          className: "font-bold"
+        });
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,12 +73,12 @@ const TransactionPage: React.FC = () => {
     try {
       const res = await apiCaller.post(`/transactions/${id}/reject`);
       message.success(res.data.msg || "Transaction rejected successfully");
-      setTransactions((prev) => prev.filter((tr) => tr._id !== id));
-      setLoading(false);
+      // Removals from list will be handled automatically by socket events
     } catch (error) {
-      setLoading(false);
       console.error(error);
       message.error("Failed to reject transaction");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -99,7 +89,7 @@ const TransactionPage: React.FC = () => {
       case "online":
         return "blue";
       case "card":
-        return "geekblue"; // Softer blue-purple for professionalism
+        return "geekblue";
       default:
         return "default";
     }
@@ -108,10 +98,6 @@ const TransactionPage: React.FC = () => {
   const formatCurrency = (amount: number) => {
     return `₹${amount.toLocaleString()}`;
   };
-
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
 
   return (
     <main className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
@@ -161,27 +147,44 @@ const TransactionPage: React.FC = () => {
 
                   <div className="p-8">
                     {/* Customer Info */}
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black">
+                    <div className="flex items-center gap-3 mb-6 relative">
+                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl flex items-center justify-center text-white font-black shadow-lg shadow-indigo-200">
                         {transaction.name.charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black text-gray-800 truncate capitalize">{transaction.name}</p>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{calculateDate(new Date(transaction.createdAt))}</p>
+                      <div className="flex-1 min-w-0 pr-16">
+                        <p className="text-sm font-black text-gray-800 truncate capitalize tracking-tight">{transaction.name}</p>
+                        <div className="flex items-center gap-1 mt-0.5 text-indigo-500">
+                          <ClockCircleOutlined className="text-[10px]" />
+                          <p className="text-[10px] font-bold uppercase tracking-widest leading-none">
+                            {dayjs(transaction.createdAt).format("h:mm A")}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Optional right-aligned date */}
+                      <div className="absolute top-1 right-0 text-right">
+                        <p className="text-[8px] font-black text-black uppercase tracking-widest">{dayjs(transaction.createdAt).format("DD MMM YYYY")}</p>
                       </div>
                     </div>
 
                     {/* Ledger Impact */}
-                    <div className="grid grid-cols-2 gap-3 mb-8">
-                      <div className="bg-gray-50 rounded-2xl p-3 border border-gray-50">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Current</p>
-                        <p className="text-xs font-black text-gray-700">₹{transaction.previousOutstanding.toLocaleString()}</p>
+                    {transaction.previousOutstanding !== undefined && transaction.newOutstanding !== undefined ? (
+                      <div className="grid grid-cols-2 gap-3 mb-8">
+                        <div className="bg-gray-50 rounded-2xl p-3 border border-gray-50">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Current</p>
+                          <p className="text-xs font-black text-gray-700">₹{transaction.previousOutstanding.toLocaleString()}</p>
+                        </div>
+                        <div className={`rounded-2xl p-3 border ${transaction.newOutstanding < transaction.previousOutstanding ? "bg-green-50/50 border-green-100" : "bg-red-50/50 border-red-100"}`}>
+                          <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${transaction.newOutstanding < transaction.previousOutstanding ? "text-green-500" : "text-red-500"}`}>Target</p>
+                          <p className={`text-xs font-black ${transaction.newOutstanding < transaction.previousOutstanding ? "text-green-700" : "text-red-700"}`}>₹{transaction.newOutstanding.toLocaleString()}</p>
+                        </div>
                       </div>
-                      <div className={`rounded-2xl p-3 border ${transaction.newOutstanding < transaction.previousOutstanding ? "bg-green-50/50 border-green-100" : "bg-red-50/50 border-red-100"}`}>
-                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${transaction.newOutstanding < transaction.previousOutstanding ? "text-green-500" : "text-red-500"}`}>Target</p>
-                        <p className={`text-xs font-black ${transaction.newOutstanding < transaction.previousOutstanding ? "text-green-700" : "text-red-700"}`}>₹{transaction.newOutstanding.toLocaleString()}</p>
+                    ) : (
+                      <div className="bg-gray-50 rounded-2xl p-3 border border-gray-50 mb-8">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Impact</p>
+                        <p className="text-xs font-black text-gray-700">Not Applicable</p>
                       </div>
-                    </div>
+                    )}
 
                     {/* Actions */}
                     {user && (

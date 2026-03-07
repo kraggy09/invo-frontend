@@ -9,7 +9,7 @@ import SelectWithSuggestions from "../components/SelectWithSuggestions";
 
 // Zustand selectors
 import useProductStore, { IProduct } from "../store/product.store";
-import useCustomerStore, { Customer } from "../store/customer.store";
+import useCustomerStore, { ICustomer } from "../store/customer.store";
 import useCurrentBillStore from "../store/currentBill.store";
 import useBillStore from "../store/bill.store";
 import useTransactionStore from "../store/transaction.store";
@@ -43,7 +43,7 @@ const BillingHeader = () => {
     addProduct(product, currentBillingId.toString());
   };
 
-  const handleCustomerSelect = (customer: Customer) => {
+  const handleCustomerSelect = (customer: ICustomer) => {
     setCustomerForBill(customer, currentBillingId.toString());
   };
 
@@ -76,7 +76,7 @@ const BillingHeader = () => {
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-2">
               <UserOutlined className="text-indigo-400" /> Customer
             </label>
-            <SelectWithSuggestions<Customer>
+            <SelectWithSuggestions<ICustomer>
               data={customers}
               onSelect={handleCustomerSelect}
               onClear={handleCustomerClear}

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Customer } from "./customer.store";
+import { ICustomer as Customer } from "./customer.store";
 import { IProduct } from "./product.store";
 import { calculatePriceTag } from "../utils/priceUtils";
 import { BillItem } from "./bill.store";
@@ -137,7 +137,7 @@ type BillingStore = {
   ) => void;
   afterBillCreated: (
     customer: Customer,
-    purchasedMap: Map<string, BillItem>
+    purchasedMap?: Map<string, BillItem>
   ) => void;
   afterStockUpdated: (
     updatedProducts: {
@@ -302,16 +302,16 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
             priceType === "SUPERWHOLESALE"
               ? currentProduct.superWholesalePrice
               : priceType === "WHOLESALE"
-              ? currentProduct.wholesalePrice
-              : currentProduct.retailPrice;
+                ? currentProduct.wholesalePrice
+                : currentProduct.retailPrice;
           currentProduct.total =
             currentProduct.piece * currentProduct.price +
             currentProduct.box *
-              currentProduct.boxQuantity *
-              currentProduct.price +
+            currentProduct.boxQuantity *
+            currentProduct.price +
             currentProduct.packet *
-              currentProduct.packetQuantity *
-              currentProduct.price;
+            currentProduct.packetQuantity *
+            currentProduct.price;
         }
         state.bills[idx].total = state.bills[idx].purchased.reduce(
           (sum, product) => sum + product.total,
@@ -450,7 +450,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
         // Update customer if matched
         const updatedCustomer = isSameCustomer ? customer : bill.customer;
 
-        const updatedPurchased = bill.purchased.map((product) => {
+        const updatedPurchased = purchasedMap ? bill.purchased.map((product) => {
           const updatedItem = purchasedMap.get(product.id);
           if (updatedItem) {
             updated = true;
@@ -460,7 +460,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
             };
           }
           return product;
-        });
+        }) : bill.purchased;
 
         // Only return a new object if something changed
         if (isSameCustomer || updated) {
@@ -479,7 +479,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
       // Finally, update the state only if needed
       set({ bills: newBills });
     },
-    afterProductUpdated: (productId: string) => {},
+    afterProductUpdated: (productId: string) => { },
     afterStockUpdated: (updatedProduct) => {
       const updatedProductMap = new Map(
         updatedProduct.map((prod) => [prod.productId, prod])

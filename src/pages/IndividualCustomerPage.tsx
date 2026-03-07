@@ -31,7 +31,9 @@ import {
   Legend,
 } from "recharts";
 import apiCaller from "../utils/apiCaller";
+import { formatIndianNumber } from "../utils";
 import dayjs from "dayjs";
+import { Bill, BillCreatedBy } from "../store/bill.store";
 
 const ACCENT = "#2563eb";
 
@@ -88,48 +90,77 @@ const IndividualCustomerPage = () => {
 
   const billColumns = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Reference</span>,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date</span>,
+      dataIndex: "createdAt",
+      key: "date",
+      render: (d: string) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-gray-800">{dayjs(d).format("DD/MM/YYYY")}</span>
+          <span className="text-[10px] font-bold text-gray-400">{dayjs(d).format("hh:mm A")}</span>
+        </div>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
       dataIndex: "id",
       key: "id",
-      render: (id: string, record: any) => (
-        <div className="flex flex-col">
-          <span className="text-xs font-black text-indigo-600 uppercase tracking-tighter">#B-{id}</span>
-          <span className="text-[10px] font-bold text-gray-400">{dayjs(record.createdAt).format("DD MMM, YYYY")}</span>
-        </div>
-      ),
+      render: (id: number) => <span className="font-mono font-black text-indigo-500 text-xs">#{id}</span>,
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Status</span>,
-      dataIndex: "outstanding",
-      key: "outstanding",
-      render: (v: number) => (
-        <div className="flex justify-center">
-          <Tag color={v > 0 ? "orange" : "green"} className="rounded-lg font-black text-[10px] border-0 px-3 py-0.5 m-0 uppercase tracking-widest">
-            {v > 0 ? "Pending" : "Cleared"}
-          </Tag>
-        </div>
-      ),
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Products Total</span>,
+      dataIndex: "productsTotal",
+      key: "productsTotal",
+      align: "right" as const,
+      render: (t: number, record: Bill) => {
+        const pTotal = t ?? record?.items?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) ?? 0;
+        return <span className="font-black text-gray-800">₹{formatIndianNumber(pTotal)}</span>;
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right block pr-4">Amount</span>,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total</span>,
       dataIndex: "total",
       key: "total",
-      render: (v: number) => (
-        <div className="text-right pr-4">
-          <span className="font-black text-gray-800 tracking-tighter text-sm">₹{v.toLocaleString()}</span>
-        </div>
+      align: "right" as const,
+      render: (t: number) => <span className="font-black text-gray-800">₹{formatIndianNumber(t)}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Payment</span>,
+      dataIndex: "payment",
+      key: "payment",
+      align: "right" as const,
+      render: (p: number) => <span className="font-black text-green-600">₹{formatIndianNumber(p)}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Outstanding</span>,
+      key: "outstanding",
+      align: "right" as const,
+      render: (_: unknown, record: Bill) => {
+        const o = (record.total || 0) - (record.payment || 0);
+        return (
+          <span className={`font-black ${o > 0 ? "text-orange-500" : "text-gray-300"}`}>
+            ₹{formatIndianNumber(o)}
+          </span>
+        );
+      },
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Created By</span>,
+      dataIndex: "createdBy",
+      key: "createdBy",
+      render: (u: BillCreatedBy) => (
+        <span className="text-xs font-bold text-gray-500 capitalize">{u?.name || "System"}</span>
       ),
     },
     {
-      title: "",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">View</span>,
       key: "view",
-      width: 60,
-      render: (_: any, record: any) => (
+      align: "center" as const,
+      render: (_: unknown, record: Bill) => (
         <Button
           type="text"
           icon={<EyeOutlined />}
-          onClick={() => navigate(`/bills/${record._id}`)}
-          className="text-gray-400 hover:text-indigo-600 transition-colors"
+          onClick={() => navigate(`/bills/${record._id}`, { state: { from: "customer" } })}
+          className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
         />
       ),
     },

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export interface Customer {
+export interface ICustomer {
   _id: string;
   name: string;
   outstanding: number;
@@ -9,16 +9,16 @@ export interface Customer {
 }
 
 interface CustomerStore {
-  customers: Customer[];
+  customers: ICustomer[];
   loading: boolean;
   error: string | null;
 
   // Actions
-  setCustomers: (customers: Customer[]) => void;
-  getCustomerById: (id: string) => Customer | undefined;
-  updateOutstanding: (id: string, newOutstanding: number) => Customer | undefined;
-  addCustomer: (customer: Customer) => void;
-  updateCustomer: (customer: Customer) => void;
+  setCustomers: (customers: ICustomer[]) => void;
+  getCustomerById: (id: string) => ICustomer | undefined;
+  updateOutstanding: (id: string, newOutstanding: number) => ICustomer | undefined;
+  addCustomer: (customer: ICustomer) => void;
+  updateCustomer: (customer: ICustomer) => void;
 }
 
 const useCustomerStore = create<CustomerStore>((set, get) => ({
@@ -34,8 +34,8 @@ const useCustomerStore = create<CustomerStore>((set, get) => ({
   updateOutstanding: (
     id: string,
     newOutstanding: number
-  ): Customer | undefined => {
-    let updatedCustomer: Customer | undefined;
+  ): ICustomer | undefined => {
+    let updatedCustomer: ICustomer | undefined;
 
     set((state) => {
       const updatedCustomers = state.customers.map((customer) => {

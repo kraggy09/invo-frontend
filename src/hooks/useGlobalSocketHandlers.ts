@@ -8,11 +8,11 @@ import {
 import { message } from "antd";
 import useUserStore from "../store/user.store";
 import apiCaller from "../utils/apiCaller";
-import useCustomerStore from "../store/customer.store";
+import useCustomerStore, { ICustomer } from "../store/customer.store";
 import useProductStore, { IProduct } from "../store/product.store";
 import useCategoriesStore from "../store/categories.store";
 import useCurrentBillStore from "../store/currentBill.store";
-import useTransactionStore from "../store/transaction.store";
+import useTransactionStore, { ITransaction } from "../store/transaction.store";
 import useBillStore from "../store/bill.store";
 import { Product, useInventoryRequestStore } from "../store/requests.store";
 
@@ -49,7 +49,10 @@ export const useGlobalSocketHandlers = () => {
     (state) => state.setTransactionId
   );
   const addTransaction = useTransactionStore((state) => state.addTransaction);
-  const updateTransaction = useTransactionStore((state) => state.updateTransaction);
+  const approveTransaction = useTransactionStore((state) => state.approveTransaction);
+  const rejectTransaction = useTransactionStore((state) => state.rejectTransaction);
+  const transactionApprovals = useTransactionStore((state) => state.transactionApprovals);
+  const setTransactionApproval = useTransactionStore((state) => state.setTransactionApproval);
 
   // Bill store
   const setBillingId = useBillStore((state) => state.setBillingId);
@@ -70,6 +73,7 @@ export const useGlobalSocketHandlers = () => {
   const productsRef = useRef(products);
   const productMapRef = useRef(productMap);
   const requestsRef = useRef(requests);
+  const transactionApprovalsRef = useRef(transactionApprovals);
 
   useEffect(() => {
     productsRef.current = products;
@@ -82,6 +86,11 @@ export const useGlobalSocketHandlers = () => {
   useEffect(() => {
     requestsRef.current = requests;
   }, [requests]);
+
+  useEffect(() => {
+    transactionApprovalsRef.current = transactionApprovals;
+  }, [transactionApprovals]);
+
   const handleNotification = useCallback((data: NotificationEvent) => {
     switch (data.type) {
       case "success":
@@ -256,6 +265,31 @@ export const useGlobalSocketHandlers = () => {
     });
     setRequests(newRequests);
   }, [setRequests]);
+
+
+  const handleTransactionCreated = useCallback((data: { transaction: ITransaction, transactionId: number }) => {
+    const { transaction, transactionId } = data
+    console.log(transactionId);
+
+    addTransaction(transaction);
+    setTransactionId(transactionId)
+  }, [addTransaction, setTransactionId]);
+
+  const handleTransactionUpdated = useCallback((data: { transaction: ITransaction, customer: ICustomer, purpose: "ACCEPT" | "REJECT" }) => {
+    const { transaction, customer, purpose } = data;
+    console.log(data, "This is the data we have in the console");
+    if (purpose === "ACCEPT") {
+      approveTransaction(transaction);
+      if (customer) {
+        const updatedCustomer = updateOutstanding(customer._id, customer.outstanding);
+        afterBillCreated(updatedCustomer || customer);
+      }
+    } else if (purpose === "REJECT") {
+      rejectTransaction(transaction);
+    }
+
+  }, [approveTransaction, rejectTransaction, updateOutstanding, afterBillCreated])
+
   const handleProductCreated = useCallback((product: IProduct) => addProduct(product), [addProduct]);
   const handleProductUpdated = useCallback((product: IProduct) => updateProduct(product), [updateProduct]);
   const handleProductDeleted = useCallback((productId: string) => removeProduct(productId), [removeProduct]);
@@ -263,8 +297,6 @@ export const useGlobalSocketHandlers = () => {
   const handleCustomerCreated = useCallback((customer: any) => addCustomer(customer), [addCustomer]);
   const handleCustomerUpdated = useCallback((customer: any) => updateCustomer(customer), [updateCustomer]);
 
-  const handleTransactionCreated = useCallback((transaction: any) => addTransaction(transaction), [addTransaction]);
-  const handleTransactionUpdated = useCallback((transaction: any) => updateTransaction(transaction._id, transaction), [updateTransaction]);
 
   const handleBillUpdated = useCallback(
     (data: any) => {
@@ -324,6 +356,8 @@ export const useGlobalSocketHandlers = () => {
         },
       })
     );
+    promiseData.push(apiCaller.get("/transactions/approvals"));
+
     await Promise.all(promiseData)
       .then((responses) => {
         const bills = responses[0].data.data.bills;
@@ -334,6 +368,7 @@ export const useGlobalSocketHandlers = () => {
         const billingId = responses[5].data.data.billId;
         const transactionId = responses[6].data.data.transactionId;
         const requests = responses[7].data.data.requests;
+        const approvals = responses[8].data.data.transactions;
         console.log(requests, "This are the requests");
 
         const productsMap: Map<string, number> = new Map(
@@ -349,10 +384,7 @@ export const useGlobalSocketHandlers = () => {
         setTransactions(transactions);
         setTransactionId(transactionId);
         setCategories(categories);
-
-        console.log("Customers:", customers);
-        console.log("Transactions:", transactions);
-        console.log("Products:", products);
+        setTransactionApproval(approvals);
       })
       .catch((error) => {
         console.error("Error fetching initial data:", error);

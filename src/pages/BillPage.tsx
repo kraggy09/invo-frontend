@@ -20,7 +20,7 @@ import isBetween from "dayjs/plugin/isBetween";
 dayjs.extend(isBetween);
 import apiCaller from "../utils/apiCaller";
 import { formatIndianNumber } from "../utils";
-import useBillStore from "../store/bill.store";
+import useBillStore, { Bill, BillCustomer, BillCreatedBy } from "../store/bill.store";
 import { useNavigate } from "react-router-dom";
 
 const { RangePicker } = DatePicker;
@@ -35,7 +35,7 @@ const BillPage = () => {
   const [status, setStatus] = useState("all");
   const [amountRange, setAmountRange] = useState<[number, number]>([0, Infinity]);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([dayjs(), dayjs()]);
-  const [historicalBills, setHistoricalBills] = useState<any[] | null>(null);
+  const [historicalBills, setHistoricalBills] = useState<Bill[] | null>(null);
 
   // If dateRange is today, use live store; otherwise use fetched data
   const isToday =
@@ -71,14 +71,20 @@ const BillPage = () => {
       .finally(() => setLoading(false));
   }, [dateRange, isToday]);
 
+  const getOutstanding = (b: Bill) => b.total - b.payment;
+
+  const getStatus = (b: Bill): string => {
+    const outstanding = getOutstanding(b);
+    if (outstanding <= 0) return "Paid";
+    if (b.payment > 0) return "Partial";
+    return "Pending";
+  };
+
   const filteredBills = useMemo(() => {
     let data = [...effectiveBills];
 
     if (status !== "all") {
-      data = data.filter((b) => {
-        const bStatus = b.status || (b.outstanding > 0 ? "Pending" : "Paid");
-        return bStatus === status;
-      });
+      data = data.filter((b) => getStatus(b) === status);
     }
 
     if (search) {
@@ -87,7 +93,7 @@ const BillPage = () => {
         (b) =>
           b.customer?.name?.toLowerCase().includes(q) ||
           b.id?.toString().includes(search) ||
-          b.customer?.phone?.includes(search)
+          b.customer?.phone?.toString().includes(search)
       );
     }
 
@@ -102,7 +108,7 @@ const BillPage = () => {
     totalBills: filteredBills.length,
     totalAmount: filteredBills.reduce((s, b) => s + (b.total || 0), 0),
     totalPayment: filteredBills.reduce((s, b) => s + (b.payment || 0), 0),
-    outstanding: filteredBills.reduce((s, b) => s + (b.outstanding || 0), 0),
+    outstanding: filteredBills.reduce((s, b) => s + getOutstanding(b), 0),
   }), [filteredBills]);
 
   // Table columns
@@ -128,12 +134,22 @@ const BillPage = () => {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Customer</span>,
       dataIndex: "customer",
       key: "customer",
-      render: (c: any) => (
-        <div className="flex flex-col">
-          <span className="font-black text-gray-700 capitalize">{c?.name || "—"}</span>
-          {c?.phone && <span className="text-[10px] font-bold text-gray-400">{c.phone}</span>}
+      render: (c: BillCustomer) => (
+        <div className="flex flex-col cursor-pointer group/customer" onClick={() => c?._id && navigate(`/customers/${c._id}`)}>
+          <span className="font-black text-gray-700 capitalize group-hover/customer:text-indigo-600 transition-colors">{c?.name || "—"}</span>
+          {c?.phone && <span className="text-[10px] font-bold text-gray-400 group-hover/customer:text-indigo-400 transition-colors">{c.phone}</span>}
         </div>
       ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Products Total</span>,
+      dataIndex: "productsTotal",
+      key: "productsTotal",
+      align: "right" as const,
+      render: (t: number, record: Bill) => {
+        const pTotal = t ?? record?.items?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) ?? 0;
+        return <span className="font-black text-gray-800">₹{formatIndianNumber(pTotal)}</span>;
+      },
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total</span>,
@@ -151,20 +167,22 @@ const BillPage = () => {
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Outstanding</span>,
-      dataIndex: "outstanding",
       key: "outstanding",
       align: "right" as const,
-      render: (o: number) => (
-        <span className={`font-black ${o > 0 ? "text-orange-500" : "text-gray-300"}`}>
-          ₹{formatIndianNumber(o || 0)}
-        </span>
-      ),
+      render: (_: unknown, record: Bill) => {
+        const o = getOutstanding(record);
+        return (
+          <span className={`font-black ${o > 0 ? "text-orange-500" : "text-gray-300"}`}>
+            ₹{formatIndianNumber(o)}
+          </span>
+        );
+      },
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Created By</span>,
       dataIndex: "createdBy",
       key: "createdBy",
-      render: (u: any) => (
+      render: (u: BillCreatedBy) => (
         <span className="text-xs font-bold text-gray-500 capitalize">{u?.name || "System"}</span>
       ),
     },
@@ -172,7 +190,7 @@ const BillPage = () => {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">View</span>,
       key: "view",
       align: "center" as const,
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: Bill) => (
         <Button
           type="text"
           icon={<EyeOutlined />}
@@ -270,7 +288,7 @@ const BillPage = () => {
               allowClear
             />
           </div>
-          <div className="flex flex-col flex-1 min-w-0">
+          {/* <div className="flex flex-col flex-1 min-w-0">
             <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
               Status
             </label>
@@ -285,7 +303,7 @@ const BillPage = () => {
                 { value: "Partial", label: "Partial" },
               ]}
             />
-          </div>
+          </div> */}
           <div className="flex flex-col flex-1 min-w-0">
             <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
               Amount Range (₹)

@@ -34,7 +34,7 @@ import {
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 dayjs.extend(isBetween);
-import useBillStore from "../store/bill.store";
+import useBillStore, { BillCustomer, BillCreatedBy, Bill } from "../store/bill.store";
 import useTransactionStore from "../store/transaction.store";
 import { useNavigate } from "react-router-dom";
 import { useInventoryRequestStore } from "../store/requests.store";
@@ -88,21 +88,34 @@ const DailyReportPage = () => {
   const bills = reportData ? reportData.bills : billsFromStore;
   const transactions = reportData ? reportData.transactions : transactionsFromStore;
 
-  // Map bills and transactions to correct table shape
+  const getOutstanding = (b: any) => b.total - (b.payment || 0);
+
+  const getStatus = (b: any): string => {
+    const outstanding = getOutstanding(b);
+    if (outstanding <= 0) return "Paid";
+    if (b.payment > 0) return "Partial";
+    return "Pending";
+  };
+
   const mappedBills = bills
-    .map((bill: any) => ({
-      key: bill._id || bill.id,
-      date: bill.createdAt ? dayjs(bill.createdAt).format("DD/MM/YYYY") : "",
-      time: bill.createdAt ? dayjs(bill.createdAt).format("hh:mm:ss A") : "",
-      billId: bill.id || bill._id,
-      billAmount: bill.total,
-      outstanding: bill.outstanding || 0,
-      payment: bill.payment || 0,
-      total: bill.total,
-      customerName: bill.customer?.name || bill.customer || "",
-      createdByName: bill.createdBy?.name || "System",
-      status: bill.status || (bill.outstanding > 0 ? "Pending" : "Paid"),
-    }))
+    .map((bill: any) => {
+      const isHistorical = !!bill.createdAt;
+      const dateVal = bill.createdAt || bill.date;
+      return {
+        key: bill._id || bill.id,
+        date: dateVal ? dayjs(dateVal).format("DD/MM/YYYY") : "",
+        time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
+        billId: bill.id || bill._id,
+        billTotal: bill.productsTotal ?? bill.items?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) ?? 0,
+        outstanding: getOutstanding(bill),
+        payment: bill.payment || 0,
+        total: bill.total,
+        customer: bill.customer, // keep the full object
+        createdBy: bill.createdBy, // keep the full object
+        status: bill.status || getStatus(bill),
+        rawData: bill,
+      };
+    })
     .reverse();
 
   const mappedTransactions = transactions
@@ -116,7 +129,10 @@ const DailyReportPage = () => {
       previousOutstanding: t.previousOutstanding || 0,
       payment: t.amount || t.payment || 0,
       newOutstanding: t.newOutstanding || 0,
-      taken: t.taken,
+      paymentIn: !t.taken || t.paymentIn,
+      approved: t.approved,
+      approvedAt: t.approvedAt,
+      rejectedAt: t.rejectedAt,
     }))
     .reverse();
 
@@ -150,9 +166,10 @@ const DailyReportPage = () => {
     if (
       billSearch &&
       !(
-        (bill.customerName &&
-          bill.customerName.toLowerCase().includes(billSearch.toLowerCase())) ||
-        (bill.billId && bill.billId.toString().includes(billSearch))
+        (bill.customer?.name &&
+          bill.customer.name.toLowerCase().includes(billSearch.toLowerCase())) ||
+        (bill.billId && bill.billId.toString().includes(billSearch)) ||
+        (bill.customer?.phone && bill.customer.phone.toString().includes(billSearch))
       )
     )
       return false;
@@ -230,7 +247,7 @@ const DailyReportPage = () => {
     }
     if (transactions) {
       for (const t of transactions) {
-        if (t.taken) {
+        if (t.paymentIn === false) {
           totalPaymentOut += t.amount ?? t.payment ?? 0;
         } else {
           totalPaymentIn += t.amount ?? t.payment ?? 0;
@@ -342,10 +359,9 @@ const DailyReportPage = () => {
     }
   };
 
-  // Table columns for each tab
   const billColumns = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Registry Date</span>,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date</span>,
       dataIndex: "date",
       key: "date",
       render: (text: string, record: any) => (
@@ -356,33 +372,64 @@ const DailyReportPage = () => {
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Identifier</span>,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
       dataIndex: "billId",
       key: "billId",
-      render: (id: string) => <span className="font-mono font-black text-indigo-500 text-xs">{id}</span>,
+      render: (id: string) => <span className="font-mono font-black text-indigo-500 text-xs">#{id}</span>,
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</span>,
-      dataIndex: "customerName",
-      key: "customerName",
-      render: (name: string) => <span className="font-black text-gray-700 capitalize">{name}</span>,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Customer</span>,
+      dataIndex: "customer",
+      key: "customer",
+      render: (c: BillCustomer) => (
+        <div className="flex flex-col cursor-pointer group/customer" onClick={() => c?._id && navigate(`/customers/${c._id}`)}>
+          <span className="font-black text-gray-700 capitalize group-hover/customer:text-indigo-600 transition-colors">{c?.name || "—"}</span>
+          {c?.phone && <span className="text-[10px] font-bold text-gray-400 group-hover/customer:text-indigo-400 transition-colors">{c.phone}</span>}
+        </div>
+      ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Settlement</span>,
-      dataIndex: "payment",
-      key: "payment",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Products Total</span>,
+      dataIndex: "billTotal",
+      key: "billTotal",
       align: "right" as const,
-      render: (val: number) => <span className="font-black text-green-600">₹{val.toLocaleString()}</span>,
+      render: (t: number) => <span className="font-black text-gray-800">₹{t?.toLocaleString()}</span>,
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Net Value</span>,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total</span>,
       dataIndex: "total",
       key: "total",
       align: "right" as const,
-      render: (val: number) => <span className="font-black text-indigo-600">₹{val.toLocaleString()}</span>,
+      render: (t: number) => <span className="font-black text-gray-800">₹{t.toLocaleString()}</span>,
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Action</span>,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Payment</span>,
+      dataIndex: "payment",
+      key: "payment",
+      align: "right" as const,
+      render: (p: number) => <span className="font-black text-green-600">₹{p.toLocaleString()}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Outstanding</span>,
+      dataIndex: "outstanding",
+      key: "outstanding",
+      align: "right" as const,
+      render: (o: number) => (
+        <span className={`font-black ${o > 0 ? "text-orange-500" : "text-gray-300"}`}>
+          ₹{o.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Created By</span>,
+      dataIndex: "createdBy",
+      key: "createdBy",
+      render: (u: BillCreatedBy) => (
+        <span className="text-xs font-bold text-gray-500 capitalize">{u?.name || "System"}</span>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">View</span>,
       key: "view",
       align: "center" as const,
       render: (_: any, record: any) => (
@@ -409,6 +456,12 @@ const DailyReportPage = () => {
       ),
     },
     {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
+      dataIndex: "transId",
+      key: "transId",
+      render: (id: string) => <span className="font-mono font-black text-indigo-500 text-xs text-center">#{id}</span>,
+    },
+    {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Intent</span>,
       dataIndex: "purpose",
       key: "purpose",
@@ -426,10 +479,42 @@ const DailyReportPage = () => {
       key: "payment",
       align: "right" as const,
       render: (val: number, record: any) => (
-        <span className={`font-black ${record.taken ? "text-red-500" : "text-green-600"}`}>
-          {record.taken ? "-" : "+"} ₹{val.toLocaleString()}
+        <span className={`font-black ${record.paymentIn === false ? "text-red-500" : "text-green-600"}`}>
+          {record.paymentIn === false ? "-" : "+"} ₹{val.toLocaleString()}
         </span>
       ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</span>,
+      key: "status",
+      align: "center" as const,
+      render: (_: any, record: any) => {
+        let status = "Pending";
+        let color = "warning";
+        let icon = <ClockCircleOutlined />;
+        let time = "";
+
+        if (record.approved) {
+          status = "Approved";
+          color = "success";
+          icon = <CheckCircleOutlined />;
+          if (record.approvedAt) time = dayjs(record.approvedAt).format("DD/MM/YY hh:mm A");
+        } else if (record.rejectedAt) {
+          status = "Rejected";
+          color = "error";
+          icon = <CloseCircleOutlined />;
+          time = dayjs(record.rejectedAt).format("DD/MM/YY hh:mm A");
+        }
+
+        return (
+          <div className="flex flex-col items-center">
+            <Tag color={color} icon={icon} className="m-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border-0">
+              {status}
+            </Tag>
+            {time && <span className="text-[9px] font-bold text-gray-400 mt-1">{time}</span>}
+          </div>
+        );
+      }
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Inspect</span>,
@@ -447,11 +532,53 @@ const DailyReportPage = () => {
   ];
 
   const paymentColumns = [
-    { title: "Date", dataIndex: "date", key: "date" },
-    { title: "Time", dataIndex: "time", key: "time" },
-    { title: "Trans. Id", dataIndex: "transId", key: "transId" },
-    { title: "Party Name", dataIndex: "partyName", key: "partyName" },
-    { title: "Payment ₹", dataIndex: "payment", key: "payment" },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date</span>,
+      dataIndex: "date",
+      key: "date",
+      render: (text: string, record: any) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-gray-800">{text}</span>
+          <span className="text-[10px] font-bold text-gray-400">{record.time}</span>
+        </div>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
+      dataIndex: "transId",
+      key: "transId",
+      render: (id: string) => <span className="font-mono font-black text-indigo-500 text-xs text-center">#{id}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Party Name</span>,
+      dataIndex: "name",
+      key: "name",
+      render: (name: string) => <span className="font-black text-gray-700 capitalize">{name}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Payment</span>,
+      dataIndex: "payment",
+      key: "payment",
+      align: "right" as const,
+      render: (val: number, record: any) => (
+        <span className={`font-black ${record.paymentIn === false ? "text-red-500" : "text-green-600"}`}>
+          {record.paymentIn === false ? "-" : "+"} ₹{val.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Inspect</span>,
+      key: "view",
+      align: "center" as const,
+      render: (_: any, record: any) => (
+        <Button
+          type="text"
+          icon={<EyeOutlined />}
+          onClick={() => navigate(`/transactions/${record.key}`, { state: { from: "daily-report" } })}
+          className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
+        />
+      ),
+    },
   ];
 
   // Streamlined request columns - only essential data
@@ -643,7 +770,7 @@ const DailyReportPage = () => {
               {record.rawData.approvedAt && (
                 <div>
                   <strong>Approved:</strong>{" "}
-                  {dayjs(record.rawData.approvedAt).format("DD/MM HH:mm")}
+                  {dayjs(record.rawData.approvedAt).format("DD/MM/YY hh:mm A")}
                 </div>
               )}
               {record.rawData.stockAtUpdate !== undefined && (
@@ -840,7 +967,7 @@ const DailyReportPage = () => {
                 allowClear
               />
             </div>
-            <div className="flex flex-col flex-1 min-w-0">
+            {/* <div className="flex flex-col flex-1 min-w-0">
               <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Registry Intent</label>
               <Select
                 value={transactionFilterType}
@@ -853,7 +980,7 @@ const DailyReportPage = () => {
                   { value: "Purchase", label: "Purchase" },
                 ]}
               />
-            </div>
+            </div> */}
             <div className="flex flex-col flex-1 min-w-0">
               <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Capital Bounds (₹)</label>
               <div className="flex gap-2">
@@ -974,7 +1101,7 @@ const DailyReportPage = () => {
             {activeTab === "transactions" && (
               <Table
                 columns={transactionColumns}
-                dataSource={filteredTransactions || []}
+                dataSource={filteredTransactions.filter((trans) => trans.paymentIn === true) || []}
                 loading={loading}
                 rowKey="transId"
                 scroll={{ x: 1000 }}
@@ -984,8 +1111,8 @@ const DailyReportPage = () => {
             )}
             {activeTab === "payment" && (
               <Table
-                columns={transactionColumns}
-                dataSource={transactions?.filter((t: any) => t.taken) || []}
+                columns={paymentColumns}
+                dataSource={filteredTransactions?.filter((t: any) => t.paymentIn === false) || []}
                 loading={loading}
                 rowKey="transId"
                 scroll={{ x: 1000 }}

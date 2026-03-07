@@ -70,6 +70,12 @@ const BillingBody = () => {
   const handleClosePrint = () => {
     setShowPrint(false);
     setPrintBillData(null); // <-- clear after printing
+    removeTabAndBill(
+      currentBillingId.toString(),
+      bills,
+      removeBill,
+      setCurrentBillingId
+    );
   };
 
   const currentBill = useMemo(() => {
@@ -185,9 +191,7 @@ const BillingBody = () => {
         setPrintBillData(billData); // <-- store for printing
         toast.success("Bill created successfully!");
         setShowPrint(true); // Open print modal only after success
-        // setTimeout(() => {
-        //   handlePrint();
-        // }, 100);
+
         setTimeout(() => {
           // setShowPrint(false);
         }, 2000);

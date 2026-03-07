@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export interface Product {
+export interface BillProduct {
   _id: string;
   name: string;
   mrp: number;
@@ -15,18 +15,30 @@ export interface Product {
   packet: number;
   box: number;
   minQuantity: number;
-  hi: string;
   __v: number;
+}
+
+export interface BillCustomer {
+  _id: string;
+  name: string;
+  outstanding: number;
+  phone: number;
+}
+
+export interface BillCreatedBy {
+  _id: string;
+  name: string;
+  username: string;
 }
 
 export interface BillItem {
   _id: string;
   previousQuantity: number;
   newQuantity: number;
-  product: Product | string;
+  product: BillProduct | string;
   quantity: number;
   discount: number;
-  type: string;
+  type: "WHOLESALE" | "RETAIL" | "SUPERWHOLESALE";
   total: number;
   costPrice: number;
 }
@@ -34,14 +46,16 @@ export interface BillItem {
 export interface Bill {
   _id: string;
   id: number;
-  customer: string; // customer ID
-  createdBy: string;
+  customer: BillCustomer;
+  createdBy: BillCreatedBy;
   items: BillItem[];
+  productsTotal?: number;
   total: number;
   payment: number;
   discount: number;
-  date: string; // ISO string
+  date: string;
   createdAt: string;
+  updatedAt: string;
   __v: number;
 }
 

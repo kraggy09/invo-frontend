@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
   Form,
   Input,
   InputNumber,
   Select,
   Button,
-  message,
 } from "antd";
+import toast from "react-hot-toast";
+import { useReactToPrint } from "react-to-print";
 import {
   DollarOutlined,
   SwapOutlined,
@@ -17,31 +18,24 @@ import {
 } from "@ant-design/icons";
 import useCustomerStore from "../store/customer.store";
 import apiCaller from "../utils/apiCaller";
+import useTransactionStore from "../store/transaction.store";
+import TransactionPrint from "./TransactionPrint";
 
 const NewTransaction: React.FC = () => {
   const [form] = Form.useForm();
   const [isPaymentIn, setIsPaymentIn] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [transactionId, setTransactionId] = useState<number | string>("...");
-  const { customers, setCustomers } = useCustomerStore();
+  const [showPrint, setShowPrint] = useState(false);
+  const [printTransactionData, setPrintTransactionData] = useState<any>(null);
 
-  const fetchInitialData = async () => {
-    try {
-      if (customers.length === 0) {
-        const resCustomers = await apiCaller.get("/customers");
-        setCustomers(resCustomers.data.customers || []);
-      }
-      const resId = await apiCaller.get("/transactions/latest-id");
-      setTransactionId(resId.data.transactionId);
-    } catch {
-      message.error("Error fetching initial data");
-    }
-  };
+  const contentRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: contentRef as React.RefObject<HTMLDivElement>,
+  });
+  const transactionId = useTransactionStore((state) => state.transactionId);
 
-  useEffect(() => {
-    fetchInitialData();
-  }, [customers.length]);
+  const { customers } = useCustomerStore();
 
   const handleModeChange = (mode: string) => {
     setIsPaymentIn(mode === "in");
@@ -57,16 +51,29 @@ const NewTransaction: React.FC = () => {
     }
   };
 
+  const handlePrintClick = () => {
+    setShowPrint(true);
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
+  };
+
+  const handleClosePrint = () => {
+    setShowPrint(false);
+    setPrintTransactionData(null);
+  };
+
   const handleSubmit = async (values: any) => {
     setLoading(true);
     try {
+      let response;
       if (isPaymentIn) {
         if (!selectedCustomer) {
-          message.error("Please select a customer");
+          toast.error("Please select a customer");
           setLoading(false);
           return;
         }
-        await apiCaller.post("/transactions/payments", {
+        response = await apiCaller.post("/transactions/payments", {
           name: selectedCustomer.name,
           amount: values.amount,
           paymentMode: values.paymentMode,
@@ -74,21 +81,27 @@ const NewTransaction: React.FC = () => {
           transactionId: transactionId,
         });
       } else {
-        await apiCaller.post("/transactions", {
+        response = await apiCaller.post("/transactions", {
           name: values.name,
           amount: values.amount,
           purpose: values.purpose,
           transactionId: transactionId,
         });
       }
-      message.success(
+      toast.success(
         `${isPaymentIn ? "Payment" : "Transaction"} created successfully!`
       );
+
+      const transactionData = response.data?.data?.transaction || response.data?.transaction || response.data?.data || response.data;
+      if (transactionData) {
+        setPrintTransactionData(transactionData);
+        setShowPrint(true);
+      }
+
       form.resetFields();
       setSelectedCustomer(null);
-      fetchInitialData();
     } catch (error: any) {
-      message.error(
+      toast.error(
         error.response?.data?.message || "Failed to submit transaction"
       );
     } finally {
@@ -447,6 +460,16 @@ const NewTransaction: React.FC = () => {
           inset-inline-end: 16px !important;
         }
       `}</style>
+
+      {showPrint && (
+        <TransactionPrint
+          onClose={handleClosePrint}
+          handlePrint={handlePrintClick}
+          contentRef={contentRef}
+          transactionData={printTransactionData}
+          isPaymentIn={isPaymentIn}
+        />
+      )}
     </main>
   );
 };

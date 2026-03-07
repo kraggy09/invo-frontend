@@ -1,5 +1,5 @@
 import { Bill } from "../store/bill.store";
-import { Customer } from "../store/customer.store";
+import { ICustomer } from "../store/customer.store";
 import { ITransaction } from "../store/transaction.store";
 
 // Bill related events
@@ -33,7 +33,7 @@ export interface BillCreatedEvent {
   billId: number;
   transaction: ITransaction;
   transactionId: number;
-  updatedCustomer: Customer;
+  updatedCustomer: ICustomer;
 }
 
 export interface BillUpdatedEvent {

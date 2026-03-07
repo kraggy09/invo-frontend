@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Table, Spin, Button, message } from "antd";
 import { PrinterOutlined, ArrowLeftOutlined, DollarOutlined, FileTextOutlined } from "@ant-design/icons";
@@ -15,6 +15,10 @@ const SingleBillPage = () => {
   const from = location.state?.from;
   const [loading, setLoading] = useState(false);
   const [bill, setBill] = useState<any>(null);
+
+  const billProductTotal = useMemo(() => {
+    return bill?.productsTotal ?? bill?.items?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) ?? 0;
+  }, [bill])
 
   useEffect(() => {
     // Always fetch from API — the store holds lightweight bill objects whose
@@ -65,7 +69,16 @@ const SingleBillPage = () => {
       dataIndex: "total",
       key: "total",
       align: "center" as const,
-      render: (t: number) => <span className="font-black text-indigo-600">₹{t.toLocaleString()}</span>,
+      render: (t: number, record: any) => (
+        record.discount > 0 ? (
+          <div className="flex flex-col items-center leading-tight">
+            <span className="text-[10px] font-bold text-gray-400 line-through mb-0.5">₹{(t + record.discount).toLocaleString()}</span>
+            <span className="font-black text-indigo-600">₹{t.toLocaleString()}</span>
+          </div>
+        ) : (
+          <span className="font-black text-indigo-600">₹{t.toLocaleString()}</span>
+        )
+      ),
     },
     {
       title: <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest text-center block">Markdown</span>,
@@ -174,12 +187,9 @@ const SingleBillPage = () => {
                     <span className="text-[10px] font-black text-indigo-100/70 border border-indigo-100/20 px-3 py-1 rounded-xl bg-white/5 backdrop-blur-sm">
                       {dayjs(bill.createdAt).format("DD MMM YYYY · hh:mm A")}
                     </span>
-                    <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-xl border flex items-center gap-2 ${bill?.total - bill?.payment - bill?.discount <= 0
-                      ? "bg-green-500/20 border-green-500/30 text-green-100"
-                      : "bg-orange-500/20 border-orange-500/30 text-orange-100"
-                      }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${bill?.total - bill?.payment - bill?.discount <= 0 ? "bg-green-300" : "bg-orange-300"}`} />
-                      {bill?.total - bill?.payment - bill?.discount <= 0 ? "Fully Settled" : "Payment Pending"}
+                    <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-xl border flex items-center gap-2 ${billProductTotal > bill?.payment ? "bg-green-500/20 border-green-500/30 text-green-100" : "bg-orange-500/20 border-orange-500/30 text-orange-100"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${billProductTotal > bill?.payment ? "bg-orange-300" : billProductTotal === bill?.payment ? "bg-yellow-300" : "bg-green-300"}`} />
+                      {billProductTotal > bill?.payment ? "Less Paid" : billProductTotal === bill?.payment ? "Exact Paid" : "More Paid"}
                     </span>
                   </div>
                 </div>
@@ -218,16 +228,26 @@ const SingleBillPage = () => {
 
             {/* Financial Summary */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm text-center group hover:border-gray-200 transition-all">
+              <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm text-center group hover:border-gray-200 transition-all flex flex-col justify-center">
                 <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-1">Sub-Total</span>
-                <span className="text-2xl font-black text-gray-800 tracking-tighter">₹{Number(bill?.total).toLocaleString()}</span>
+                <div className="flex items-baseline justify-center gap-1.5">
+                  <span className="text-2xl font-black text-gray-800 tracking-tighter">₹{Number(billProductTotal).toLocaleString()}</span>
+                  <span className="text-sm font-black text-orange-400" title="Previous Outstanding / Adjustments">
+                    {bill?.total - billProductTotal >= 0 ? "+" : ""}
+                    {Number(bill?.total - billProductTotal).toLocaleString()}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-center gap-1.5 border-t border-gray-50 pt-1">
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Overall Total:</span>
+                  <span className="text-xs font-black text-indigo-600">₹{Number(bill?.total).toLocaleString()}</span>
+                </div>
               </div>
               <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm text-center group hover:border-orange-100 transition-all">
                 <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest block mb-1">Rebate</span>
                 <span className="text-2xl font-black text-orange-600 tracking-tighter">₹{Number(bill?.discount).toLocaleString()}</span>
               </div>
               <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm text-center group hover:border-green-100 transition-all">
-                <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-1">Liquidity</span>
+                <span className="text-[10px] font-black text-green-400 uppercase tracking-widest block mb-1">Payment</span>
                 <span className="text-2xl font-black text-green-600 tracking-tighter">₹{Number(bill?.payment).toLocaleString()}</span>
               </div>
               <div className="bg-indigo-600 rounded-[32px] p-6 shadow-xl shadow-indigo-100 text-center relative overflow-hidden group">
