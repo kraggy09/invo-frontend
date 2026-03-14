@@ -278,6 +278,114 @@ const IndividualCustomerPage = () => {
     },
   ];
 
+  const journeyColumns = [
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date & Time</span>,
+      dataIndex: "createdAt",
+      key: "date",
+      render: (d: string) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-gray-800">{dayjs(d).format("DD MMM, YYYY")}</span>
+          <span className="text-[10px] font-bold text-gray-400">{dayjs(d).format("hh:mm A")}</span>
+        </div>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Action</span>,
+      dataIndex: "action",
+      key: "action",
+      render: (action: string) => {
+        let color = "blue";
+        if (action.includes("CREATE")) color = "green";
+        if (action.includes("RETURN") || action.includes("REJECT")) color = "red";
+        if (action.includes("APPROVE")) color = "purple";
+        return (
+          <Tag color={color} className="font-black text-[10px] uppercase tracking-wider rounded-lg border-0 py-1 px-2 m-0 bg-opacity-10 backdrop-blur-sm shadow-sm ring-1 ring-inset inline-block">
+            {action.replace("_", " ")}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</span>,
+      dataIndex: "description",
+      key: "description",
+      render: (desc: string) => <span className="text-xs font-bold text-gray-600">{desc}</span>,
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right block pr-4">Amount</span>,
+      dataIndex: "amount",
+      key: "amount",
+      render: (v: number) => (
+        <div className="text-right pr-4">
+          <span className={`font-black tracking-tighter text-sm ${v > 0 ? "text-indigo-600" : "text-gray-400"}`}>
+            {v ? `₹${formatIndianNumber(v)}` : "-"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right block pr-4">Prev. Bal.</span>,
+      dataIndex: "previousOutstanding",
+      key: "previousOutstanding",
+      render: (v: number) => (
+        <div className="text-right pr-4">
+          <span className="font-black text-gray-400 tracking-tighter text-xs">
+            {typeof v === 'number' ? `₹${formatIndianNumber(v)}` : "-"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right block pr-4">New Bal.</span>,
+      dataIndex: "newOutstanding",
+      key: "newOutstanding",
+      render: (v: number) => (
+        <div className="text-right pr-4">
+          <span className="font-black text-gray-800 tracking-tighter text-sm">
+            {typeof v === 'number' ? `₹${formatIndianNumber(v)}` : "-"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">By</span>,
+      key: "user",
+      render: (_: any, record: any) => (
+        <span className="text-xs font-bold text-gray-500 capitalize">{record?.user?.name || "System"}</span>
+      ),
+    },
+    {
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">View</span>,
+      key: "view",
+      align: "center" as const,
+      render: (_: any, record: any) => {
+        if (!record.entityId) return <span className="text-gray-300">-</span>;
+
+        const action = record.action || "";
+        return (
+          <Tooltip title="View Details">
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                const action = record.action || "";
+                if (action.includes("RETURN")) {
+                  navigate(`/return-bills/${record.entityId}`, { state: { from: "customer" } });
+                } else if (action.includes("BILL_CREATED") || action.includes("BILL_UPDATED")) {
+                  navigate(`/bills/${record.entityId}`, { state: { from: "customer" } });
+                } else if (action.includes("TRANSACTION") || action.includes("PAYMENT")) {
+                  navigate(`/transactions/${record.entityId}`, { state: { from: "customer" } });
+                }
+              }}
+              className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+            />
+          </Tooltip>
+        );
+      },
+    },
+  ];
+
   const handlePinSubmit = () => {
     if (pin === "1234") {
       setLocked(false);
@@ -401,6 +509,23 @@ const IndividualCustomerPage = () => {
                     <Table
                       columns={transactionColumns}
                       dataSource={customer?.transactions || []}
+                      rowKey="_id"
+                      pagination={{ pageSize: 10, showSizeChanger: false, className: "px-6 py-4" }}
+                      scroll={{ x: 800 }}
+                      className="modern-table"
+                      rowClassName="group cursor-pointer hover:bg-indigo-50/30 transition-all duration-300"
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: "journeys",
+                label: <span className="px-6 py-4 font-black uppercase text-[10px] tracking-widest">Journey Log</span>,
+                children: (
+                  <div className="p-2 sm:p-8">
+                    <Table
+                      columns={journeyColumns}
+                      dataSource={customer?.journeys || []}
                       rowKey="_id"
                       pagination={{ pageSize: 10, showSizeChanger: false, className: "px-6 py-4" }}
                       scroll={{ x: 800 }}
