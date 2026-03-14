@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Table, Spin, Button, message } from "antd";
+import { Table, Spin, Button } from "antd";
+import { message } from "../utils/antdStatic";
 import { ArrowLeftOutlined, DollarOutlined, FileTextOutlined, PrinterOutlined } from "@ant-design/icons";
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
@@ -22,8 +23,8 @@ const SingleReturnBillPage = () => {
             try {
                 const res = await apiCaller.get(`/return-bills/${id}`);
                 setReturnBill(res.data?.data?.returnBill);
-            } catch (error) {
-                message.error("Failed to fetch return bill details");
+            } catch (error: any) {
+                message.error(error?.response?.data?.message || error?.response?.data?.msg || "Failed to fetch return bill details");
             } finally {
                 setLoading(false);
             }
@@ -75,14 +76,10 @@ const SingleReturnBillPage = () => {
                     <Button
                         type="text"
                         icon={<ArrowLeftOutlined className="text-[10px]" />}
-                        onClick={() => {
-                            if (from === "daily-report") navigate("/daily-report");
-                            else if (from === "customer") navigate(-1);
-                            else navigate(-1);
-                        }}
+                        onClick={() => navigate(-1)}
                         className="flex items-center gap-2 font-black text-gray-400 hover:text-indigo-600 transition-all p-0 h-auto uppercase tracking-widest text-[10px]"
                     >
-                        {from === "daily-report" ? "Terminal Root / Report" : from === "customer" ? "Terminal Root / CRM" : "Terminal Root / Archives"}
+                        Terminal Root / Previous
                     </Button>
                     <div className="text-right hidden sm:block">
                         <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] block">Return Record</span>

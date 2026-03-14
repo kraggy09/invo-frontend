@@ -3,7 +3,7 @@ import {
   Card,
   Button,
   InputNumber,
-  message,
+  message as antdMessage,
   Modal,
   Tag,
   Typography,
@@ -54,7 +54,7 @@ const UpdateStock = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [requestList, setRequestList] = useState<RequestItem[]>([]);
-  const [messageApi, contextHolder] = message.useMessage();
+  const [messageApi, contextHolder] = antdMessage.useMessage();
 
   const suggestions = useMemo(() => {
     if (!search) return [];
@@ -68,7 +68,7 @@ const UpdateStock = () => {
   const addProduct = useCallback(
     (product: any) => {
       if (requestList.find((item) => item._id === product._id)) {
-        message.warning("Product is already in the list");
+        messageApi.warning("Product is already in the list");
         return;
       }
 
@@ -187,7 +187,7 @@ const UpdateStock = () => {
       setShowModal(true);
     } catch (err: any) {
       console.error(err);
-      messageApi.error(err.response.data.msg || "Submission failed.");
+      messageApi.error(err?.response?.data?.message || err?.response?.data?.msg || "Submission failed.");
     } finally {
       setSubmitting(false);
     }

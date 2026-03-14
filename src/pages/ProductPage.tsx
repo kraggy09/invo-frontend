@@ -10,9 +10,9 @@ import {
   Select,
   Tag,
   Modal,
-  message,
   Tooltip,
 } from "antd";
+import { message } from "../utils/antdStatic";
 import {
   PlusOutlined,
   EditOutlined,

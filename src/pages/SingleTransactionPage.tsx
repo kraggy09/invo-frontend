@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Card, Spin, Button, message, Statistic } from "antd";
+import { Card, Spin, Button, Statistic } from "antd";
+import { message } from "../utils/antdStatic";
 import { ArrowLeftOutlined, DollarOutlined } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
 import dayjs from "dayjs";
@@ -30,14 +31,16 @@ const SingleTransactionPage = () => {
       try {
         const res = await apiCaller.get(`/transactions/${id}`);
         setTransaction(res.data?.data?.transaction);
-      } catch (error) {
-        message.error("Failed to fetch transaction details");
+      } catch (error: any) {
+        message.error(error?.response?.data?.message || error?.response?.data?.msg || "Failed to fetch transaction details");
       } finally {
         setLoading(false);
       }
     };
     fetchTransaction();
   }, [id, transactionFromStore]);
+
+  const isPaymentIn = transaction?.paymentIn !== undefined ? transaction.paymentIn : !transaction?.taken;
 
   return (
     <main className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-50/50 flex flex-col items-center">
@@ -46,13 +49,10 @@ const SingleTransactionPage = () => {
           <Button
             type="text"
             icon={<ArrowLeftOutlined className="text-[10px]" />}
-            onClick={() => {
-              if (from === "bill") navigate("/bills");
-              else navigate("/daily-report");
-            }}
+            onClick={() => navigate(-1)}
             className="flex items-center gap-2 font-black text-gray-400 hover:text-indigo-600 transition-all p-0 h-auto uppercase tracking-widest text-[10px]"
           >
-            {from === "bill" ? "Terminal Root / Archives" : "Terminal Root / Report"}
+            Terminal Root / Previous
           </Button>
           <div className="text-right hidden sm:block">
             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block">Ledger Insight</span>
@@ -79,11 +79,11 @@ const SingleTransactionPage = () => {
                     Synced: {dayjs(transaction.createdAt).format("DD MMM YYYY · hh:mm A")}
                   </p>
                 </div>
-                <div className={`relative z-10 px-6 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest border backdrop-blur-md ${transaction.taken
+                <div className={`relative z-10 px-6 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest border backdrop-blur-md ${!isPaymentIn
                   ? "bg-red-500/20 border-red-500/30 text-red-100"
                   : "bg-green-500/20 border-green-500/30 text-green-100"
                   }`}>
-                  {transaction.taken ? "Debit Adjustment" : "Credit Addition"}
+                  {!isPaymentIn ? "Debit Adjustment" : "Credit Addition"}
                 </div>
 
                 <div className="absolute top-0 right-0 p-20 opacity-5 group-hover:scale-110 transition-transform duration-1000 rotate-12">
@@ -117,8 +117,8 @@ const SingleTransactionPage = () => {
                 </div>
                 <div className="sm:text-center">
                   <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest block mb-1">Delta Flow</span>
-                  <p className={`text-xl font-black tracking-tighter ${transaction.taken ? "text-red-500" : "text-green-600"}`}>
-                    {transaction.taken ? "-" : "+"} ₹{Number(transaction.amount || transaction.payment || 0).toLocaleString()}
+                  <p className={`text-xl font-black tracking-tighter ${!isPaymentIn ? "text-red-500" : "text-green-600"}`}>
+                    {isPaymentIn ? "-" : "+"} ₹{Number(transaction.amount || transaction.payment || 0).toLocaleString()}
                   </p>
                 </div>
                 <div className="sm:text-right">
@@ -129,17 +129,17 @@ const SingleTransactionPage = () => {
             </div>
 
             {/* High Impact Summary */}
-            <div className={`p-8 sm:p-10 rounded-[40px] shadow-xl flex items-center justify-between group transition-all hover:scale-[1.02] duration-500 ${transaction.taken ? "bg-white border-red-50 border-2" : "bg-white border-green-50 border-2"
+            <div className={`p-8 sm:p-10 rounded-[40px] shadow-xl flex items-center justify-between group transition-all hover:scale-[1.02] duration-500 ${!isPaymentIn ? "bg-white border-red-50 border-2" : "bg-white border-green-50 border-2"
               }`}>
               <div>
-                <span className={`text-[10px] font-black uppercase tracking-[0.2em] block mb-2 ${transaction.taken ? "text-red-400" : "text-green-400"}`}>
-                  Registry {transaction.taken ? "Debit" : "Credit"}
+                <span className={`text-[10px] font-black uppercase tracking-[0.2em] block mb-2 ${!isPaymentIn ? "text-red-400" : "text-green-400"}`}>
+                  Registry {!isPaymentIn ? "Debit" : "Credit"}
                 </span>
-                <h2 className={`text-5xl font-black tracking-tighter leading-none ${transaction.taken ? "text-red-600" : "text-green-600"}`}>
+                <h2 className={`text-5xl font-black tracking-tighter leading-none ${!isPaymentIn ? "text-red-600" : "text-green-600"}`}>
                   ₹{Number(transaction.amount || transaction.payment || 0).toLocaleString()}
                 </h2>
               </div>
-              <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center shadow-xl group-hover:rotate-12 transition-transform duration-500 ${transaction.taken ? "bg-red-500 text-white shadow-red-100" : "bg-green-500 text-white shadow-green-100"}`}>
+              <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center shadow-xl group-hover:rotate-12 transition-transform duration-500 ${!isPaymentIn ? "bg-red-500 text-white shadow-red-100" : "bg-green-500 text-white shadow-green-100"}`}>
                 <DollarOutlined style={{ fontSize: 32 }} />
               </div>
             </div>

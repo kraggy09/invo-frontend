@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Input, Button, Spin, message, Card } from "antd";
+import { Input, Button, Spin, Card } from "antd";
+import { message } from "../utils/antdStatic";
 import { SearchOutlined, CheckCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
 import ReturnProductModal from "../components/ReturnProductModal";
@@ -30,7 +31,7 @@ const ReturnBillPage = () => {
             if (error.response?.status === 404) {
                 message.warning("Invoice not found.");
             } else {
-                message.error("Failed to fetch bill details.");
+                message.error(error?.response?.data?.message || error?.response?.data?.msg || "Failed to fetch bill details.");
             }
         } finally {
             setLoading(false);

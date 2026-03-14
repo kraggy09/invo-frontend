@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { message, Spin, Alert } from "antd";
+import { Spin, Alert } from "antd";
+import { message } from "../utils/antdStatic";
 import useCategoriesStore from "../store/categories.store";
 import useProductStore from "../store/product.store";
 import apiCaller from "../utils/apiCaller";

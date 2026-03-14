@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import useCategoriesStore, { Category } from "../store/categories.store";
-import { Card, Modal, Button, Input, Tooltip, message } from "antd";
+import { Card, Modal, Button, Input, Tooltip } from "antd";
+import { message } from "../utils/antdStatic";
 import apiCaller from "../utils/apiCaller";
 import {
   PlusOutlined,
@@ -145,8 +146,8 @@ const CategoryPage = () => {
       message.success("Registry partition updated");
       setModalOpen(false);
       setSelected(null);
-    } catch (err) {
-      message.error("Registry write operation failed");
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || err?.response?.data?.msg || "Registry write operation failed");
     } finally {
       setLoading(false);
     }
@@ -168,8 +169,8 @@ const CategoryPage = () => {
           await apiCaller.delete(`/categories/${cat._id}`);
           setCategories(categories.filter((c) => c._id !== cat._id));
           message.success("Category archived from registry");
-        } catch (err) {
-          message.error("Archeve operation aborted");
+        } catch (err: any) {
+          message.error(err?.response?.data?.message || err?.response?.data?.msg || "Archive operation aborted");
         }
       },
     });

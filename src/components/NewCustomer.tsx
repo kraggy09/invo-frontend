@@ -4,11 +4,11 @@ import {
   Input,
   Button,
   Form,
-  message,
   Typography,
   Space,
   InputRef,
 } from "antd";
+import { message } from "../utils/antdStatic";
 import { ArrowLeftOutlined, PlusOutlined, UserAddOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import useCustomerStore, { ICustomer } from "../store/customer.store";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { message } from "antd";
+import { message } from "../utils/antdStatic";
 import useCategoriesStore from "../store/categories.store";
 import apiCaller from "../utils/apiCaller";
 import ProductForm, { ProductFormValues } from "../components/ProductForm";

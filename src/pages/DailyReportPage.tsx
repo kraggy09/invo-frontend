@@ -8,12 +8,12 @@ import {
   Table,
   Spin,
   Statistic,
-  message,
   Select,
   InputNumber,
   Tag,
   Tooltip,
 } from "antd";
+import { message } from "../utils/antdStatic";
 import {
   LockOutlined,
   EyeInvisibleOutlined,

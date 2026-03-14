@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Table, Spin, Button, message } from "antd";
+import { Table, Spin, Button } from "antd";
+import { message } from "../utils/antdStatic";
 import { PrinterOutlined, ArrowLeftOutlined, DollarOutlined, FileTextOutlined, ReloadOutlined } from "@ant-design/icons";
 import BillPrint from "../billing/BillPrint";
 import { useRef } from "react";
@@ -34,8 +35,8 @@ const SingleBillPage = () => {
         console.log(res);
 
         setBill(res.data?.data?.bill);
-      } catch (error) {
-        message.error("Failed to fetch bill details");
+      } catch (error: any) {
+        message.error(error?.response?.data?.message || error?.response?.data?.msg || "Failed to fetch bill details");
       } finally {
         setLoading(false);
       }
@@ -156,13 +157,10 @@ const SingleBillPage = () => {
           <Button
             type="text"
             icon={<ArrowLeftOutlined className="text-[10px]" />}
-            onClick={() => {
-              if (from === "daily-report") navigate("/daily-report");
-              else navigate("/bills");
-            }}
+            onClick={() => navigate(-1)}
             className="flex items-center gap-2 font-black text-gray-400 hover:text-indigo-600 transition-all p-0 h-auto uppercase tracking-widest text-[10px]"
           >
-            {from === "daily-report" ? "Terminal Root / Report" : "Terminal Root / Archives"}
+            Terminal Root / Previous
           </Button>
           <div className="text-right hidden sm:block">
             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block">Invoice Record</span>
@@ -328,7 +326,7 @@ const SingleBillPage = () => {
           onClose={() => setIsReturnModalOpen(false)}
           bill={bill}
           onSuccess={() => {
-            navigate("/bills");
+            navigate("/daily-report");
           }}
         />
       </div>

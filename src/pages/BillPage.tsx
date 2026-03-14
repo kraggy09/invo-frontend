@@ -6,8 +6,8 @@ import {
   DatePicker,
   InputNumber,
   Button,
-  message,
 } from "antd";
+import { message } from "../utils/antdStatic";
 import {
   EyeOutlined,
   DollarOutlined,

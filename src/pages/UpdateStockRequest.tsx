@@ -5,10 +5,10 @@ import {
   Button,
   Table,
   InputNumber,
-  message,
   Modal,
   Select,
 } from "antd";
+import { message } from "../utils/antdStatic";
 import {
   PlusOutlined,
   DeleteOutlined,

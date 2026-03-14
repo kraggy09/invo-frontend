@@ -1,4 +1,5 @@
-import { Button, Form, Input, Typography, message } from "antd";
+import { Button, Form, Input, Typography } from "antd";
+import { message } from "../utils/antdStatic";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSocket } from "../contexts/SocketContext";
@@ -56,8 +57,8 @@ const Login = () => {
         const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
         setTimeout(() => navigate(from), 500);
       }
-    } catch (error: unknown) {
-      message.error("Access Denied. Please verify credentials.");
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || error?.response?.data?.msg || "Access Denied. Please verify credentials.");
     }
   };
 

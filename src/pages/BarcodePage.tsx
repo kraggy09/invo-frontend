@@ -3,7 +3,8 @@ import Barcode from "react-barcode";
 import { useReactToPrint } from "react-to-print";
 import useProductStore from "../store/product.store";
 import SearchWithSuggestions from "../components/SearchWithSuggestions";
-import { Modal, Button, InputNumber, Select, Card, Tag, message } from "antd";
+import { Modal, Button, InputNumber, Select, Card, Tag } from "antd";
+import { message } from "../utils/antdStatic";
 import { PrinterOutlined, PlusOutlined, BarcodeOutlined, CheckCircleFilled } from "@ant-design/icons";
 
 const BarcodePage = () => {

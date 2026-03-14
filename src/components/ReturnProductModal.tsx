@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Modal, Table, InputNumber, Select, Button, message, Tag } from "antd";
+import { Modal, Table, InputNumber, Select, Button, Tag } from "antd";
+import { message } from "../utils/antdStatic";
 import { DollarOutlined, InfoCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
 

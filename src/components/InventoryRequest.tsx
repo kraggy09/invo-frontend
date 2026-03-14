@@ -5,7 +5,7 @@ import {
   CheckCircleOutlined,
 } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
-import { message } from "antd";
+import { message } from "../utils/antdStatic";
 
 // Nested type for the 'createdBy' user object
 type User = {
@@ -72,9 +72,9 @@ const InventoryRequest = ({
         (request) => request._id !== id
       );
       setInventoryRequests(updatedRequests);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error handling rejection:", error);
-      message.error("Failed to reject request");
+      message.error(error?.response?.data?.message || error?.response?.data?.msg || "Failed to reject request");
     }
   };
 
@@ -92,11 +92,11 @@ const InventoryRequest = ({
       });
 
       message.success(`Request ${inv._id} Accepted`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error handling acceptance:", error);
-      // Rollback optimistic update on errorq
+      // Rollback optimistic update on error
       setInventoryRequests((prev) => [...prev, inv]);
-      message.error("Failed to accept request");
+      message.error(error?.response?.data?.message || error?.response?.data?.msg || "Failed to accept request");
     }
   };
 
@@ -124,11 +124,11 @@ const InventoryRequest = ({
       });
 
       message.success("All Requests Accepted");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error handling all acceptances:", error);
       // Rollback on error (restore original list)
       setInventoryRequests(inventoryRequests);
-      message.error("Failed to accept all requests");
+      message.error(error?.response?.data?.message || error?.response?.data?.msg || "Failed to accept all requests");
     }
   };
 

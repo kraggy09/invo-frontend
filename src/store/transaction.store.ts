@@ -47,7 +47,7 @@ const useTransactionStore = create<TransactionStore>((set) => ({
   addTransaction: (transaction) => {
     set((state) => {
       // If paymentIn is false (internal expense) or already approved, it goes straight to the main ledger
-      if (transaction.paymentIn === false) {
+      if (transaction.paymentIn === false || transaction.approved === true) {
         return {
           transactions: [...state.transactions, transaction],
         };

@@ -5,7 +5,7 @@ import {
   NotificationEvent,
   BillCreatedEvent,
 } from "../types/socket";
-import { message } from "antd";
+import { message } from "../utils/antdStatic";
 import useUserStore from "../store/user.store";
 import apiCaller from "../utils/apiCaller";
 import useCustomerStore, { ICustomer } from "../store/customer.store";
@@ -192,10 +192,15 @@ export const useGlobalSocketHandlers = () => {
     addReturnBill(data.returnBill);
     if (data.transaction) {
       addTransaction(data.transaction);
+      if (data.transaction.id) {
+        setTransactionId(data.transaction.id);
+      }
     }
 
     let currentCustomer = null;
     if (data.returnBill.customer) {
+      console.log(data.returnBill.customer, "this are the customer details we already have");
+
       const customerId = typeof data.returnBill.customer === 'string' ? data.returnBill.customer : data.returnBill.customer._id;
       currentCustomer = updateOutstanding(customerId, data.updatedOutstanding);
     }
@@ -223,7 +228,7 @@ export const useGlobalSocketHandlers = () => {
         afterBillCreated(currentCustomer);
       }
     }
-  }, [addReturnBill, addTransaction, updateOutstanding, setProducts, afterBillCreated]);
+  }, [addReturnBill, addTransaction, setTransactionId, updateOutstanding, setProducts, afterBillCreated]);
 
   const handleInventoryUpdateRequest = useCallback(
     (data: any) => {

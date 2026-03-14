@@ -3,6 +3,7 @@ import { ConfigProvider, App } from "antd";
 import { SocketProvider } from "./contexts/SocketContext";
 import GlobalSocketHandlers from "./components/GlobalSocketHandlers";
 import AppRoutes from "./routes";
+import AntdStaticBridge from "./utils/antdStatic";
 
 function AppWrapper() {
   return (
@@ -14,6 +15,7 @@ function AppWrapper() {
       }}
     >
       <App>
+        <AntdStaticBridge />
         <SocketProvider>
           <GlobalSocketHandlers>
             <BrowserRouter>

@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import {
   Button,
   Spin,
-  message,
   Popconfirm,
 } from "antd";
+import { message } from "../utils/antdStatic";
 import {
   CheckOutlined,
   PlusOutlined,
@@ -74,9 +74,9 @@ const TransactionPage: React.FC = () => {
       const res = await apiCaller.post(`/transactions/${id}/reject`);
       message.success(res.data.msg || "Transaction rejected successfully");
       // Removals from list will be handled automatically by socket events
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      message.error("Failed to reject transaction");
+      message.error(error?.response?.data?.message || error?.response?.data?.msg || "Failed to reject transaction");
     } finally {
       setLoading(false);
     }

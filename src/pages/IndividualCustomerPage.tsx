@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useSocket } from "../contexts/SocketContext";
+import { SocketEvents } from "../types/socket";
 import {
   Card,
   Tabs,
@@ -7,12 +9,12 @@ import {
   Statistic,
   Input,
   Button,
-  message,
   Spin,
   Tooltip,
   Select,
   Tag,
 } from "antd";
+import { message } from "../utils/antdStatic";
 import {
   ArrowLeftOutlined,
   EyeOutlined,
@@ -40,6 +42,7 @@ const ACCENT = "#2563eb";
 const IndividualCustomerPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { socket, isConnected } = useSocket();
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [locked, setLocked] = useState(true);
@@ -51,22 +54,64 @@ const IndividualCustomerPage = () => {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchCustomer() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiCaller.get(`/customers/${id}`);
-        setCustomer(res.data.data.customer);
-        console.log(res.data.data.customer, "This is the customer data");
-      } catch (err: any) {
-        setError("Failed to fetch customer details");
-      } finally {
-        setLoading(false);
-      }
+  const fetchCustomer = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    setError(null);
+    try {
+      const res = await apiCaller.get(`/customers/${id}`);
+      setCustomer(res.data.data.customer);
+      console.log(res.data.data.customer, "This is the customer data");
+    } catch (err: any) {
+      if (showLoading) setError(err?.response?.data?.message || err?.response?.data?.msg || "Failed to fetch customer details");
+      else console.error("Failed to refetch customer details socket:", err);
+    } finally {
+      if (showLoading) setLoading(false);
     }
-    if (id) fetchCustomer();
   }, [id]);
+
+  useEffect(() => {
+    if (id) fetchCustomer();
+  }, [id, fetchCustomer]);
+
+  useEffect(() => {
+    if (!socket || !isConnected || !id) return;
+
+    const handleCustomerUpdateEvent = (data: any) => {
+      let eventCustomerId = null;
+
+      // Determine the customer ID from different socket event payloads
+      if (data?.updatedCustomer?._id) {
+        eventCustomerId = data.updatedCustomer._id;
+      } else if (data?.customer?._id) {
+        eventCustomerId = data.customer._id;
+      } else if (data?.bill?.customer) {
+        eventCustomerId = typeof data.bill.customer === "string" ? data.bill.customer : data.bill.customer._id;
+      } else if (data?.returnBill?.customer) {
+        eventCustomerId = typeof data.returnBill.customer === "string" ? data.returnBill.customer : data.returnBill.customer._id;
+      } else if (data?.transaction?.customer) {
+        eventCustomerId = typeof data.transaction.customer === "string" ? data.transaction.customer : data.transaction.customer._id;
+      }
+
+      if (eventCustomerId === id) {
+        console.log("Refetching customer data due to socket event...");
+        fetchCustomer(false); // Refetch without loading spinner
+      }
+    };
+
+    socket.on(SocketEvents.BILL.CREATED, handleCustomerUpdateEvent);
+    socket.on(SocketEvents.BILL.RETURN_CREATED, handleCustomerUpdateEvent);
+    socket.on(SocketEvents.TRANSACTION.CREATED, handleCustomerUpdateEvent);
+    socket.on(SocketEvents.TRANSACTION.UPDATED, handleCustomerUpdateEvent);
+    socket.on(SocketEvents.CUSTOMER.UPDATED, handleCustomerUpdateEvent);
+
+    return () => {
+      socket.off(SocketEvents.BILL.CREATED, handleCustomerUpdateEvent);
+      socket.off(SocketEvents.BILL.RETURN_CREATED, handleCustomerUpdateEvent);
+      socket.off(SocketEvents.TRANSACTION.CREATED, handleCustomerUpdateEvent);
+      socket.off(SocketEvents.TRANSACTION.UPDATED, handleCustomerUpdateEvent);
+      socket.off(SocketEvents.CUSTOMER.UPDATED, handleCustomerUpdateEvent);
+    };
+  }, [socket, isConnected, id, fetchCustomer]);
 
   useEffect(() => {
     async function fetchAnalytics() {
@@ -79,7 +124,7 @@ const IndividualCustomerPage = () => {
           setAnalyticsSummary(res.data.data.summary);
         }
       } catch (err: any) {
-        message.error("Failed to fetch customer analytics");
+        message.error(err?.response?.data?.message || err?.response?.data?.msg || "Failed to fetch customer analytics");
       } finally {
         setAnalyticsLoading(false);
       }
@@ -266,7 +311,7 @@ const IndividualCustomerPage = () => {
           <Button
             type="text"
             icon={<ArrowLeftOutlined className="text-[10px]" />}
-            onClick={() => navigate("/customers")}
+            onClick={() => navigate(-1)}
             className="flex items-center gap-2 font-black text-gray-400 hover:text-indigo-600 transition-all p-0 h-auto uppercase tracking-widest text-[10px]"
           >
             Terminal Root / CRM
