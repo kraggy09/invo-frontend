@@ -187,7 +187,7 @@ const TransactionPage: React.FC = () => {
                     )}
 
                     {/* Actions */}
-                    {user && (
+                    {user && user.roles?.some(role => ["SUPER_ADMIN", "CREATOR"].includes(role)) && (
                       <div className="grid grid-cols-2 gap-3">
                         <Popconfirm
                           title="Verify Rejection"

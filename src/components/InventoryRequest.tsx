@@ -4,6 +4,7 @@ import {
   CloseOutlined,
   CheckCircleOutlined,
 } from "@ant-design/icons";
+import useUserStore from "../store/user.store";
 import apiCaller from "../utils/apiCaller";
 import { message } from "../utils/antdStatic";
 
@@ -61,7 +62,8 @@ const InventoryRequest = ({
   inventoryRequests,
   setInventoryRequests,
 }: IProps) => {
-  const [isAdmin] = useState(true); // For demo purposes
+  const { user } = useUserStore();
+  const isAdmin = user?.roles?.some(role => ["SUPER_ADMIN", "ADMIN", "CREATOR"].includes(role)) || false;
 
   const handleRejection = async (id: string) => {
     try {

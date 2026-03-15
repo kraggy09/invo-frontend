@@ -92,7 +92,6 @@ export const useGlobalSocketHandlers = () => {
   const transactionApprovalsRef = useRef(transactionApprovals);
 
 
-  console.log(user, "blah blah blah")
   useEffect(() => {
     productsRef.current = products;
   }, [products]);

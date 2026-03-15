@@ -54,7 +54,7 @@ const DailyReportPage = () => {
     [dayjs.Dayjs | null, dayjs.Dayjs | null]
   >([dayjs(), dayjs()]);
   const [loading, setLoading] = useState(false);
-  const [reportData, setReportData] = useState<{ bills: any[]; transactions: any[]; returnBills?: any[] } | null>(null);
+  const [reportData, setReportData] = useState<{ bills: any[]; transactions: any[]; returnBills?: any[]; inventoryRequests?: any[] } | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [pin, setPin] = useState("");
   const [summary, setSummary] = useState({
@@ -83,13 +83,14 @@ const DailyReportPage = () => {
   const transactionsFromStore = useTransactionStore(
     (state) => state.transactions
   );
-  const { requests: inventoryRequests } = useInventoryRequestStore();
+  const { requests: inventoryRequestsFromStore } = useInventoryRequestStore();
   const returnBillsFromStore = useReturnBillStore((state) => state.returnBills);
 
   // Use fetched report data if in historical mode, otherwise use live store
   const bills = reportData ? reportData.bills : billsFromStore;
   const transactions = reportData ? reportData.transactions : transactionsFromStore;
   const returnBills = reportData ? reportData.returnBills || [] : returnBillsFromStore;
+  const inventoryRequests = reportData ? reportData.inventoryRequests || [] : inventoryRequestsFromStore;
 
   const getOutstanding = (b: any) => b.total - (b.payment || 0);
 
@@ -164,27 +165,35 @@ const DailyReportPage = () => {
 
   // Map inventory requests to table format with streamlined data
   const mappedRequests = inventoryRequests
-    .map((request: any) => ({
-      key: request._id,
-      date: dayjs(request.date).format("DD/MM"),
-      dateTime: dayjs(request.date).format("DD/MM/YYYY HH:mm"),
-      productName: request.product.name,
-      createdBy: request.createdBy.name,
-      stockChange: `${!request.approved ? request.oldStock : request.stockAtUpdate
-        } → ${request.newStock}`,
-      quantity:
-        request.quantity > 0 ? `+${request.quantity}` : request.quantity,
-      status: request.approved
-        ? "Approved"
-        : request.rejected
-          ? "Rejected"
-          : "Pending",
-      approved: request.approved,
-      rejected: request.rejected,
-      rawData: request, // Keep full data for tooltip/modal if needed
-      purpose: request.purpose,
-    }))
-    .reverse();
+    .map((request: any) => {
+      const dateVal = request.createdAt || request.date;
+      return {
+        key: request._id,
+        date: dateVal ? dayjs(dateVal).format("DD/MM/YYYY") : "",
+        time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
+        dateTime: dayjs(dateVal).format("DD/MM/YYYY HH:mm"),
+        productName: request.product.name,
+        createdBy: request.createdBy.name,
+        stockChange: `${!request.approved ? request.oldStock : request.stockAtUpdate
+          } → ${request.newStock}`,
+        quantity:
+          request.quantity > 0 ? `+${request.quantity}` : request.quantity,
+        status: request.approved
+          ? "Approved"
+          : request.rejected
+            ? "Rejected"
+            : "Pending",
+        approved: request.approved,
+        rejected: request.rejected,
+        rawData: request, // Keep full data for tooltip/modal if needed
+        purpose: request.purpose,
+      };
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.rawData.createdAt || a.rawData.date).getTime();
+      const timeB = new Date(b.rawData.createdAt || b.rawData.date).getTime();
+      return timeB - timeA;
+    });
 
   // Filtered data
   const filteredBills = mappedBills.filter((bill: any) => {
@@ -343,7 +352,7 @@ const DailyReportPage = () => {
 
     setLoading(true);
     try {
-      const [billsRes, transactionsRes, returnBillsRes] = await Promise.all([
+      const [billsRes, transactionsRes, returnBillsRes, inventoryRequestsRes] = await Promise.all([
         apiCaller.get("/bills", {
           params: {
             startDate: dateRange[0].startOf("day").toISOString(),
@@ -361,6 +370,12 @@ const DailyReportPage = () => {
             startDate: dateRange[0].startOf("day").toISOString(),
             endDate: dateRange[1].endOf("day").toISOString(),
           },
+        }),
+        apiCaller.get("/stocks/requests/all", {
+          params: {
+            startDate: dateRange[0].startOf("day").toISOString(),
+            endDate: dateRange[1].endOf("day").toISOString(),
+          },
         })
       ]);
 
@@ -371,6 +386,7 @@ const DailyReportPage = () => {
           transactionsRes.data.transactions ??
           [],
         returnBills: returnBillsRes.data.data?.returnBills ?? returnBillsRes.data.returnBills ?? [],
+        inventoryRequests: inventoryRequestsRes.data.data?.requests ?? inventoryRequestsRes.data.requests ?? [],
       });
       message.success("Report data loaded successfully");
     } catch (error) {
@@ -623,72 +639,52 @@ const DailyReportPage = () => {
   // Streamlined request columns - only essential data
   const requestColumns = [
     {
-      title: "Date ",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date</span>,
       dataIndex: "date",
       key: "date",
-      width: 80,
+      width: 120,
       render: (text: string, record: any) => (
-        <Tooltip title={record.dateTime}>
-          <span
-            style={{
-              textDecoration: record.rejected ? "line-through" : "none",
-              color: record.rejected ? "#999" : "inherit",
-              fontSize: "12px",
-            }}
-          >
-            {text}
-          </span>
-        </Tooltip>
+        <div className="flex flex-col">
+          <span className={`font-bold ${record.rejected ? "text-gray-400 line-through" : "text-gray-800"}`}>{text}</span>
+          <span className="text-[10px] font-bold text-gray-400">{record.time}</span>
+        </div>
       ),
     },
     {
-      title: "Product",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Product</span>,
       dataIndex: "productName",
       key: "productName",
-      width: 120,
+      width: 150,
       render: (text: string, record: any) => (
         <span
-          style={{
-            textDecoration: record.rejected ? "line-through" : "none",
-            color: record.rejected ? "#999" : "inherit",
-            fontWeight: 500,
-          }}
+          className={`font-black uppercase tracking-tight ${record.rejected ? "text-gray-400 line-through" : "text-gray-700"}`}
         >
           {text}
         </span>
       ),
     },
     {
-      title: "User",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Operator</span>,
       dataIndex: "createdBy",
       key: "createdBy",
-      width: 100,
+      width: 120,
       render: (text: string, record: any) => (
         <span
-          style={{
-            textDecoration: record.rejected ? "line-through" : "none",
-            color: record.rejected ? "#999" : "#666",
-            fontSize: "12px",
-          }}
+          className={`text-xs font-bold capitalize ${record.rejected ? "text-gray-400 line-through" : "text-gray-500"}`}
         >
           {text}
         </span>
       ),
     },
     {
-      title: "Stock Change",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stock Change</span>,
       dataIndex: "stockChange",
       key: "stockChange",
-      width: 120,
+      width: 140,
       render: (text: string, record: any) => (
         <Tooltip title={`Quantity: ${record.quantity}`}>
           <span
-            style={{
-              textDecoration: record.rejected ? "line-through" : "none",
-              color: record.rejected ? "#999" : "#1890ff",
-              fontWeight: 500,
-              fontSize: "12px",
-            }}
+            className={`font-black text-xs ${record.rejected ? "text-gray-300 line-through" : "text-indigo-600"}`}
           >
             {text}
           </span>
@@ -696,10 +692,10 @@ const DailyReportPage = () => {
       ),
     },
     {
-      title: "Purpose",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Logic Intent</span>,
       dataIndex: "purpose",
       key: "purpose",
-      width: 120,
+      width: 150,
       render: (_: any, record: any) => {
         const isRejected = record.rejected;
         let purposeText = record.purpose;
@@ -721,48 +717,41 @@ const DailyReportPage = () => {
           <Tag
             color={color}
             icon={icon}
+            className="rounded-lg px-2 py-0.5 text-[10px] font-black uppercase tracking-widest m-0 border-0"
             style={{
-              borderRadius: "16px", // Rounded for fancy look
-              padding: "2px 8px",
-              fontSize: "12px",
-              fontWeight: 500,
               textDecoration: isRejected ? "line-through" : "none",
-              color: isRejected ? "#999" : undefined, // Gray out if rejected
-              border: isRejected ? "1px dashed #d9d9d9" : undefined, // Dashed border for rejected
+              color: isRejected ? "#cbd5e1" : undefined,
+              background: isRejected ? "#f1f5f9" : undefined
             }}
           >
             {isRejected && (
               <CloseOutlined style={{ marginRight: 4, fontSize: "10px" }} />
             )}{" "}
-            {/* Rejected icon */}
             {purposeText}
           </Tag>
         );
       },
     },
     {
-      title: "Quantity",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Qty</span>,
       dataIndex: "quantity",
       key: "quantity",
       width: 80,
+      align: "right" as const,
       render: (text: string, record: any) => (
         <span
-          style={{
-            textDecoration: record.rejected ? "line-through" : "none",
-            color: record.rejected ? "#999" : "#fa8c16",
-            fontWeight: 500,
-            fontSize: "12px",
-          }}
+          className={`font-black ${record.rejected ? "text-gray-300 line-through" : "text-orange-500"}`}
         >
           {text}
         </span>
       ),
     },
     {
-      title: "Status",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</span>,
       dataIndex: "status",
       key: "status",
-      width: 100,
+      width: 120,
+      align: "center" as const,
       render: (status: string, record: any) => {
         let color = "default";
         let icon = <ClockCircleOutlined />;
@@ -779,53 +768,54 @@ const DailyReportPage = () => {
         }
 
         return (
-          <Tag color={color} icon={icon} style={{ fontSize: "11px" }}>
+          <Tag color={color} icon={icon} className="m-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border-0">
             {status}
           </Tag>
         );
       },
     },
     {
-      title: "Details",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Inspect</span>,
       key: "details",
       width: 80,
+      align: "center" as const,
       render: (_: any, record: any) => (
         <Tooltip
           title={
-            <div>
+            <div className="p-2 space-y-1">
+              <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-100/10 pb-1 mb-1">Detailed Trace</div>
               <div>
-                <strong>Request ID:</strong> {record.key.slice(-8)}
+                <strong className="text-gray-300">Request ID:</strong> #{record.key.slice(-8)}
               </div>
               <div>
-                <strong>Purpose:</strong> {record.rawData.purpose}
+                <strong className="text-gray-300">Purpose:</strong> {record.rawData.purpose}
               </div>
               <div>
-                <strong>Old Stock:</strong> {record.rawData.oldStock}
+                <strong className="text-gray-300">Old Stock:</strong> {record.rawData.oldStock}
               </div>
-              <div></div>
               <div>
-                <strong>New Stock:</strong> {record.rawData.newStock}
+                <strong className="text-gray-300">New Stock:</strong> {record.rawData.newStock}
               </div>
               {record.rawData.approvedAt && (
                 <div>
-                  <strong>Approved:</strong>{" "}
+                  <strong className="text-gray-300">Approved:</strong>{" "}
                   {dayjs(record.rawData.approvedAt).format("DD/MM/YY hh:mm A")}
                 </div>
               )}
               {record.rawData.stockAtUpdate !== undefined && (
                 <div>
-                  <strong>Stock at Update:</strong>{" "}
+                  <strong className="text-gray-300">Stock at Update:</strong>{" "}
                   {record.rawData.stockAtUpdate}
                 </div>
               )}
             </div>
           }
+          overlayInnerStyle={{ borderRadius: '16px', background: '#1e293b', border: '1px solid #334155' }}
         >
           <Button
             type="text"
             icon={<InfoCircleOutlined />}
-            size="small"
-            style={{ color: "#666" }}
+            className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
           />
         </Tooltip>
       ),

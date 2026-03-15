@@ -140,19 +140,6 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="hidden lg:flex items-center gap-1 mr-4">
-            {navLinks.slice(0, 4).map((link) => (
-              <Button
-                key={link.path}
-                type="text"
-                className="text-gray-300 hover:text-white flex items-center gap-2 px-3"
-                onClick={() => navigate(link.path)}
-              >
-                {link.icon}
-                <span>{link.label}</span>
-              </Button>
-            ))}
-          </div>
 
           <Dropdown overlay={menu} trigger={["click", "hover"]} placement="bottomRight">
             <div className="flex items-center cursor-pointer select-none">
