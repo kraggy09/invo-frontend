@@ -4,6 +4,7 @@ type User = {
   _id: string;
   username: string;
   token: string;
+  roles?: string[];
 };
 
 type UserStore = {

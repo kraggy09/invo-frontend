@@ -310,13 +310,21 @@ const UpdateStock = () => {
                 options={suggestions.map((p) => ({
                   value: p._id,
                   label: (
-                    <div className="flex flex-col py-2 px-1">
-                      <span className="font-black text-gray-800 capitalize leading-tight">{p.name}</span>
-                      <div className="flex items-center gap-3 mt-1.5 font-mono text-[9px] font-black">
-                        <span className="text-indigo-400 uppercase tracking-widest">{p.barcode?.[0]}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="text-gray-400">STOCK: {p.stock} {p.measuring}</span>
+                    <div className="flex justify-between items-center py-2 px-1">
+                      <div className="flex flex-col">
+                        <span className="font-black text-gray-800 capitalize leading-tight">{p.name}</span>
+                        <div className="flex items-center gap-3 mt-1.5 font-mono text-[9px] font-black">
+                          <span className="text-indigo-400 uppercase tracking-widest">{p.barcode?.[0]}</span>
+                          <span className="text-gray-300">|</span>
+                          <span className="text-gray-400">STOCK: {p.stock} {p.measuring}</span>
+                        </div>
                       </div>
+                      {p.mrp !== undefined && (
+                        <div className="flex flex-col items-end ml-4 shrink-0">
+                          <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">MRP</span>
+                          <span className="font-black text-indigo-600 text-sm">₹{p.mrp}</span>
+                        </div>
+                      )}
                     </div>
                   ),
                 }))}

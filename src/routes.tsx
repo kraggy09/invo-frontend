@@ -24,6 +24,7 @@ import UpdateStockRequest from "./pages/UpdateStockRequest";
 import JourneyLogsPage from "./pages/JourneyLogsPage";
 import ReturnBillPage from "./pages/ReturnBillPage";
 import SingleReturnBillPage from "./pages/SingleReturnBillPage";
+import MemberManagementPage from "./pages/MemberManagementPage";
 
 const AppRoutes = () => {
   const location = useLocation();
@@ -192,6 +193,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <SingleReturnBillPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/members"
+          element={
+            <ProtectedRoute>
+              <MemberManagementPage />
             </ProtectedRoute>
           }
         />

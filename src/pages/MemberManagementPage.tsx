@@ -1,0 +1,261 @@
+import { useState, useEffect } from "react";
+import {
+    Button,
+    Form,
+    Input,
+    Select,
+    Table,
+    Typography,
+    Card,
+    Space,
+    Tag,
+    Divider,
+} from "antd";
+import { UserAddOutlined, TeamOutlined, LockOutlined, UserOutlined } from "@ant-design/icons";
+import { message } from "../utils/antdStatic";
+import apiCaller from "../utils/apiCaller";
+
+const { Title, Text } = Typography;
+const { Option } = Select;
+
+interface User {
+    _id: string;
+    name: string;
+    username: string;
+    roles: string[];
+}
+
+interface ACLRole {
+    _id: string;
+    name: string;
+    description: string;
+}
+
+const MemberManagementPage = () => {
+    const [users, setUsers] = useState<User[]>([]);
+    const [roles, setRoles] = useState<ACLRole[]>([]);
+    const [usersLoading, setUsersLoading] = useState(false);
+    const [rolesLoading, setRolesLoading] = useState(false);
+    const [createLoading, setCreateLoading] = useState(false);
+    const [form] = Form.useForm();
+
+    const loadData = async () => {
+        setUsersLoading(true);
+        setRolesLoading(true);
+        try {
+            const [usersRes, rolesRes] = await Promise.all([
+                apiCaller.get("/admin/users"),
+                apiCaller.get("/admin/acls")
+            ]);
+
+            if (usersRes.data) setUsers(usersRes.data.data.users);
+            if (rolesRes.data) setRoles(rolesRes.data.data.acls);
+            console.log(rolesRes.data, "this are the roles");
+
+        } catch (error: any) {
+            console.error(error);
+            message.error("Failed to load members or roles");
+        } finally {
+            setUsersLoading(false);
+            setRolesLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const onFinish = async (values: any) => {
+        setCreateLoading(true);
+        try {
+            const response = await apiCaller.post("/admin/users", values);
+
+            if (response.data) {
+                message.success("Member created successfully");
+                form.resetFields();
+                loadData();
+            }
+        } catch (error: any) {
+            message.error(error?.response?.data?.message || "Failed to create member");
+        } finally {
+            setCreateLoading(false);
+        }
+    };
+
+
+    const columns = [
+        {
+            title: "Name",
+            dataIndex: "name",
+            key: "name",
+            render: (text: string) => <Text strong>{text}</Text>,
+        },
+        {
+            title: "Username",
+            dataIndex: "username",
+            key: "username",
+            render: (text: string) => <Tag color="blue">{text}</Tag>,
+        },
+        {
+            title: "Roles",
+            dataIndex: "roles",
+            key: "roles",
+            render: (roles: string[]) => (
+                <>
+                    {roles && roles.map((role) => {
+                        let color = "default";
+                        if (role === "CREATOR") color = "gold";
+                        else if (role === "SUPER_ADMIN") color = "volcano";
+                        else if (role === "ADMIN") color = "magenta";
+                        else if (role === "WORKER") color = "green";
+                        return (
+                            <Tag color={color} key={role}>
+                                {role}
+                            </Tag>
+                        );
+                    })}
+                </>
+            ),
+        },
+    ];
+
+    return (
+        <div className="p-6 max-w-[1200px] mx-auto animate-in fade-in duration-700">
+            <div className="flex items-center gap-4 mb-8">
+                <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
+                    <TeamOutlined className="text-white text-2xl" />
+                </div>
+                <div>
+                    <Title level={2} className="!m-0 tracking-tighter">Member Management</Title>
+                    <Text type="secondary" className="text-xs uppercase font-bold tracking-widest">System Access Control & Personnel</Text>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                    <Card
+                        className="shadow-xl shadow-gray-100/50 border-gray-100 rounded-[32px] overflow-hidden"
+                        title={
+                            <div className="flex items-center gap-2 py-2">
+                                <UserAddOutlined className="text-indigo-600" />
+                                <span className="text-sm font-black uppercase tracking-widest">Initialize New Member</span>
+                            </div>
+                        }
+                    >
+                        <Form
+                            form={form}
+                            layout="vertical"
+                            onFinish={onFinish}
+                            requiredMark={false}
+                            className="space-y-4"
+                        >
+                            <Form.Item
+                                name="name"
+                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Full Name</span>}
+                                rules={[{ required: true, message: "Name is required" }]}
+                            >
+                                <Input prefix={<UserOutlined className="text-indigo-400" />} placeholder="John Doe" className="member-field" />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="username"
+                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Identity UID</span>}
+                                rules={[{ required: true, message: "Username is required" }]}
+                            >
+                                <Input prefix={<UserOutlined className="text-indigo-400" />} placeholder="johndoe" className="member-field" />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="password"
+                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Access Key</span>}
+                                rules={[{ required: true, message: "Password is required" }]}
+                            >
+                                <Input.Password prefix={<LockOutlined className="text-indigo-400" />} placeholder="••••••••" className="member-field" />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="aclId"
+                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Privilege Cluster</span>}
+                                rules={[{ required: true, message: "Role is required" }]}
+                            >
+                                <Select placeholder="Select a role" loading={rolesLoading} className="member-select">
+                                    {roles && roles.map((role) => (
+                                        <Option key={role._id} value={role._id}>
+                                            <Space direction="vertical" size={0}>
+                                                <Text strong className="text-xs">{role.name}</Text>
+                                                <Text type="secondary" style={{ fontSize: '10px' }}>{role.description}</Text>
+                                            </Space>
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={createLoading}
+                                block
+                                className="h-14 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-xs font-black tracking-widest uppercase shadow-lg shadow-indigo-100"
+                            >
+                                Provision Account
+                            </Button>
+                        </Form>
+                    </Card>
+                </div>
+
+                <div className="lg:col-span-2">
+                    <Card
+                        className="shadow-xl shadow-gray-100/50 border-gray-100 rounded-[32px] overflow-hidden"
+                        bodyStyle={{ padding: 0 }}
+                    >
+                        <Table
+                            dataSource={users}
+                            columns={columns}
+                            loading={usersLoading}
+                            rowKey="_id"
+                            pagination={{ pageSize: 10 }}
+                            className="member-table"
+                        />
+                    </Card>
+                </div>
+            </div>
+
+            <style>{`
+        .member-field {
+          height: 50px !important;
+          border-radius: 12px !important;
+          border: 1px solid #f1f5f9 !important;
+          background: #f8fafc !important;
+          transition: all 0.3s ease !important;
+        }
+        .member-field:hover, .member-field:focus {
+          border-color: #6366f1 !important;
+          background: #fff !important;
+        }
+        .member-select .ant-select-selector {
+          height: 50px !important;
+          border-radius: 12px !important;
+          border: 1px solid #f1f5f9 !important;
+          background: #f8fafc !important;
+          display: flex !important;
+          align-items: center !important;
+        }
+        .member-table .ant-table-thead > tr > th {
+          background: #f1f5f9;
+          font-weight: 900;
+          text-transform: uppercase;
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          color: #64748b;
+          border: none;
+        }
+        .member-table .ant-table-tbody > tr > td {
+            border-bottom: 1px solid #f8fafc;
+            padding: 20px 16px;
+        }
+      `}</style>
+        </div>
+    );
+};
+
+export default MemberManagementPage;

@@ -232,19 +232,28 @@ const SearchWithSuggestions = ({
               filteredData.map((item, index) => (
                 <div
                   key={index}
-                  className={`px-4 py-2 hover:bg-gray-50 cursor-pointer ${
-                    index === selectedIndex ? "bg-gray-100" : ""
-                  }`}
+                  className={`px-4 py-2 hover:bg-gray-50 cursor-pointer ${index === selectedIndex ? "bg-gray-100" : ""
+                    }`}
                   onClick={() => handleSelect(item)}
                 >
                   <div className="flex justify-between items-center">
-                    {displayKeys.map((key) => (
-                      <span key={key} className="text-gray-700">
-                        {item[key]}
-                      </span>
-                    ))}
-                    {item.price && (
-                      <span className="text-gray-500">{item.price}</span>
+                    <div className="flex flex-col">
+                      {displayKeys.map((key) => (
+                        <span key={key} className="font-black text-gray-800 capitalize leading-tight">
+                          {item[key]}
+                        </span>
+                      ))}
+                      {item.stock !== undefined && (
+                        <span className="text-[10px] font-bold text-gray-400 mt-0.5">
+                          Stock: {item.stock} {item.measuring}
+                        </span>
+                      )}
+                    </div>
+                    {item.mrp !== undefined && (
+                      <div className="flex flex-col items-end ml-4 shrink-0">
+                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">MRP</span>
+                        <span className="font-black text-indigo-600 text-sm">₹{item.mrp}</span>
+                      </div>
                     )}
                   </div>
                 </div>

@@ -68,6 +68,11 @@ const navLinks = [
     path: "/journey-logs",
     icon: <HistoryOutlined className="text-base mr-2" />,
   },
+  {
+    label: "Members",
+    path: "/members",
+    icon: <TeamOutlined className="text-base mr-2" />,
+  },
 ];
 
 const Header = () => {

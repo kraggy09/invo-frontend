@@ -14,6 +14,7 @@ interface LoginResponse {
     user: {
       _id: string;
       username: string;
+      roles: string[];
     };
   };
 }
@@ -52,6 +53,7 @@ const Login = () => {
           _id: response.data.user._id,
           username: response.data.user.username,
           token: response.data.token,
+          roles: response.data.user.roles,
         });
 
         const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
