@@ -26,6 +26,7 @@ export const useGlobalSocketHandlers = () => {
   // User store
   const setSocketId = useUserStore((state) => state.setSocketId);
 
+  const user = useUserStore((state) => state.user)
   // Product store
   const products = useProductStore((state) => state.products);
   const setProducts = useProductStore((state) => state.setProducts);
@@ -90,6 +91,8 @@ export const useGlobalSocketHandlers = () => {
   const requestsRef = useRef(requests);
   const transactionApprovalsRef = useRef(transactionApprovals);
 
+
+  console.log(user, "blah blah blah")
   useEffect(() => {
     productsRef.current = products;
   }, [products]);
@@ -321,7 +324,6 @@ export const useGlobalSocketHandlers = () => {
   );
 
   const handleStockRejected = useCallback((requestId: string) => {
-    console.log("HANDLING STOCK REJECTION SUCCESSFULLY", requestId);
 
     const newRequests = requestsRef.current.map((request) => {
       if (request._id === requestId) {

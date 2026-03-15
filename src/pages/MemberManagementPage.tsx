@@ -10,8 +10,11 @@ import {
     Space,
     Tag,
     Divider,
+    Modal,
+    Popconfirm,
+    Tooltip,
 } from "antd";
-import { UserAddOutlined, TeamOutlined, LockOutlined, UserOutlined } from "@ant-design/icons";
+import { UserAddOutlined, TeamOutlined, LockOutlined, UserOutlined, SettingOutlined, DeleteOutlined } from "@ant-design/icons";
 import { message } from "../utils/antdStatic";
 import apiCaller from "../utils/apiCaller";
 
@@ -37,6 +40,10 @@ const MemberManagementPage = () => {
     const [usersLoading, setUsersLoading] = useState(false);
     const [rolesLoading, setRolesLoading] = useState(false);
     const [createLoading, setCreateLoading] = useState(false);
+    const [assignLoading, setAssignLoading] = useState(false);
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [selectedRole, setSelectedRole] = useState<string | null>(null);
     const [form] = Form.useForm();
 
     const loadData = async () => {
@@ -50,7 +57,6 @@ const MemberManagementPage = () => {
 
             if (usersRes.data) setUsers(usersRes.data.data.users);
             if (rolesRes.data) setRoles(rolesRes.data.data.acls);
-            console.log(rolesRes.data, "this are the roles");
 
         } catch (error: any) {
             console.error(error);
@@ -82,6 +88,50 @@ const MemberManagementPage = () => {
         }
     };
 
+    const handleAssignRole = async () => {
+        if (!selectedUser || !selectedRole) {
+            message.error("Please select a role");
+            return;
+        }
+
+        setAssignLoading(true);
+        try {
+            const response = await apiCaller.post("/admin/assign-role", {
+                userId: selectedUser._id,
+                aclId: selectedRole
+            });
+
+            if (response.data) {
+                message.success("Role assigned successfully");
+                setIsModalVisible(false);
+                setSelectedUser(null);
+                setSelectedRole(null);
+                loadData();
+            }
+        } catch (error: any) {
+            message.error(error?.response?.data?.message || "Failed to assign role");
+        } finally {
+            setAssignLoading(false);
+        }
+    };
+
+    const openAssignModal = (user: User) => {
+        setSelectedUser(user);
+        setIsModalVisible(true);
+    };
+
+    const handleDeleteUser = async (userId: string) => {
+        try {
+            const response = await apiCaller.delete(`/admin/users/${userId}`);
+            if (response.data) {
+                message.success("Member deleted successfully");
+                loadData();
+            }
+        } catch (error: any) {
+            message.error(error?.response?.data?.message || "Failed to delete member");
+        }
+    };
+
 
     const columns = [
         {
@@ -102,20 +152,73 @@ const MemberManagementPage = () => {
             key: "roles",
             render: (roles: string[]) => (
                 <>
-                    {roles && roles.map((role) => {
-                        let color = "default";
-                        if (role === "CREATOR") color = "gold";
-                        else if (role === "SUPER_ADMIN") color = "volcano";
-                        else if (role === "ADMIN") color = "magenta";
-                        else if (role === "WORKER") color = "green";
-                        return (
-                            <Tag color={color} key={role}>
-                                {role}
-                            </Tag>
-                        );
-                    })}
+                    {roles && roles.length > 0 ? (
+                        roles.map((role) => {
+                            let color = "default";
+                            if (role === "CREATOR") color = "gold";
+                            else if (role === "SUPER_ADMIN") color = "volcano";
+                            else if (role === "ADMIN") color = "magenta";
+                            else if (role === "WORKER") color = "green";
+                            return (
+                                <Tag color={color} key={role}>
+                                    {role}
+                                </Tag>
+                            );
+                        })
+                    ) : (
+                        <Tag color="default">No roles selected</Tag>
+                    )}
                 </>
             ),
+        },
+        {
+            title: "Action",
+            key: "action",
+            render: (_: any, record: User) => {
+                const isProtected = record.roles?.includes("SUPER_ADMIN") || record.roles?.includes("CREATOR");
+                return (
+                    <Space split={<Divider type="vertical" />}>
+                        <Tooltip title="Manage roles">
+                            <Button
+                                type="link"
+                                icon={<SettingOutlined />}
+                                onClick={() => openAssignModal(record)}
+                                className="text-indigo-600 font-bold p-0"
+                            />
+                        </Tooltip>
+                        {isProtected ? (
+                            <Tooltip title="Protected Role (Cannot Delete)">
+                                <Button
+                                    type="link"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    disabled
+                                    className="p-0 opacity-20"
+                                />
+                            </Tooltip>
+                        ) : (
+                            <Popconfirm
+                                title="Delete Member"
+                                description={`Are you sure you want to delete ${record.name}?`}
+                                onConfirm={() => handleDeleteUser(record._id)}
+                                okText="Yes"
+                                cancelText="No"
+                                okButtonProps={{ danger: true, className: "rounded-lg" }}
+                                cancelButtonProps={{ className: "rounded-lg" }}
+                            >
+                                <Tooltip title="Delete member">
+                                    <Button
+                                        type="link"
+                                        danger
+                                        icon={<DeleteOutlined />}
+                                        className="p-0"
+                                    />
+                                </Tooltip>
+                            </Popconfirm>
+                        )}
+                    </Space>
+                )
+            },
         },
     ];
 
@@ -219,6 +322,36 @@ const MemberManagementPage = () => {
                     </Card>
                 </div>
             </div>
+
+            <Modal
+                title={`Assign Role to ${selectedUser?.name}`}
+                open={isModalVisible}
+                onOk={handleAssignRole}
+                onCancel={() => setIsModalVisible(false)}
+                confirmLoading={assignLoading}
+                okButtonProps={{ className: "bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl" }}
+                cancelButtonProps={{ className: "rounded-xl" }}
+            >
+                <div className="py-4">
+                    <Text type="secondary" className="block mb-4 text-xs font-bold uppercase tracking-widest">Select Privilege Cluster</Text>
+                    <Select
+                        placeholder="Select a role"
+                        style={{ width: '100%' }}
+                        onChange={(value) => setSelectedRole(value)}
+                        className="member-select"
+                        value={selectedRole}
+                    >
+                        {roles && roles.map((role) => (
+                            <Option key={role._id} value={role._id}>
+                                <Space direction="vertical" size={0}>
+                                    <Text strong className="text-xs">{role.name}</Text>
+                                    <Text type="secondary" style={{ fontSize: '10px' }}>{role.description}</Text>
+                                </Space>
+                            </Option>
+                        ))}
+                    </Select>
+                </div>
+            </Modal>
 
             <style>{`
         .member-field {

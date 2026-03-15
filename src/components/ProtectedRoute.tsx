@@ -46,6 +46,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
           _id: response.data.data.user._id,
           username: response.data.data.user.username,
           token: response.data.data.token,
+          roles: response.data.data.user.roles,
         });
       } else {
         localStorage.removeItem("token");
