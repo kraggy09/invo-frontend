@@ -1,7 +1,9 @@
 import { App } from "antd";
 import type { MessageInstance } from "antd/es/message/interface";
+import type { HookAPI } from "antd/es/modal/useModal";
 
 let message: MessageInstance;
+let modal: HookAPI;
 
 /**
  * AntdStaticBridge
@@ -20,8 +22,9 @@ let message: MessageInstance;
 const AntdStaticBridge = () => {
     const app = App.useApp();
     message = app.message;
+    modal = app.modal;
     return null;
 };
 
-export { message };
+export { message, modal };
 export default AntdStaticBridge;

@@ -11,15 +11,21 @@ import { io, Socket } from "socket.io-client";
 interface SocketContextType {
   socket: Socket | null;
   isConnected: boolean;
+  isSessionBlocked: boolean;
+  blockSession: () => void;
   connect: () => void;
   disconnect: () => void;
+  terminateSession: () => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
   socket: null,
   isConnected: false,
+  isSessionBlocked: false,
+  blockSession: () => { },
   connect: () => { },
   disconnect: () => { },
+  terminateSession: () => { },
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -27,6 +33,11 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const socket = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isSessionBlocked, setIsSessionBlocked] = useState(false);
+
+  const blockSession = useCallback(() => {
+    setIsSessionBlocked(true);
+  }, []);
 
   const connect = useCallback(() => {
     if (socket.current?.connected) return;
@@ -99,6 +110,16 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [socket]);
 
+  // Permanently disconnect with no reconnect — used when session is terminated by the server
+  const terminateSession = useCallback(() => {
+    if (socket.current) {
+      socket.current.io.opts.reconnection = false;
+      socket.current.disconnect();
+      socket.current = null;
+      setIsConnected(false);
+    }
+  }, [socket]);
+
   // Handle tab close
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -113,7 +134,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <SocketContext.Provider
-      value={{ socket: socket.current, isConnected, connect, disconnect }}
+      value={{ socket: socket.current, isConnected, isSessionBlocked, blockSession, connect, disconnect, terminateSession }}
     >
       {children}
     </SocketContext.Provider>

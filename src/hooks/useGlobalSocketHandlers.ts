@@ -5,7 +5,7 @@ import {
   NotificationEvent,
   BillCreatedEvent,
 } from "../types/socket";
-import { message } from "../utils/antdStatic";
+import { message, modal } from "../utils/antdStatic";
 import useUserStore from "../store/user.store";
 import apiCaller from "../utils/apiCaller";
 import useCustomerStore, { ICustomer } from "../store/customer.store";
@@ -19,7 +19,7 @@ import { useJourneyStore } from "../store/journey.store";
 import useReturnBillStore from "../store/returnBill.store";
 
 export const useGlobalSocketHandlers = () => {
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected, terminateSession, blockSession } = useSocket();
 
   // Zustands optimized with selectors
 
@@ -499,6 +499,29 @@ export const useGlobalSocketHandlers = () => {
     socket.on(SocketEvents.TRANSACTION.UPDATED, handleTransactionUpdated);
     socket.on("JOURNEY_LOG_CREATED", handleJourneyLogCreated);
 
+    socket.on("SESSION_ALREADY_ACTIVE", () => {
+      modal.confirm({
+        title: "Connection Active in Another Tab",
+        content: "You already have an active session in another tab. Do you want to use this tab instead?",
+        okText: "Switch to this tab",
+        cancelText: "Cancel",
+        onOk: () => {
+          socket.emit("FORCE_SESSION");
+        },
+        onCancel: () => {
+          // Block this tab — can't use it, session is elsewhere
+          terminateSession();
+          blockSession();
+        }
+      });
+    });
+
+    socket.on("SESSION_TERMINATED", () => {
+      // Disable reconnection first so the old tab doesn't fight the new session
+      terminateSession();
+      blockSession();
+    });
+
     // Cleanup on unmount (though these should persist)
     return () => {
       socket.off(SocketEvents.NOTIFICATION);
@@ -517,6 +540,8 @@ export const useGlobalSocketHandlers = () => {
       socket.off(SocketEvents.TRANSACTION.CREATED);
       socket.off(SocketEvents.TRANSACTION.UPDATED);
       socket.off("JOURNEY_LOG_CREATED");
+      socket.off("SESSION_ALREADY_ACTIVE");
+      socket.off("SESSION_TERMINATED");
     };
   }, [socket, isConnected, handleWelcomeMessage, handleNotification, handleBillCreated, handleInventoryUpdateRequest, handleStockUpdated, handleStockRejected, handleProductCreated, handleProductUpdated, handleProductDeleted, handleCustomerCreated, handleTransactionCreated, handleTransactionUpdated, handleJourneyLogCreated]);
 };
