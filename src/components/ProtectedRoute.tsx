@@ -1,45 +1,54 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useFetch } from "../hooks/useFetch";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import apiCaller from "../utils/apiCaller";
 import { useSocket } from "../contexts/SocketContext";
 import useUserStore from "../store/user.store";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowedRoles?: string[];
 }
 
-const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const location = useLocation();
   const [isChecking, setIsChecking] = useState(true);
   const { connect, isConnected } = useSocket();
-  const [firstRender, setFirstRender] = useState(true);
-  const { isAuthenticated, setIsAuthenticated, setUser } = useUserStore(
+
+  const { isAuthenticated, setIsAuthenticated, setUser, user } = useUserStore(
     (state) => state
   );
 
-  const checkAuth = async () => {
+  const isCheckingAuthRef = useRef(false);
+
+  const checkAuth = useCallback(async () => {
+    // If we are already authenticated and connected, or in the process of checking, skip
+    if (isCheckingAuthRef.current) return;
+
     if (isAuthenticated) {
+      console.log("[ProtectedRoute] Already authenticated, ensuring socket is connected.");
       if (!isConnected) {
         connect();
       }
       setIsChecking(false);
       return;
     }
+
     try {
-      console.log("CHekcing auth");
+      isCheckingAuthRef.current = true;
+      console.log("[ProtectedRoute] Checking auth via API...");
 
       const token = localStorage.getItem("token");
       if (!token) {
+        console.log("[ProtectedRoute] No token found in localStorage.");
         setIsChecking(false);
+        isCheckingAuthRef.current = false;
         return;
       }
 
       const response = await apiCaller.get("/users/check-auth");
 
       if (response?.status === 200 || response?.status === 304) {
-        setIsChecking(false);
-        console.log(response.data, "USER DATA");
+        console.log("[ProtectedRoute] Auth successful, setting user state and connecting socket.");
 
         setIsAuthenticated(true);
         setUser({
@@ -48,32 +57,28 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
           token: response.data.data.token,
           roles: response.data.data.user.roles,
         });
+
+        // The socket connection should happen AFTER we are sure we are authenticated
+        connect();
       } else {
+        console.log("[ProtectedRoute] Auth failed with status:", response?.status);
         localStorage.removeItem("token");
         localStorage.removeItem("isAuthenticated");
-        setIsChecking(false);
       }
-
-      if (response.status === 200) {
-        if (!isConnected) {
-          connect();
-        }
-      }
-    } catch {
+      setIsChecking(false);
+    } catch (error) {
+      console.error("[ProtectedRoute] Auth check failed with error:", error);
       localStorage.removeItem("token");
       localStorage.removeItem("isAuthenticated");
       setIsChecking(false);
+    } finally {
+      isCheckingAuthRef.current = false;
     }
-  };
+  }, [isAuthenticated, isConnected, connect, setIsAuthenticated, setUser]);
 
   useEffect(() => {
-    if (!firstRender) {
-      checkAuth();
-    }
-  }, [firstRender]);
-  useEffect(() => {
-    setFirstRender(false);
-  }, []);
+    checkAuth();
+  }, [checkAuth]);
 
   if (isChecking) {
     return <div>Loading...</div>;
@@ -81,6 +86,14 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (!isAuthenticated && !isChecking) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Role check
+  if (allowedRoles && user) {
+    const hasRole = user.roles?.some((role) => allowedRoles.includes(role));
+    if (!hasRole) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <>{children}</>;

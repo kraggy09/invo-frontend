@@ -30,24 +30,65 @@ const SocketContext = createContext<SocketContextType>({
 
 export const useSocket = () => useContext(SocketContext);
 
+// Use a module-level variable to persist the socket instance across re-mounts (important for React 18 StrictMode in dev)
+let globalSocket: Socket | null = null;
+let globalIsConnected = false;
+
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
-  const socket = useRef<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const socket = useRef<Socket | null>(globalSocket);
+  const [isConnected, setIsConnected] = useState(globalIsConnected);
   const [isSessionBlocked, setIsSessionBlocked] = useState(false);
 
   const blockSession = useCallback(() => {
     setIsSessionBlocked(true);
   }, []);
 
-  const connect = useCallback(() => {
-    if (socket.current?.connected) return;
+  const disconnect = useCallback(() => {
+    console.log("[SocketContext] Disconnecting socket...");
+    if (socket.current) {
+      socket.current.disconnect();
+      socket.current = null;
+      globalSocket = null;
+      setIsConnected(false);
+      globalIsConnected = false;
+      console.log("[SocketContext] Socket disconnected and cleared.");
+    } else {
+      console.log("[SocketContext] No active socket to disconnect.");
+    }
+  }, [socket]);
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.log("No token found, socket connection aborted");
+  // Permanently disconnect with no reconnect — used when session is terminated by the server
+  const terminateSession = useCallback(() => {
+    console.log("[SocketContext] Terminating session...");
+    if (socket.current) {
+      socket.current.io.opts.reconnection = false;
+      socket.current.disconnect();
+      socket.current = null;
+      globalSocket = null;
+      setIsConnected(false);
+      globalIsConnected = false;
+    }
+  }, [socket]);
+
+  const connect = useCallback(() => {
+    console.log("[SocketContext] Connect called.");
+    // If we already have a socket instance, don't create another one
+    if (socket.current || globalSocket) {
+      console.log("[SocketContext] Socket instance already exists, skipping initialization.");
+      if (!socket.current && globalSocket) {
+        socket.current = globalSocket;
+        setIsConnected(globalIsConnected);
+      }
       return;
     }
 
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.log("[SocketContext] No token found, socket connection aborted.");
+      return;
+    }
+
+    console.log("[SocketContext] Initializing new socket instance...");
     const socketInstance = io(
       import.meta.env.VITE_SOCKET_URL || import.meta.env.SOCKET_URL || "http://localhost:3000",
       {
@@ -63,64 +104,52 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
+    // Immediate assignment to prevent race conditions from concurrent calls
+    socket.current = socketInstance;
+    globalSocket = socketInstance;
+
     // Connection events
     socketInstance.on("connect", () => {
       setIsConnected(true);
-      console.log("Socket connected");
+      globalIsConnected = true;
+      console.log("[SocketContext] Socket connected event fired.");
     });
 
-    socketInstance.on("disconnect", () => {
+    socketInstance.on("disconnect", (reason) => {
       setIsConnected(false);
-      console.log("Socket disconnected");
+      globalIsConnected = false;
+      console.log("[SocketContext] Socket disconnected event fired. Reason:", reason);
     });
 
     socketInstance.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
+      console.error("[SocketContext] Socket connection error:", error);
       setIsConnected(false);
+      globalIsConnected = false;
     });
 
     socketInstance.on("reconnect", (attemptNumber) => {
-      console.log(`Socket reconnected after ${attemptNumber} attempts`);
+      console.log(`[SocketContext] Socket reconnected after ${attemptNumber} attempts.`);
       setIsConnected(true);
+      globalIsConnected = true;
     });
 
     socketInstance.on("reconnect_error", (error) => {
-      console.error("Socket reconnection error:", error);
+      console.error("[SocketContext] Socket reconnection error:", error);
     });
 
     socketInstance.on("reconnect_failed", () => {
-      console.error("Socket reconnection failed");
+      console.error("[SocketContext] Socket reconnection failed.");
     });
 
     socketInstance.on("error", (error) => {
-      console.error("Socket error:", error);
+      console.error("[SocketContext] Socket error:", error);
       if (error.message === "Authentication error") {
         disconnect();
       }
     });
+  }, [socket, disconnect]);
 
-    socket.current = socketInstance;
-  }, [socket]);
-
-  const disconnect = useCallback(() => {
-    if (socket.current) {
-      socket.current.disconnect();
-      socket.current = null;
-      setIsConnected(false);
-    }
-  }, [socket]);
-
-  // Permanently disconnect with no reconnect — used when session is terminated by the server
-  const terminateSession = useCallback(() => {
-    if (socket.current) {
-      socket.current.io.opts.reconnection = false;
-      socket.current.disconnect();
-      socket.current = null;
-      setIsConnected(false);
-    }
-  }, [socket]);
-
-  // Handle tab close
+  // Handle tab close and component unmount
   useEffect(() => {
     const handleBeforeUnload = () => {
       disconnect();
@@ -129,6 +158,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      // In development, we might NOT want to disconnect on unmount 
+      // if it's just a StrictMode double-mount or HMR.
+      // But we should disconnect on real unmount.
+      // For now, let's see if the globalSocket singleton is enough.
     };
   }, [disconnect]);
 

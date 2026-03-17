@@ -480,6 +480,8 @@ export const useGlobalSocketHandlers = () => {
       });
   }, []);
 
+  const modalVisibleRef = useRef(false);
+
   useEffect(() => {
     if (!socket || !isConnected) return;
     socket.on(SocketEvents.NOTIFICATION, handleNotification);
@@ -501,15 +503,20 @@ export const useGlobalSocketHandlers = () => {
     socket.on("JOURNEY_LOG_CREATED", handleJourneyLogCreated);
 
     socket.on("SESSION_ALREADY_ACTIVE", () => {
+      if (modalVisibleRef.current) return;
+      modalVisibleRef.current = true;
+
       modal.confirm({
         title: "Connection Active in Another Tab",
         content: "You already have an active session in another tab. Do you want to use this tab instead?",
         okText: "Switch to this tab",
         cancelText: "Cancel",
         onOk: () => {
+          modalVisibleRef.current = false;
           socket.emit("FORCE_SESSION");
         },
         onCancel: () => {
+          modalVisibleRef.current = false;
           // Block this tab — can't use it, session is elsewhere
           terminateSession();
           blockSession();
