@@ -15,7 +15,10 @@ import {
   AppstoreOutlined,
   MenuOutlined,
   HistoryOutlined,
+  BellOutlined,
 } from "@ant-design/icons";
+
+import useUserStore from "../store/user.store";
 
 const navLinks = [
   {
@@ -62,22 +65,37 @@ const navLinks = [
     label: "Categories",
     path: "/categories",
     icon: <AppstoreOutlined className="text-base mr-2" />,
+    roles: ["SUPER_ADMIN", "CREATOR"],
   },
   {
     label: "Journey Logs",
     path: "/journey-logs",
     icon: <HistoryOutlined className="text-base mr-2" />,
+    roles: ["SUPER_ADMIN", "CREATOR"],
   },
   {
     label: "Members",
     path: "/members",
     icon: <TeamOutlined className="text-base mr-2" />,
+    roles: ["SUPER_ADMIN", "CREATOR"],
+  },
+  {
+    label: "Notifications",
+    path: "/notifications",
+    icon: <BellOutlined className="text-base mr-2" />,
+    roles: ["SUPER_ADMIN", "CREATOR"],
   },
 ];
 
 const Header = () => {
   const navigate = useNavigate();
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+  const { user } = useUserStore();
+
+  const filteredNavLinks = navLinks.filter((link) => {
+    if (!link.roles) return true;
+    return user?.roles?.some((role) => link.roles?.includes(role));
+  });
 
   const handleMenuClick = ({ key }: { key: string }) => {
     if (key === "logout") {
@@ -99,7 +117,7 @@ const Header = () => {
         padding: 4,
       }}
       items={[
-        ...navLinks.map((item) => ({
+        ...filteredNavLinks.map((item) => ({
           key: item.path,
           label: (
             <span className="flex items-center gap-2 py-1.5 px-1 text-base">
@@ -166,7 +184,7 @@ const Header = () => {
           onClick={handleMenuClick}
           style={{ borderRight: 0 }}
           items={[
-            ...navLinks.map((item) => ({
+            ...filteredNavLinks.map((item) => ({
               key: item.path,
               icon: item.icon,
               label: <span className="text-base font-medium">{item.label}</span>,

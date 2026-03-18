@@ -20,11 +20,11 @@ import NewCustomer from "./components/NewCustomer";
 import NewTransaction from "./components/NewTransaction";
 import TransactionPage from "./pages/TransactionPage";
 import SingleTransactionPage from "./pages/SingleTransactionPage";
-import UpdateStockRequest from "./pages/UpdateStockRequest";
 import JourneyLogsPage from "./pages/JourneyLogsPage";
 import ReturnBillPage from "./pages/ReturnBillPage";
 import SingleReturnBillPage from "./pages/SingleReturnBillPage";
 import MemberManagementPage from "./pages/MemberManagementPage";
+import NotificationPage from "./pages/NotificationPage";
 
 const AppRoutes = () => {
   const location = useLocation();
@@ -86,7 +86,7 @@ const AppRoutes = () => {
         <Route
           path="/categories"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SUPER_ADMIN", "CREATOR"]}>
               <CategoryPage />
             </ProtectedRoute>
           }
@@ -127,7 +127,8 @@ const AppRoutes = () => {
         <Route
           path="/products/:id"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SUPER_ADMIN", "CREATOR", "ADMIN"]}>
+
               <EditProductPage />
             </ProtectedRoute>
           }
@@ -175,7 +176,7 @@ const AppRoutes = () => {
         <Route
           path="/journey-logs"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SUPER_ADMIN", "CREATOR"]}>
               <JourneyLogsPage />
             </ProtectedRoute>
           }
@@ -199,12 +200,20 @@ const AppRoutes = () => {
         <Route
           path="/members"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SUPER_ADMIN", "CREATOR"]}>
               <MemberManagementPage />
             </ProtectedRoute>
           }
         />
 
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute allowedRoles={["SUPER_ADMIN", "CREATOR"]}>
+              <NotificationPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </>
   );
