@@ -78,8 +78,8 @@ const EditProductPage = () => {
       setFetchError(null);
       try {
         const res = await apiCaller.get(`/products/${id}`);
-        console.log("Fetched product:", res.data);
-        const p = res.data.product;
+        const p = res.data.data.product;
+
         if (!p) {
           setFetchError("Product not found.");
           setLoading(false);

@@ -20,7 +20,6 @@ import {
   DollarOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
-  PercentageOutlined,
   EyeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -40,13 +39,10 @@ import useReturnBillStore from "../store/returnBill.store";
 import { useNavigate } from "react-router-dom";
 import { useInventoryRequestStore } from "../store/requests.store";
 import apiCaller from "../utils/apiCaller";
+import useUserStore from "../store/user.store";
 
 const { RangePicker } = DatePicker;
 
-const mockReportData = {
-  bills: [],
-  transactions: [],
-};
 
 const DailyReportPage = () => {
   const [activeTab, setActiveTab] = useState("bills");
@@ -54,7 +50,27 @@ const DailyReportPage = () => {
     [dayjs.Dayjs | null, dayjs.Dayjs | null]
   >([dayjs(), dayjs()]);
   const [loading, setLoading] = useState(false);
-  const [reportData, setReportData] = useState<{ bills: any[]; transactions: any[]; returnBills?: any[]; inventoryRequests?: any[] } | null>(null);
+  const [reportData, setReportData] = useState<{
+    bills: any[];
+    transactions: any[];
+    payments: any[];
+    returnBills: any[];
+    inventoryRequests: any[];
+  }>({
+    bills: [],
+    transactions: [],
+    payments: [],
+    returnBills: [],
+    inventoryRequests: [],
+  });
+
+  const [pagination, setPagination] = useState({
+    bills: { current: 1, total: 0, pageSize: 15 },
+    transactions: { current: 1, total: 0, pageSize: 15 },
+    payments: { current: 1, total: 0, pageSize: 15 },
+    returnBills: { current: 1, total: 0, pageSize: 15 },
+  });
+
   const [showAdmin, setShowAdmin] = useState(false);
   const [pin, setPin] = useState("");
   const [summary, setSummary] = useState({
@@ -79,6 +95,7 @@ const DailyReportPage = () => {
   >([0, Infinity]);
 
   // Zustand stores
+  const { user } = useUserStore();
   const billsFromStore = useBillStore((state) => state.bills);
   const transactionsFromStore = useTransactionStore(
     (state) => state.transactions
@@ -86,11 +103,21 @@ const DailyReportPage = () => {
   const { requests: inventoryRequestsFromStore } = useInventoryRequestStore();
   const returnBillsFromStore = useReturnBillStore((state) => state.returnBills);
 
+  const canSeeFinancials = true;
+
   // Use fetched report data if in historical mode, otherwise use live store
-  const bills = reportData ? reportData.bills : billsFromStore;
-  const transactions = reportData ? reportData.transactions : transactionsFromStore;
-  const returnBills = reportData ? reportData.returnBills || [] : returnBillsFromStore;
-  const inventoryRequests = reportData ? reportData.inventoryRequests || [] : inventoryRequestsFromStore;
+  const isToday =
+    dateRange[0]?.isSame(dayjs(), "day") &&
+    dateRange[1]?.isSame(dayjs(), "day");
+
+  const bills = !isToday ? reportData.bills : billsFromStore;
+  const transactions = !isToday
+    ? reportData.transactions
+    : transactionsFromStore;
+  const returnBills = !isToday ? reportData.returnBills : returnBillsFromStore;
+  const inventoryRequests = !isToday
+    ? reportData.inventoryRequests
+    : inventoryRequestsFromStore;
 
   const getOutstanding = (b: any) => b.total - (b.payment || 0);
 
@@ -147,19 +174,37 @@ const DailyReportPage = () => {
 
   const mappedTransactions = transactions
     .map((t: any) => ({
-      key: t._id, // Always use _id for the row key / navigation
+      key: t._id,
       date: t.createdAt ? dayjs(t.createdAt).format("DD/MM/YYYY") : "",
       time: t.createdAt ? dayjs(t.createdAt).format("hh:mm:ss A") : "",
-      transId: t.id || t._id, // Display the numeric ID
+      transId: t.id || t._id,
       purpose: t.purpose || "",
       name: t.name || "",
       previousOutstanding: t.previousOutstanding || 0,
       payment: t.amount || t.payment || 0,
       newOutstanding: t.newOutstanding || 0,
-      paymentIn: !t.taken || t.paymentIn,
+      paymentIn: t.paymentIn ?? (!t.taken),
       approved: t.approved,
       approvedAt: t.approvedAt,
       rejectedAt: t.rejectedAt,
+    }))
+    .reverse();
+
+  const transactionsToUseForPayments = !isToday ? reportData.payments : transactionsFromStore;
+
+  const mappedPayments = transactionsToUseForPayments
+    .map((t: any) => ({
+      key: t._id,
+      date: t.createdAt ? dayjs(t.createdAt).format("DD/MM/YYYY") : "",
+      time: t.createdAt ? dayjs(t.createdAt).format("hh:mm:ss A") : "",
+      transId: t.id || t._id,
+      purpose: t.purpose || "",
+      name: t.name || "",
+      previousOutstanding: t.previousOutstanding || 0,
+      payment: t.amount || t.payment || 0,
+      newOutstanding: t.newOutstanding || 0,
+      paymentIn: t.paymentIn ?? (!t.taken),
+      approved: t.approved,
     }))
     .reverse();
 
@@ -209,9 +254,9 @@ const DailyReportPage = () => {
     )
       return false;
 
-    if (billAmountRange[0] > 0 && bill.billAmount < billAmountRange[0])
+    if (billAmountRange[0] > 0 && bill.billTotal < billAmountRange[0])
       return false;
-    if (billAmountRange[1] < Infinity && bill.billAmount > billAmountRange[1])
+    if (billAmountRange[1] < Infinity && bill.billTotal > billAmountRange[1])
       return false;
     return true;
   });
@@ -261,7 +306,9 @@ const DailyReportPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Calculate summary stats here from reportData
+    // Only calculate summary locally for TODAY
+    if (!isToday) return;
+
     if (!bills && !transactions) return;
     let totalBillAmount = 0;
     let totalInvestment = 0;
@@ -273,9 +320,9 @@ const DailyReportPage = () => {
         if (bill.items) {
           for (const item of bill.items) {
             totalBillAmount += item.total ?? 0;
-            // Prefer item level cost price which is persisted
             totalInvestment +=
-              (item.quantity ?? 0) * (item.costPrice ?? item.product?.costPrice ?? 0);
+              (item.quantity ?? 0) *
+              (item.costPrice ?? item.product?.costPrice ?? 0);
           }
         }
       }
@@ -315,10 +362,7 @@ const DailyReportPage = () => {
 
       if (maxHour !== -1) {
         const start = dayjs().hour(maxHour).minute(0).format("hh A");
-        const end = dayjs()
-          .hour(maxHour + 1)
-          .minute(0)
-          .format("hh A");
+        const end = dayjs().hour(maxHour + 1).minute(0).format("hh A");
         peakHour = `${start} - ${end}`;
       }
     }
@@ -331,20 +375,22 @@ const DailyReportPage = () => {
       marginPercent: Number(marginPercent.toFixed(1)),
       peakHour,
     });
-  }, [bills, transactions]);
+  }, [bills, transactions, isToday]);
 
   // Fetch on date range change
   useEffect(() => {
-    const isToday =
-      dateRange[0]?.isSame(dayjs(), "day") &&
-      dateRange[1]?.isSame(dayjs(), "day");
-
     if (!isToday) {
       fetchReport();
     } else {
-      setReportData(null); // Clear report data to fallback to live store for Today
+      setReportData({
+        bills: [],
+        transactions: [],
+        payments: [],
+        returnBills: [],
+        inventoryRequests: [],
+      });
     }
-  }, [dateRange]);
+  }, [dateRange, isToday]);
 
   // Real fetch from API
   const fetchReport = async () => {
@@ -352,42 +398,50 @@ const DailyReportPage = () => {
 
     setLoading(true);
     try {
-      const [billsRes, transactionsRes, returnBillsRes, inventoryRequestsRes] = await Promise.all([
-        apiCaller.get("/bills", {
-          params: {
-            startDate: dateRange[0].startOf("day").toISOString(),
-            endDate: dateRange[1].endOf("day").toISOString(),
-          },
-        }),
-        apiCaller.get("/transactions", {
-          params: {
-            startDate: dateRange[0].startOf("day").toISOString(),
-            endDate: dateRange[1].endOf("day").toISOString(),
-          },
-        }),
-        apiCaller.get("/return-bills", {
-          params: {
-            startDate: dateRange[0].startOf("day").toISOString(),
-            endDate: dateRange[1].endOf("day").toISOString(),
-          },
-        }),
-        apiCaller.get("/stocks/requests/all", {
-          params: {
-            startDate: dateRange[0].startOf("day").toISOString(),
-            endDate: dateRange[1].endOf("day").toISOString(),
-          },
-        })
+      const startDate = dateRange[0].startOf("day").toISOString();
+      const endDate = dateRange[1].endOf("day").toISOString();
+
+      const [summaryRes, billsRes, transactionsRes, paymentsRes, returnBillsRes, inventoryRequestsRes] = await Promise.all([
+        apiCaller.get("/bills/summary", { params: { startDate, endDate } }),
+        apiCaller.get("/bills", { params: { startDate, endDate, page: 1, limit: 15 } }),
+        apiCaller.get("/transactions", { params: { startDate, endDate, page: 1, limit: 15, paymentIn: true } }),
+        apiCaller.get("/transactions", { params: { startDate, endDate, page: 1, limit: 15, paymentIn: false } }),
+        apiCaller.get("/return-bills", { params: { startDate, endDate, page: 1, limit: 15 } }),
+        apiCaller.get("/stocks/requests/all", { params: { startDate, endDate } })
       ]);
 
+      const billsData = billsRes.data.data;
+      const transData = transactionsRes.data.data;
+      const paysData = paymentsRes.data.data;
+      const returnsData = returnBillsRes.data.data;
+
       setReportData({
-        bills: billsRes.data.data?.bills ?? billsRes.data.bills ?? [],
-        transactions:
-          transactionsRes.data.data?.transactions ??
-          transactionsRes.data.transactions ??
-          [],
-        returnBills: returnBillsRes.data.data?.returnBills ?? returnBillsRes.data.returnBills ?? [],
-        inventoryRequests: inventoryRequestsRes.data.data?.requests ?? inventoryRequestsRes.data.requests ?? [],
+        bills: billsData.bills || [],
+        transactions: transData.transactions || [],
+        payments: paysData.transactions || [],
+        returnBills: returnsData.returnBills || [],
+        inventoryRequests: inventoryRequestsRes.data.data?.requests || inventoryRequestsRes.data.requests || [],
       });
+
+      setPagination({
+        bills: { current: 1, total: billsData.total || 0, pageSize: 15 },
+        transactions: { current: 1, total: transData.total || 0, pageSize: 15 },
+        payments: { current: 1, total: paysData.total || 0, pageSize: 15 },
+        returnBills: { current: 1, total: returnsData.total || 0, pageSize: 15 },
+      });
+
+      const summaryData = summaryRes.data.data;
+      setSummary({
+        profit: Number(summaryData.profit.toFixed(1)),
+        totalPaymentIn: Number(summaryData.totalPaymentIn.toFixed(1)),
+        totalPaymentOut: Number(summaryData.totalPaymentOut.toFixed(1)),
+        totalBillAmount: Number(summaryData.totalBillAmount.toFixed(1)),
+        marginPercent: summaryData.totalBillAmount > 0
+          ? Number(((summaryData.profit / summaryData.totalBillAmount) * 100).toFixed(1))
+          : 0,
+        peakHour: summaryData.peakHour,
+      });
+
       message.success("Report data loaded successfully");
     } catch (error) {
       console.error("Fetch report error:", error);
@@ -397,10 +451,69 @@ const DailyReportPage = () => {
     }
   };
 
+  const handleBillPageChange = async (page: number) => {
+    const startDate = dateRange[0]?.startOf("day").toISOString();
+    const endDate = dateRange[1]?.endOf("day").toISOString();
+    setLoading(true);
+    try {
+      const res = await apiCaller.get("/bills", { params: { startDate, endDate, page, limit: 15 } });
+      setReportData(prev => ({ ...prev, bills: res.data.data.bills }));
+      setPagination(prev => ({ ...prev, bills: { ...prev.bills, current: page, total: res.data.data.total } }));
+    } catch (err) {
+      message.error("Failed to load bills");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTransactionPageChange = async (page: number) => {
+    const startDate = dateRange[0]?.startOf("day").toISOString();
+    const endDate = dateRange[1]?.endOf("day").toISOString();
+    setLoading(true);
+    try {
+      const res = await apiCaller.get("/transactions", { params: { startDate, endDate, page, limit: 15, paymentIn: true } });
+      setReportData(prev => ({ ...prev, transactions: res.data.data.transactions }));
+      setPagination(prev => ({ ...prev, transactions: { ...prev.transactions, current: page, total: res.data.data.total } }));
+    } catch (err) {
+      message.error("Failed to load transactions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentPageChange = async (page: number) => {
+    const startDate = dateRange[0]?.startOf("day").toISOString();
+    const endDate = dateRange[1]?.endOf("day").toISOString();
+    setLoading(true);
+    try {
+      const res = await apiCaller.get("/transactions", { params: { startDate, endDate, page, limit: 15, paymentIn: false } });
+      setReportData(prev => ({ ...prev, payments: res.data.data.transactions }));
+      setPagination(prev => ({ ...prev, payments: { ...prev.payments, current: page, total: res.data.data.total } }));
+    } catch (err) {
+      message.error("Failed to load payments");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReturnPageChange = async (page: number) => {
+    const startDate = dateRange[0]?.startOf("day").toISOString();
+    const endDate = dateRange[1]?.endOf("day").toISOString();
+    setLoading(true);
+    try {
+      const res = await apiCaller.get("/return-bills", { params: { startDate, endDate, page, limit: 15 } });
+      setReportData(prev => ({ ...prev, returnBills: res.data.data.returnBills }));
+      setPagination(prev => ({ ...prev, returnBills: { ...prev.returnBills, current: page, total: res.data.data.total } }));
+    } catch (err) {
+      message.error("Failed to load return bills");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // PIN logic
   const handlePinSubmit = () => {
     if (pin === "1234") {
-      // Replace with real admin PIN check
       setShowAdmin(true);
       setPin("");
     } else {
@@ -830,102 +943,120 @@ const DailyReportPage = () => {
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Cross-Terminal Analytical Intelligence</p>
         </div>
 
-        {/* Admin PIN */}
-        {!showAdmin ? (
-          <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex items-center gap-3 mb-10 max-w-md mx-auto">
-            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-              <LockOutlined className="text-indigo-600 text-sm" />
-            </div>
-            <Input.Password
-              prefix={<LockOutlined className="text-gray-300 mr-1" />}
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              placeholder="Enter PIN"
-              className="h-10 rounded-xl border-gray-100 bg-gray-50/50 font-bold text-xs flex-1"
-              onPressEnter={handlePinSubmit}
-              size="small"
-            />
-            <Button
-              type="primary"
-              onClick={handlePinSubmit}
-              className="h-10 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
-            >
-              Unlock
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-10 animate-in fade-in duration-700">
-            <div className="flex justify-center">
-              <Button
-                type="text"
-                icon={<EyeInvisibleOutlined className="text-xs" />}
-                onClick={() => setShowAdmin(false)}
-                className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] hover:text-red-500 transition-all flex items-center gap-2"
-              >
-                DECRYPT FINANCIALS / LOCK LAYER
-              </Button>
-            </div>
-
-            {/* Performance Summary Matrix */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {[
-                {
-                  label: "Net Margin",
-                  val: `₹${summary.profit.toLocaleString()}`,
-                  icon: <DollarOutlined />,
-                  sub: `${summary.marginPercent}% yield`,
-                  color: "bg-green-600 shadow-green-100",
-                  bg: "bg-green-50/30"
-                },
-                {
-                  label: "Settlements",
-                  val: `₹${summary.totalPaymentIn.toLocaleString()}`,
-                  icon: <ArrowDownOutlined />,
-                  sub: "Inward Liquidity",
-                  color: "bg-indigo-600 shadow-indigo-100",
-                  bg: "bg-indigo-50/30"
-                },
-                {
-                  label: "Disbursements",
-                  val: `₹${summary.totalPaymentOut.toLocaleString()}`,
-                  icon: <ArrowUpOutlined />,
-                  sub: "Outward Flow",
-                  color: "bg-orange-600 shadow-orange-100",
-                  bg: "bg-orange-50/30"
-                },
-                {
-                  label: "Gross Billed",
-                  val: `₹${summary.totalBillAmount.toLocaleString()}`,
-                  icon: <FileTextOutlined />,
-                  sub: "Ledger Volume",
-                  color: "bg-blue-600 shadow-blue-100",
-                  bg: "bg-blue-50/30"
-                },
-                {
-                  label: "Peak Load",
-                  val: summary.peakHour,
-                  icon: <ClockCircleOutlined />,
-                  sub: "High Traffic Node",
-                  color: "bg-violet-600 shadow-violet-100",
-                  bg: "bg-violet-50/30"
-                }
-              ].map((m, i) => (
-                <div key={i} className={`p-8 rounded-[32px] shadow-sm border border-gray-100/50 relative overflow-hidden group hover:border-gray-200 hover:shadow-md transition-all duration-500 ${m.bg}`}>
-                  <div className={`w-12 h-12 rounded-2xl ${m.color.split(' ')[0]} text-white flex items-center justify-center mb-6 shadow-xl ${m.color.split(' ')[1]} group-hover:scale-110 transition-transform duration-500`}>
-                    {m.icon}
-                  </div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">{m.label}</p>
-                  <p className="text-2xl font-black text-gray-800 tracking-tighter mb-2">
-                    {m.val === "N/A" ? <span className="text-gray-300">N/A</span> : m.val}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1 h-1 rounded-full bg-gray-300" />
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{m.sub}</p>
-                  </div>
+        {/* Performance Summary Matrix */}
+        {canSeeFinancials && (
+          <>
+            {!showAdmin ? (
+              <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex items-center gap-3 mb-10 max-w-md mx-auto">
+                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+                  <LockOutlined className="text-indigo-600 text-sm" />
                 </div>
-              ))}
-            </div>
-          </div>
+                <Input.Password
+                  prefix={<LockOutlined className="text-gray-300 mr-1" />}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="Enter PIN"
+                  className="h-10 rounded-xl border-gray-100 bg-gray-50/50 font-bold text-xs flex-1"
+                  onPressEnter={handlePinSubmit}
+                  size="small"
+                />
+                <Button
+                  type="primary"
+                  onClick={handlePinSubmit}
+                  className="h-10 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
+                >
+                  Unlock
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-10 animate-in fade-in duration-700 mb-10">
+                <div className="flex justify-center">
+                  <Button
+                    type="text"
+                    icon={<EyeInvisibleOutlined className="text-xs" />}
+                    onClick={() => setShowAdmin(false)}
+                    className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] hover:text-red-500 transition-all flex items-center gap-2"
+                  >
+                    DECRYPT FINANCIALS / LOCK LAYER
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                  {[
+                    {
+                      label: "Net Margin",
+                      val: `₹${summary.profit.toLocaleString()}`,
+                      icon: <DollarOutlined />,
+                      sub: `${summary.marginPercent}% yield`,
+                      color: "bg-green-600 shadow-green-100",
+                      bg: "bg-green-50/30",
+                    },
+                    {
+                      label: "Settlements",
+                      val: `₹${summary.totalPaymentIn.toLocaleString()}`,
+                      icon: <ArrowDownOutlined />,
+                      sub: "Inward Liquidity",
+                      color: "bg-indigo-600 shadow-indigo-100",
+                      bg: "bg-indigo-50/30",
+                    },
+                    {
+                      label: "Disbursements",
+                      val: `₹${summary.totalPaymentOut.toLocaleString()}`,
+                      icon: <ArrowUpOutlined />,
+                      sub: "Outward Flow",
+                      color: "bg-orange-600 shadow-orange-100",
+                      bg: "bg-orange-50/30",
+                    },
+                    {
+                      label: "Gross Billed",
+                      val: `₹${summary.totalBillAmount.toLocaleString()}`,
+                      icon: <FileTextOutlined />,
+                      sub: "Ledger Volume",
+                      color: "bg-blue-600 shadow-blue-100",
+                      bg: "bg-blue-50/30",
+                    },
+                    {
+                      label: "Peak Load",
+                      val: summary.peakHour,
+                      icon: <ClockCircleOutlined />,
+                      sub: "High Traffic Node",
+                      color: "bg-violet-600 shadow-violet-100",
+                      bg: "bg-violet-50/30",
+                    },
+                  ].map((m, i) => (
+                    <div
+                      key={i}
+                      className={`p-8 rounded-[32px] shadow-sm border border-gray-100/50 relative overflow-hidden group hover:border-gray-200 hover:shadow-md transition-all duration-500 ${m.bg}`}
+                    >
+                      <div
+                        className={`w-12 h-12 rounded-2xl ${m.color.split(" ")[0]
+                          } text-white flex items-center justify-center mb-6 shadow-xl ${m.color.split(" ")[1]
+                          } group-hover:scale-110 transition-transform duration-500`}
+                      >
+                        {m.icon}
+                      </div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">
+                        {m.label}
+                      </p>
+                      <p className="text-2xl font-black text-gray-800 tracking-tighter mb-2">
+                        {m.val === "N/A" ? (
+                          <span className="text-gray-300">N/A</span>
+                        ) : (
+                          m.val
+                        )}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-1 rounded-full bg-gray-300" />
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                          {m.sub}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Filters for Bills */}
@@ -1108,6 +1239,7 @@ const DailyReportPage = () => {
               className="premium-tabs"
               items={[
                 { key: "bills", label: "Bills" },
+                { key: "returns", label: "Returns" },
                 { key: "transactions", label: "Transaction " },
                 { key: "payment", label: "Payments" },
                 { key: "requests", label: "Inventory History" }
@@ -1116,6 +1248,39 @@ const DailyReportPage = () => {
           </div>
 
           <div className="p-0 sm:p-4">
+            {activeTab === "returns" && (
+              <Table
+                columns={billColumns}
+                dataSource={!isToday ? reportData.returnBills.map((rb: any) => {
+                  const dateVal = rb.createdAt || rb.date;
+                  return {
+                    key: `return_${rb.id || rb._id}`,
+                    date: dateVal ? dayjs(dateVal).format("DD/MM/YYYY") : "",
+                    time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
+                    billId: `R-${rb.id || rb._id}`,
+                    billTotal: -rb.productsTotal,
+                    outstanding: rb.previousOutstanding - rb.productsTotal,
+                    payment: rb.paymentMode === "CASH" ? -rb.totalAmount : 0,
+                    total: rb.previousOutstanding - rb.productsTotal,
+                    customer: rb.customer,
+                    createdBy: rb.createdBy,
+                    status: "Returned",
+                    rawData: rb,
+                    isReturn: true
+                  };
+                }) : mappedReturnBills}
+                loading={loading}
+                rowKey="billId"
+                scroll={{ x: 1000 }}
+                className="modern-table no-border-table"
+                pagination={!isToday ? {
+                  current: pagination.returnBills.current,
+                  total: pagination.returnBills.total,
+                  pageSize: pagination.returnBills.pageSize,
+                  onChange: handleReturnPageChange
+                } : { pageSize: 12, showSizeChanger: false }}
+              />
+            )}
             {activeTab === "bills" && (
               <Table
                 columns={billColumns}
@@ -1124,29 +1289,44 @@ const DailyReportPage = () => {
                 rowKey="billId"
                 scroll={{ x: 1000 }}
                 className="modern-table no-border-table"
-                pagination={{ pageSize: 12, showSizeChanger: false }}
+                pagination={!isToday ? {
+                  current: pagination.bills.current,
+                  total: pagination.bills.total,
+                  pageSize: pagination.bills.pageSize,
+                  onChange: handleBillPageChange
+                } : { pageSize: 12, showSizeChanger: false }}
               />
             )}
             {activeTab === "transactions" && (
               <Table
                 columns={transactionColumns}
-                dataSource={filteredTransactions.filter((trans: any) => trans.paymentIn === true) || []}
+                dataSource={filteredTransactions || []}
                 loading={loading}
                 rowKey="transId"
                 scroll={{ x: 1000 }}
                 className="modern-table no-border-table"
-                pagination={{ pageSize: 12, showSizeChanger: false }}
+                pagination={!isToday ? {
+                  current: pagination.transactions.current,
+                  total: pagination.transactions.total,
+                  pageSize: pagination.transactions.pageSize,
+                  onChange: handleTransactionPageChange
+                } : { pageSize: 12, showSizeChanger: false }}
               />
             )}
             {activeTab === "payment" && (
               <Table
                 columns={paymentColumns}
-                dataSource={filteredTransactions?.filter((t: any) => t.paymentIn === false) || []}
+                dataSource={isToday ? mappedTransactions?.filter((t: any) => t.paymentIn === false) : mappedPayments}
                 loading={loading}
                 rowKey="transId"
                 scroll={{ x: 1000 }}
                 className="modern-table no-border-table"
-                pagination={{ pageSize: 12, showSizeChanger: false }}
+                pagination={!isToday ? {
+                  current: pagination.payments.current,
+                  total: pagination.payments.total,
+                  pageSize: pagination.payments.pageSize,
+                  onChange: handlePaymentPageChange
+                } : { pageSize: 12, showSizeChanger: false }}
               />
             )}
             {activeTab === "requests" && (

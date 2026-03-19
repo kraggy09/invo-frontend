@@ -408,6 +408,7 @@ export const useGlobalSocketHandlers = () => {
         params: {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
+          limit: 10000,
         },
       })
     );
@@ -419,6 +420,7 @@ export const useGlobalSocketHandlers = () => {
         params: {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
+          limit: 10000,
         },
       })
     );
@@ -432,6 +434,7 @@ export const useGlobalSocketHandlers = () => {
         params: {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
+          limit: 10000,
         },
       })
     );
@@ -441,6 +444,7 @@ export const useGlobalSocketHandlers = () => {
         params: {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
+          limit: 10000,
         },
       })
     );

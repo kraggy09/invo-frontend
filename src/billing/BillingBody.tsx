@@ -435,7 +435,7 @@ const BillingBody = () => {
               <div className="pl-2">
                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-1">Grand Total</span>
                 <span className="text-xl font-black text-indigo-600 tracking-tighter">
-                  ₹{currentBill && formatIndianNumber(currentBill.total + (currentBill?.customer?.outstanding || 0) - currentBill.discount)}
+                  ₹{currentBill && formatIndianNumber(Math.ceil(currentBill.total + (currentBill?.customer?.outstanding || 0) - currentBill.discount))}
                 </span>
               </div>
             </div>

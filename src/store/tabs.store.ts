@@ -45,15 +45,18 @@ const useTabsStore = create<TabsStore>((set, get) => ({
   updateFiveMinutesStatus: (bills) => {
     set((state) => {
       const currentTime = new Date();
-      const fiveMinutesAgo = new Date(currentTime.getTime() - 1 * 60 * 1000); // test value
+      const fiveMinutesAgo = new Date(currentTime.getTime() - 5 * 60 * 1000);
       const newTabs = state.tabs.map((tab) => {
-        const tabCreatedAt = new Date(tab.createdAt);
-        const isOverFive = tabCreatedAt <= fiveMinutesAgo;
         const currentBill = bills.find((bill) => bill.id === tab.key);
+        const lastActivity = currentBill?.lastActivityAt
+          ? new Date(currentBill.lastActivityAt)
+          : new Date(tab.createdAt);
+
+        const isStale = lastActivity <= fiveMinutesAgo;
         const shouldBlink = !!(
-          isOverFive &&
+          isStale &&
           currentBill &&
-          currentBill.total > 0
+          currentBill.purchased.length > 0
         );
         return {
           ...tab,

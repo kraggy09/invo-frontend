@@ -1,7 +1,7 @@
 import useCategoriesStore from "../store/categories.store";
 import { Product } from "../store/currentBill.store";
 
-type PriceType = "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL";
+export type PriceType = "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL";
 
 export const calculatePriceTag = (
   product: Product,

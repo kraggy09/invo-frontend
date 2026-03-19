@@ -4,6 +4,7 @@ import useCustomerStore, { ICustomer } from "../store/customer.store";
 import { Table, Button, Select, Input } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
+import useUserStore from "../store/user.store";
 
 const ACCENT = "#2563eb";
 
@@ -25,6 +26,10 @@ const CustomerPage = () => {
   const [sortType, setSortType] = useState<string>("name");
   const [search, setSearch] = useState("");
 
+  const user = useUserStore((state) => state.user);
+  const hasAccess = user?.roles?.some((role) =>
+    ["ADMIN", "SUPER_ADMIN", "CREATOR"].includes(role)
+  );
 
   // Filter and sort
   const filteredCustomers = useMemo(() => {
@@ -95,12 +100,12 @@ const CustomerPage = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-stretch sm:items-center">
-          <div className="bg-white px-6 lg:px-10 py-4 lg:py-6 rounded-[28px] border border-gray-100 shadow-sm flex flex-col items-start sm:items-end group transition-all hover:shadow-indigo-100/50 flex-1 lg:flex-none">
+          {hasAccess && <div className="bg-white px-6 lg:px-10 py-4 lg:py-6 rounded-[28px] border border-gray-100 shadow-sm flex flex-col items-start sm:items-end group transition-all hover:shadow-indigo-100/50 flex-1 lg:flex-none">
             <p className="text-[9px] lg:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Cumulative Receivables</p>
             <span className="text-2xl lg:text-3xl font-black text-indigo-600 tracking-tighter">
               ₹{customers.reduce((sum, c) => sum + (c.outstanding || 0), 0).toLocaleString()}
             </span>
-          </div>
+          </div>}
           <Button
             type="primary"
             icon={<PlusOutlined className="transition-transform duration-500 group-hover:rotate-180" />}

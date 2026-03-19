@@ -22,6 +22,7 @@ import {
 } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
 import { convertToGramorKG, formatIndianNumber } from "../utils";
+import useUserStore from "../store/user.store";
 
 const ACCENT = "#2563eb";
 
@@ -29,6 +30,7 @@ const ProductPage = () => {
   const navigate = useNavigate();
   const { products, setProducts } = useProductStore();
   const { categories } = useCategoriesStore();
+  const { user } = useUserStore();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
   const [sort, setSort] = useState<string>("name");
@@ -39,6 +41,10 @@ const ProductPage = () => {
   }>({ open: false });
   const [loading, setLoading] = useState(false);
 
+
+  const canSeeExtraData = user?.roles?.some((role) =>
+    ["ADMIN", "SUPER_ADMIN", "CREATOR"].includes(role)
+  );
 
   const filteredProducts = useMemo(() => {
     let arr = [...products];
@@ -66,7 +72,10 @@ const ProductPage = () => {
   );
 
   const totalStockValue = useMemo(() => {
-    return filteredProducts.reduce((acc, p) => acc + p.stock * p.costPrice, 0);
+    if (canSeeExtraData) {
+      return filteredProducts.reduce((acc, p) => acc + p.stock * p.costPrice, 0);
+    }
+    return 0;
   }, [filteredProducts]);
 
   const handleDelete = async (product: any) => {
@@ -86,12 +95,18 @@ const ProductPage = () => {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Identification</span>,
       key: "id",
       fixed: "left" as const,
-      width: 180,
+      width: 280,
       render: (record: any) => (
         <div className="flex flex-col">
           <span
             className="font-black text-indigo-600 truncate cursor-pointer hover:text-indigo-800 transition-colors"
-            onClick={() => navigate(`/products/${record._id}`, { state: record })}
+            onClick={() => {
+              if (canSeeExtraData) {
+                navigate(`/products/${record._id}`, { state: record })
+              } else {
+                message.info("You are not authorised to edit the product")
+              }
+            }}
           >
             {record.name}
           </span>
@@ -107,8 +122,7 @@ const ProductPage = () => {
       render: (record: any) => (
         <div className="flex flex-col">
           <span className="text-xs font-black text-gray-700">MRP: ₹{record.mrp}</span>
-          <span className="text-[10px] font-bold text-green-600">CP: ₹{record.costPrice}</span>
-        </div>
+          {canSeeExtraData && <span className="text-[10px] font-bold text-green-600">CP: ₹{record.costPrice}</span>}  </div>
       ),
     },
     {
@@ -147,29 +161,40 @@ const ProductPage = () => {
       key: "category",
       render: (cat: string) => <span className="px-2 py-1 bg-gray-50 border border-gray-100 rounded-lg text-[9px] font-black text-gray-400 uppercase tracking-widest">{cat}</span>,
     },
-    {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</span>,
-      key: "actions",
-      align: "right" as const,
-      width: 100,
-      render: (_: any, record: any) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            type="text"
-            icon={<EditOutlined className="text-gray-400 group-hover:text-indigo-600" />}
-            onClick={() => navigate(`/products/${record._id}`, { state: record })}
-            className="group hover:bg-indigo-50 rounded-lg"
-          />
-          <Button
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => setDeleteModal({ open: true, product: record })}
-            className="hover:bg-red-50 rounded-lg"
-          />
-        </div>
-      ),
-    },
+
+    ...(
+      canSeeExtraData
+        ? [{
+          title: (
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              Actions
+            </span>
+          ),
+          key: "actions",
+          // align: "right",
+          width: 100,
+          render: (_: any, record: any) => (
+            <div className="flex justify-end gap-1">
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                onClick={() =>
+                  navigate(`/products/${record._id}`, { state: record })
+                }
+              />
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() =>
+                  setDeleteModal({ open: true, product: record })
+                }
+              />
+            </div>
+          ),
+        }]
+        : []
+    )
   ];
 
   return (
@@ -181,10 +206,10 @@ const ProductPage = () => {
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Enterprise Inventory Management</p>
           </div>
 
-          <div className="bg-white px-8 py-5 rounded-[24px] border border-gray-100 shadow-sm flex flex-col items-end group transition-all hover:shadow-indigo-100">
+          {canSeeExtraData && <div className="bg-white px-8 py-5 rounded-[24px] border border-gray-100 shadow-sm flex flex-col items-end group transition-all hover:shadow-indigo-100">
             <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Cumulative Market Value</p>
             <span className="text-2xl font-black text-indigo-600 tracking-tighter">₹{formatIndianNumber(totalStockValue)}</span>
-          </div>
+          </div>}
         </div>
 
         {/* Global Controls Container */}

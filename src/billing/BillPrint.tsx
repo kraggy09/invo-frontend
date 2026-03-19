@@ -119,9 +119,10 @@ const BillPrint = ({
   const customerOutstanding = currentBill.total - billTotal + discount;
   // Payment
   const paymentValue = Number(payment) || 0;
-  // Final Outstanding
-  const finalOutstanding =
-    billTotal + customerOutstanding - discount - paymentValue;
+  // Total before payment (rounded)
+  const totalBeforePayment = Math.ceil(billTotal + customerOutstanding - discount);
+  // Final Outstanding after payment
+  const finalOutstanding = totalBeforePayment - paymentValue;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg shadow-lg w-[500px]">
@@ -275,9 +276,7 @@ const BillPrint = ({
                 )}
                 <div className="">
                   Total:
-                  {formatIndianNumber(
-                    billTotal + customerOutstanding - discount
-                  )}
+                  {formatIndianNumber(totalBeforePayment)}
                 </div>
                 {paymentValue > 0 && (
                   <div className="">

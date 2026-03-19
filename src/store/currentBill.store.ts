@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { ICustomer as Customer } from "./customer.store";
 import { IProduct } from "./product.store";
-import { calculatePriceTag } from "../utils/priceUtils";
+import { calculatePriceTag, PriceType } from "../utils/priceUtils";
 import { BillItem } from "./bill.store";
 
 export type PurchasedProduct = {
@@ -102,6 +102,8 @@ export type Bill = {
   customer: Customer | null;
   discount: number;
   createdAt: string;
+  lastActivityAt: string;
+  billType: PriceType;
 };
 
 type BillingStore = {
@@ -160,13 +162,19 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
     removeBill: (id) =>
       set((state) => {
         const idx = state.bills.findIndex((bill) => bill.id === id);
-        const updatedBills = state.bills.filter((bill) => bill.id !== id);
+        if (idx === -1) return state;
+
+        const filteredBills = state.bills.filter((bill) => bill.id !== id);
         let removedId = Number(id);
-        // Shift IDs backward
-        for (let i = idx; i < updatedBills.length; i++) {
-          updatedBills[i].id = removedId + "";
-          removedId++;
-        }
+
+        const updatedBills = filteredBills.map((bill, i) => {
+          if (i >= idx) {
+            const newId = removedId + "";
+            removedId++;
+            return { ...bill, id: newId };
+          }
+          return bill;
+        });
 
         return { bills: updatedBills };
       }),
@@ -211,7 +219,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
           const priceTag = calculatePriceTag(
             currentProduct,
             totalPieces,
-            "RETAIL"
+            bill.billType || "RETAIL"
           );
 
           // Update product details
@@ -247,7 +255,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
           );
 
           // Calculate price tag for the new product
-          const priceTag = calculatePriceTag(newProduct, 1, "RETAIL");
+          const priceTag = calculatePriceTag(newProduct, 1, bill.billType || "RETAIL");
           newProduct.type = priceTag.type;
           newProduct.price = priceTag.price;
           newProduct.total = newProduct.price;
@@ -261,6 +269,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
           ...bill,
           purchased,
           total: purchased.reduce((sum, p) => sum + p.total, 0),
+          lastActivityAt: new Date().toISOString(),
         };
 
         // Create a new bills array with the updated bill
@@ -278,11 +287,17 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
         state.bills[idx].purchased = state.bills[idx].purchased.filter(
           (product) => product.id !== productId
         );
-        state.bills[idx].total = state.bills[idx].purchased.reduce(
-          (sum, product) => sum + product.total,
-          0
-        );
-        return { bills: state.bills };
+        const updatedBill = {
+          ...state.bills[idx],
+          total: state.bills[idx].purchased.reduce(
+            (sum, product) => sum + product.total,
+            0
+          ),
+          lastActivityAt: new Date().toISOString(),
+        };
+        const newBills = [...state.bills];
+        newBills[idx] = updatedBill;
+        return { bills: newBills };
       });
     },
     updateProductPrice: (
@@ -298,7 +313,8 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
           (product) => product.id === productId
         );
         if (productIdx !== -1) {
-          const currentProduct = state.bills[idx].purchased[productIdx];
+          const bill = state.bills[idx];
+          const currentProduct = { ...bill.purchased[productIdx] };
           currentProduct.type = priceType;
           currentProduct.price =
             priceType === "SUPERWHOLESALE"
@@ -314,12 +330,25 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
             currentProduct.packet *
             currentProduct.packetQuantity *
             currentProduct.price;
+
+          const updatedPurchased = [...bill.purchased];
+          updatedPurchased[productIdx] = currentProduct;
+
+          const updatedBill = {
+            ...bill,
+            purchased: updatedPurchased,
+            total: updatedPurchased.reduce(
+              (sum, product) => sum + product.total,
+              0
+            ),
+            lastActivityAt: new Date().toISOString(),
+          };
+
+          const newBills = [...state.bills];
+          newBills[idx] = updatedBill;
+          return { bills: newBills };
         }
-        state.bills[idx].total = state.bills[idx].purchased.reduce(
-          (sum, product) => sum + product.total,
-          0
-        );
-        return { bills: state.bills };
+        return state;
       });
     },
     updateProductQuantities: (
@@ -372,10 +401,8 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
               const priceTag = calculatePriceTag(
                 currentProduct,
                 totalPieces,
-                "RETAIL"
+                bill.billType || "RETAIL"
               );
-
-              console.log(priceTag, "Price tag from heaven");
 
               // Update product type and price
               currentProduct.type = priceTag.type;
@@ -386,14 +413,18 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
                 totalPieces * currentProduct.price -
                 (currentProduct.discount || 0);
 
-              // Update the product in the purchased array
-              bill.purchased[productIndex] = currentProduct;
+              const updatedPurchased = [...bill.purchased];
+              updatedPurchased[productIndex] = currentProduct;
 
-              // Update bill total
-              bill.total = bill.purchased.reduce(
-                (sum, product) => sum + product.total,
-                0
-              );
+              return {
+                ...bill,
+                purchased: updatedPurchased,
+                total: updatedPurchased.reduce(
+                  (sum, product) => sum + product.total,
+                  0
+                ),
+                lastActivityAt: new Date().toISOString(),
+              };
             }
           }
           return bill;
@@ -409,12 +440,14 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
     ) => {
       set((state) => {
         const billIdx = state.bills.findIndex((bill) => bill.id === billId);
+        if (billIdx === -1) return state;
         const productIdx = state.bills[billIdx].purchased.findIndex(
           (product) => product.id === productId
         );
         if (productIdx === -1) return state;
 
-        const currentProduct = state.bills[billIdx].purchased[productIdx];
+        const bill = state.bills[billIdx];
+        const currentProduct = { ...bill.purchased[productIdx] };
         if (currentProduct.measuring !== "kg") {
           return state;
         }
@@ -436,7 +469,20 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
         currentProduct.box = 0;
         currentProduct.packet = 0;
 
-        return { bills: state.bills };
+        const updatedPurchased = [...bill.purchased];
+        updatedPurchased[productIdx] = currentProduct;
+
+        const updatedBill = {
+          ...bill,
+          purchased: updatedPurchased,
+          total: updatedPurchased.reduce((sum, p) => sum + p.total, 0),
+          lastActivityAt: new Date().toISOString(),
+        };
+
+        const newBills = [...state.bills];
+        newBills[billIdx] = updatedBill;
+
+        return { bills: newBills };
       });
     },
     afterBillCreated: (customer, purchasedMap) => {

@@ -111,8 +111,8 @@ const BillingHeader = () => {
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-0.5">Cart Items</span>
             <span className="text-xl font-black text-indigo-600">{currentBill?.purchased?.length || 0}</span>
           </div>
-          <Tag color="indigo" className="rounded-full px-4 border-0 font-black text-[10px] uppercase m-0 py-1">
-            Retail Standard
+          <Tag color={currentBill?.billType === "SUPERWHOLESALE" ? "purple" : currentBill?.billType === "WHOLESALE" ? "green" : "indigo"} className="rounded-full px-4 border-0 font-black text-[10px] uppercase m-0 py-1">
+            {currentBill?.billType === "SUPERWHOLESALE" ? "Super Wholesale" : currentBill?.billType === "WHOLESALE" ? "Wholesale" : "Retail Standard"}
           </Tag>
         </div>
       </div>
