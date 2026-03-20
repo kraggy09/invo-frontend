@@ -1,4 +1,4 @@
-import { Table, Button, Radio, Select, Input, InputRef, Checkbox } from "antd";
+import { Table, Button, Radio, Select, Input, InputRef, Checkbox, InputNumber } from "antd";
 import {
   DeleteOutlined,
   PlusOutlined,
@@ -144,18 +144,6 @@ const BillingBody = () => {
     updateProductPrice(record.id, currentBillingId, priceType);
   };
 
-  const handleQuantityChange = (
-    productId: string,
-    field: "piece" | "packet" | "box" | "discount",
-    value: string
-  ) => {
-    const numericValue = value === "" ? 0 : parseInt(value, 10);
-    if (!isNaN(numericValue)) {
-      updateProductQuantities(productId, currentBillingId.toString(), {
-        [field]: numericValue,
-      });
-    }
-  };
 
   const handleCalculatorClick = (record: PurchasedProduct) => {
     setSelectedProduct(record);
@@ -251,7 +239,6 @@ const BillingBody = () => {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Item</span>,
       dataIndex: "name",
       key: "name",
-      width: 180,
       render: (name: string, record: PurchasedProduct) => (
         <div className="flex items-center gap-2 group">
           <div className="flex flex-col">
@@ -303,11 +290,17 @@ const BillingBody = () => {
       align: "center",
       width: 70,
       render: (_: unknown, record: PurchasedProduct) => (
-        <Input
+        <InputNumber
           size="small"
           className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50"
           value={record.piece}
-          onChange={(e) => handleQuantityChange(record.id, "piece", e.target.value)}
+          onChange={(val) => {
+            updateProductQuantities(record.id, currentBillingId.toString(), {
+              piece: val ?? 0,
+            });
+          }}
+          controls={false}
+          stringMode={false}
         />
       ),
     },
@@ -318,11 +311,16 @@ const BillingBody = () => {
       align: "center",
       width: 70,
       render: (_: unknown, record: PurchasedProduct) => (
-        <Input
+        <InputNumber
           size="small"
-          className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50"
+          className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50 w-full"
           value={record.packet}
-          onChange={(e) => handleQuantityChange(record.id, "packet", e.target.value)}
+          onChange={(val) => {
+            updateProductQuantities(record.id, currentBillingId.toString(), {
+              packet: val ?? 0,
+            });
+          }}
+          controls={false}
         />
       ),
     },
@@ -333,11 +331,16 @@ const BillingBody = () => {
       align: "center",
       width: 70,
       render: (_: unknown, record: PurchasedProduct) => (
-        <Input
+        <InputNumber
           size="small"
-          className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50"
+          className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50 w-full"
           value={record.box}
-          onChange={(e) => handleQuantityChange(record.id, "box", e.target.value)}
+          onChange={(val) => {
+            updateProductQuantities(record.id, currentBillingId.toString(), {
+              box: val ?? 0,
+            });
+          }}
+          controls={false}
         />
       ),
     },
@@ -348,11 +351,16 @@ const BillingBody = () => {
       align: "center",
       width: 80,
       render: (_: unknown, record: PurchasedProduct) => (
-        <Input
+        <InputNumber
           size="small"
-          className="text-center font-black h-8 rounded-lg border-red-50 text-red-600 bg-red-50/20"
+          className="text-center font-black h-8 rounded-lg border-red-50 text-red-600 bg-red-50/20 w-full"
           value={record.discount}
-          onChange={(e) => handleQuantityChange(record.id, "discount", e.target.value)}
+          onChange={(val) => {
+            updateProductQuantities(record.id, currentBillingId.toString(), {
+              discount: val ?? 0,
+            });
+          }}
+          controls={false}
         />
       ),
     },
@@ -361,7 +369,6 @@ const BillingBody = () => {
       dataIndex: "total",
       key: "total",
       align: "right",
-      width: 100,
       render: (_: unknown, record: PurchasedProduct) => (
         <span className="font-black text-indigo-600 pr-4">
           ₹{formatIndianNumber(record.total)}
@@ -396,7 +403,7 @@ const BillingBody = () => {
           columns={columns}
           rowKey="id"
           size="small"
-          scroll={{ x: "max-content", y: tableHeight }}
+          scroll={{ y: tableHeight }}
           className="pos-table no-border-table flex-1"
         />
       </div>

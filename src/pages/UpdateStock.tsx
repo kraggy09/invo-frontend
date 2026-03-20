@@ -24,15 +24,24 @@ function getStockBreakdown(
   let box = 0,
     packet = 0,
     piece = 0;
+
+  const isNegative = stock < 0;
+  let absStock = Math.abs(stock);
+
   if (boxSize && boxSize > 0) {
-    box = Math.floor(stock / boxSize);
-    stock = stock % boxSize;
+    box = Math.floor(absStock / boxSize);
+    absStock = absStock % boxSize;
   }
   if (packetSize && packetSize > 0) {
-    packet = Math.floor(stock / packetSize);
-    stock = stock % packetSize;
+    packet = Math.floor(absStock / packetSize);
+    absStock = absStock % packetSize;
   }
-  piece = stock;
+  piece = absStock;
+
+  if (isNegative) {
+    return `${box > 0 ? -box : 0} Box, ${packet > 0 ? -packet : 0} Packet, ${piece > 0 ? -piece : 0} Piece`;
+  }
+
   return `${box} Box, ${packet} Packet, ${piece} Piece`;
 }
 
@@ -144,7 +153,7 @@ const UpdateStock = () => {
   const handleSubmit = async () => {
     console.log(requestList, "This is the request list");
     const allProductsValid = requestList.every(
-      (item) => item.packet > 0 || item.box > 0 || item.piece > 0
+      (item) => item.packet !== 0 || item.box !== 0 || item.piece !== 0
     );
     console.log(allProductsValid, "Are all products valid?");
 
@@ -154,7 +163,7 @@ const UpdateStock = () => {
     }
 
     const validItems = requestList.filter(
-      (item) => item.piece > 0 || item.packet > 0 || item.box > 0
+      (item) => item.piece !== 0 || item.packet !== 0 || item.box !== 0
     );
     if (validItems.length === 0) {
       messageApi.error("Enter quantity for at least one product.");
@@ -164,7 +173,7 @@ const UpdateStock = () => {
     const payLoad = validItems.map((item) => {
       const totalQuantity =
         item.piece + item.packet * item.packetSize + item.box * item.boxSize;
-      if (totalQuantity <= 0) {
+      if (totalQuantity === 0) {
         messageApi.error(
           `Invalid quantity for ${item.name}. Please enter a valid quantity.`
         );
@@ -229,7 +238,6 @@ const UpdateStock = () => {
       render: (_: any, record: RequestItem) => (
         <div className="flex flex-col items-center gap-1 py-1">
           <InputNumber
-            min={0}
             value={record.piece}
             onChange={(val) => updateQuantity(record._id, "piece", val ?? 0)}
             className="w-24 rounded-lg font-black"
@@ -244,7 +252,6 @@ const UpdateStock = () => {
       render: (_: any, record: RequestItem) => (
         <div className="flex flex-col items-center gap-1 py-1">
           <InputNumber
-            min={0}
             value={record.packet}
             onChange={(val) => updateQuantity(record._id, "packet", val ?? 0)}
             className={`w-24 rounded-lg font-black ${!record.packetSize && "opacity-20 select-none pointer-events-none"}`}
@@ -265,7 +272,6 @@ const UpdateStock = () => {
       render: (_: any, record: RequestItem) => (
         <div className="flex flex-col items-center gap-1 py-1">
           <InputNumber
-            min={0}
             value={record.box}
             onChange={(val) => updateQuantity(record._id, "box", val ?? 0)}
             className={`w-24 rounded-lg font-black ${!record.boxSize && "opacity-20 select-none pointer-events-none"}`}
