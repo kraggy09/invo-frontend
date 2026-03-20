@@ -158,65 +158,55 @@ const DashboardPage = () => {
   return (
     <main className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-[1600px] mx-auto">
-        {/* Greeting & Timing Section */}
-        <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-white p-10 rounded-[40px] shadow-xl shadow-gray-100/50 border border-gray-100 overflow-hidden relative group transition-all duration-700 hover:shadow-2xl hover:shadow-indigo-100/20">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 opacity-[0.02] rounded-full -mr-32 -mt-32 group-hover:scale-150 transition-transform duration-[2000ms]" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-100 animate-bounce">
-                <SmileOutlined />
-              </div>
-              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">System Greeting</span>
+        {/* Compact Analytics Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+              <span className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.3em]">
+                {getTimeGreeting()}, {user?.username}
+              </span>
             </div>
-            <h1 className="text-4xl font-black text-gray-800 tracking-tighter leading-tight mb-2">
-              {getTimeGreeting()}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{user?.username || "Commander"}</span>
+            <h1 className="text-3xl font-black text-gray-800 tracking-tighter leading-tight">
+              Control <span className="text-indigo-600">Center</span>
             </h1>
-            <p className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-              <ClockCircleOutlined className="text-indigo-400" />
-              {dayjs().format("dddd, MMMM D, YYYY | hh:mm A")}
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+              {dayjs().format("dddd, MMMM D")} • {isAuthorized ? (isUnlocked ? "Analytical Mode" : "Locked Terminal") : "Standard Mode"}
             </p>
           </div>
-          <div className="relative z-10 flex items-center gap-4">
+
+          <div className="flex items-center gap-3">
             {isAuthorized && isUnlocked && (
+              <div className="flex items-center bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100">
+                {[7, 15, 30].map((day) => (
+                  <button
+                    key={day}
+                    onClick={() => setDays(day)}
+                    className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all duration-300 uppercase tracking-widest ${days === day
+                      ? "bg-indigo-600 text-white shadow-xl shadow-indigo-100"
+                      : "text-gray-400 hover:text-indigo-600 hover:bg-gray-50"
+                      }`}
+                  >
+                    {day}D
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {isUnlocked && isAuthorized && (
               <button
                 onClick={() => setIsUnlocked(!isUnlocked)}
-                className={`flex items-center gap-3 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-500 border ${isUnlocked
+                className={`flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 border ${isUnlocked
                   ? "bg-red-50 text-red-600 border-red-100 hover:bg-red-600 hover:text-white"
-                  : "bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-600 hover:text-white"
+                  : "bg-white text-indigo-600 border-gray-100 hover:border-indigo-600 shadow-sm"
                   }`}
+                title={isUnlocked ? "Secure Terminal" : "Unlock Terminal"}
               >
-                {isUnlocked && <><LockOutlined /> Secure Terminal</>}
+                {isUnlocked ? <LockOutlined className="text-lg" /> : <UnlockOutlined className="text-lg" />}
               </button>
             )}
           </div>
         </div>
-
-        {(isUnlocked || !isAuthorized) && (
-          <div className={`transition-all duration-1000 ${isUnlocked ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 h-0 overflow-hidden"}`}>
-            {isAuthorized && (
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
-                <div>
-                  <h1 className="text-3xl font-black text-gray-800 tracking-tighter leading-tight">Terminal Command</h1>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Cross-Terminal Analytical Intelligence</p>
-                </div>
-                <div className="flex items-center bg-white p-2 rounded-[24px] shadow-sm border border-gray-100/50">
-                  {[7, 15, 30].map((day) => (
-                    <button
-                      key={day}
-                      onClick={() => setDays(day)}
-                      className={`px-8 py-2.5 rounded-[18px] text-[10px] font-black transition-all duration-500 uppercase tracking-widest ${days === day
-                        ? "bg-indigo-600 text-white shadow-xl shadow-indigo-100 scale-105"
-                        : "text-gray-400 hover:text-indigo-600 hover:bg-indigo-50/50"
-                        }`}
-                    >
-                      {day} Days
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Main Content Area - 8 Columns */}

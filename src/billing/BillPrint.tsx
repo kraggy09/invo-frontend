@@ -30,7 +30,6 @@ const BillPrint = ({
   printBillData,
   isDirectPrint = false,
 }: BillPrintProps) => {
-  const [withMRP, setWithMRP] = useState(true);
 
   const calculateSave = (product: PurchasedProduct[]) => {
     let saved = 0;
@@ -203,13 +202,6 @@ const BillPrint = ({
                   <tr>
                     <th className="border border-black">Name</th>
                     <th className="border border-black">Quantity</th>
-                    {withMRP && (
-                      <>
-                        <th className="border border-black">Price</th>
-
-                        <th className="border border-black">MRP</th>
-                      </>
-                    )}
                     <th className="border border-black">Total</th>
                   </tr>
                   {currentBill?.purchased &&
@@ -240,18 +232,6 @@ const BillPrint = ({
                             </p>
                           </td>
 
-                          {withMRP && (
-                            <>
-                              <td>
-                                <p className="text-center">
-                                  {price % 1 != 0 ? price.toFixed(2) : price}
-                                </p>
-                              </td>
-                              <td>
-                                <p className="text-center"> {product.mrp}</p>
-                              </td>
-                            </>
-                          )}
                           <td>
                             <p className="text-center">
                               {(price * total - product.discount) % 1 != 0

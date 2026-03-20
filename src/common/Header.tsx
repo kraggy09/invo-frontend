@@ -16,6 +16,8 @@ import {
   MenuOutlined,
   HistoryOutlined,
   BellOutlined,
+  PlusOutlined,
+  DatabaseOutlined,
 } from "@ant-design/icons";
 
 import useUserStore from "../store/user.store";
@@ -145,6 +147,7 @@ const Header = () => {
         <div className="flex items-center gap-4">
           <Button
             type="text"
+            style={{ color: "white" }}
             className="lg:hidden text-white flex items-center justify-center p-0 h-10 w-10"
             icon={<MenuOutlined style={{ fontSize: "20px" }} />}
             onClick={() => setMobileMenuVisible(true)}
@@ -158,6 +161,29 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-6 mr-4">
+            <div
+              onClick={() => navigate("/new-bill")}
+              className="flex items-center gap-2 cursor-pointer hover:bg-white/10 px-3 py-1.5 rounded-lg transition-all border border-transparent hover:border-white/20 active:scale-95 group"
+            >
+              <PlusOutlined className="text-lg group-hover:scale-110 transition-transform" />
+              <span className="font-semibold tracking-wide text-sm uppercase">New Bill</span>
+            </div>
+            <div
+              onClick={() => navigate("/transactions")}
+              className="flex items-center gap-2 cursor-pointer hover:bg-white/10 px-3 py-1.5 rounded-lg transition-all border border-transparent hover:border-white/20 active:scale-95 group"
+            >
+              <SwapOutlined className="text-lg group-hover:scale-110 transition-transform" />
+              <span className="font-semibold tracking-wide text-sm uppercase">Transactions</span>
+            </div>
+            <div
+              onClick={() => navigate("/products/updateStock")}
+              className="flex items-center gap-2 cursor-pointer hover:bg-white/10 px-3 py-1.5 rounded-lg transition-all border border-transparent hover:border-white/20 active:scale-95 group"
+            >
+              <DatabaseOutlined className="text-lg group-hover:scale-110 transition-transform" />
+              <span className="font-semibold tracking-wide text-sm uppercase">Update Stock</span>
+            </div>
+          </div>
 
           <Dropdown overlay={menu} trigger={["click", "hover"]} placement="bottomRight">
             <div className="flex items-center cursor-pointer select-none">

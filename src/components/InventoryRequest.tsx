@@ -151,9 +151,9 @@ const InventoryRequest = ({
 
   return (
     <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-6 sm:p-8 flex items-center justify-between border-b border-gray-50">
+      <div className="p-4 sm:p-5 flex items-center justify-between border-b border-gray-50">
         <div>
-          <h2 className="text-xl font-black text-gray-800 tracking-tight">
+          <h2 className="text-lg font-black text-gray-800 tracking-tight">
             Inventory Handover
           </h2>
           <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mt-1">
@@ -164,7 +164,7 @@ const InventoryRequest = ({
         {isAdmin && inventoryRequests && inventoryRequests.length > 0 && (
           <button
             onClick={handleAllInventoryAccept}
-            className="h-10 px-6 bg-green-500 hover:bg-green-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-green-100 transition-all active:scale-95 flex items-center gap-2"
+            className="h-8 px-4 bg-green-500 hover:bg-green-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-green-100 transition-all active:scale-95 flex items-center gap-2"
           >
             <CheckOutlined />
             <span>Accept All</span>
@@ -172,7 +172,7 @@ const InventoryRequest = ({
         )}
       </div>
 
-      <div className="p-2 sm:p-4">
+      <div className="p-1 sm:p-2">
         {inventoryRequests && inventoryRequests.length === 0 ? (
           <div className="flex items-center justify-center min-h-[300px]">
             <div className="flex flex-col items-center gap-4 text-center">
@@ -194,26 +194,26 @@ const InventoryRequest = ({
             <table className="min-w-full divide-y divide-gray-100 border-separate border-spacing-y-2">
               <thead>
                 <tr className="bg-gray-50/50">
-                  <th className="px-4 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] rounded-l-xl">
+                  <th className="px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] rounded-l-xl">
                     Requested At
                   </th>
-                  <th className="px-4 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                  <th className="px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">
                     Requester
                   </th>
-                  <th className="px-4 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                  <th className="px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">
                     Product Details
                   </th>
-                  <th className="px-4 py-4 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                  <th className="px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">
                     Previous
                   </th>
-                  <th className="px-4 py-4 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                  <th className="px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">
                     Adjustment
                   </th>
-                  <th className="px-4 py-4 text-right text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                  <th className="px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">
                     New Balance
                   </th>
                   {isAdmin && (
-                    <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] rounded-r-xl">
+                    <th className="px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] rounded-r-xl">
                       Actions
                     </th>
                   )}
@@ -223,61 +223,61 @@ const InventoryRequest = ({
                 {inventoryRequests &&
                   inventoryRequests.map((inv) => (
                     <tr key={inv._id} className="group transition-all hover:bg-gray-50/50 rounded-xl overflow-hidden">
-                      <td className="px-4 py-5 whitespace-nowrap rounded-l-xl">
-                        <div className="text-xs font-black text-gray-800 tracking-tight">
+                      <td className="px-3 py-2 whitespace-nowrap rounded-l-xl">
+                        <div className="text-[11px] font-black text-gray-800 tracking-tight">
                           {formatDate(new Date(inv.date))}
                         </div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">
+                        <div className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">
                           {formatTime(new Date(inv.date))}
                         </div>
                       </td>
-                      <td className="px-4 py-5 whitespace-nowrap">
+                      <td className="px-3 py-2 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-gray-700">{inv.createdBy.name}</span>
+                          <span className="text-[11px] font-bold text-gray-700">{inv.createdBy.name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-5 whitespace-nowrap">
-                        <div className="text-xs font-black text-indigo-600 uppercase tracking-tight">
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <div className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">
                           {inv.product.name}
                         </div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">
+                        <div className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">
                           MRP: ₹{inv.product.mrp}
                         </div>
                       </td>
-                      <td className="px-4 py-5 whitespace-nowrap text-right">
-                        <div className="text-xs font-bold text-gray-500">
+                      <td className="px-3 py-2 whitespace-nowrap text-right">
+                        <div className="text-[11px] font-bold text-gray-500">
                           {inv.oldStock % 1 !== 0 ? inv.oldStock.toFixed(2) : inv.oldStock}
                         </div>
                       </td>
-                      <td className="px-4 py-5 whitespace-nowrap text-right">
-                        <div className={`text-xs font-black ${inv.quantity >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      <td className="px-3 py-2 whitespace-nowrap text-right">
+                        <div className={`text-[11px] font-black ${inv.quantity >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                           {inv.quantity >= 0 ? '+' : ''}{inv.quantity % 1 !== 0 ? inv.quantity.toFixed(2) : inv.quantity}
                         </div>
                       </td>
-                      <td className="px-4 py-5 whitespace-nowrap text-right">
-                        <div className="text-xs font-black text-gray-800">
+                      <td className="px-3 py-2 whitespace-nowrap text-right">
+                        <div className="text-[11px] font-black text-gray-800">
                           {inv.newStock % 1 !== 0
                             ? inv.newStock.toFixed(2)
                             : inv.newStock}
                         </div>
                       </td>
                       {isAdmin && (
-                        <td className="px-4 py-5 whitespace-nowrap rounded-r-xl">
-                          <div className="flex items-center justify-center gap-3">
+                        <td className="px-3 py-2 whitespace-nowrap rounded-r-xl">
+                          <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => handleInventoryAcceptance(inv)}
-                              className="w-10 h-10 rounded-xl bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                              className="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
                               disabled={inv.approved}
                               title="Accept"
                             >
-                              <CheckOutlined className="text-sm font-bold" />
+                              <CheckOutlined className="text-[10px] font-bold" />
                             </button>
                             <button
                               onClick={() => handleRejection(inv._id)}
-                              className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                              className="w-8 h-8 rounded-xl bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
                               title="Reject"
                             >
-                              <CloseOutlined className="text-sm font-bold" />
+                              <CloseOutlined className="text-[10px] font-bold" />
                             </button>
                           </div>
                         </td>
