@@ -97,10 +97,10 @@ const DashboardPage = () => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pin, setPin] = useState("");
 
-  // const isAuthorized = user?.roles?.some(role => ["SUPER_ADMIN", "CREATOR"].includes(role)) || false;
-  const isAuthorized = true;
+  const isAuthorized = user?.roles?.some(role => ["SUPER_ADMIN", "CREATOR"].includes(role)) || false;
+
   const handlePinSubmit = (val: string) => {
-    if (val === "1234") {
+    if (user?.pin && val === user.pin) {
       setIsUnlocked(true);
       message.success("Vault Unlocked");
       setPin("");
@@ -434,21 +434,30 @@ const DashboardPage = () => {
                   </p>
 
                   <div className="w-full max-w-xs space-y-6">
-                    <div className="relative">
-                      <AntInput.Password
-                        placeholder="SECURITY KEY"
-                        className="h-16 rounded-2xl border-gray-100 bg-gray-50/50 font-black tracking-[0.5em] text-center text-xl hover:bg-white focus:bg-white transition-all duration-300"
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value)}
-                        onPressEnter={() => handlePinSubmit(pin)}
-                      />
-                    </div>
-                    <button
-                      onClick={() => handlePinSubmit(pin)}
-                      className="w-full h-16 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all duration-500"
-                    >
-                      Verify Credentials
-                    </button>
+                    {!user?.pin ? (
+                      <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-center">
+                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-tight">Terminal Locked</p>
+                        <p className="text-[9px] font-bold text-red-400 mt-1">Please ask your admin to assign you a PIN</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="relative">
+                          <AntInput.Password
+                            placeholder="SECURITY KEY"
+                            className="h-16 rounded-2xl border-gray-100 bg-gray-50/50 font-black tracking-[0.5em] text-center text-xl hover:bg-white focus:bg-white transition-all duration-300"
+                            value={pin}
+                            onChange={(e) => setPin(e.target.value)}
+                            onPressEnter={() => handlePinSubmit(pin)}
+                          />
+                        </div>
+                        <button
+                          onClick={() => handlePinSubmit(pin)}
+                          className="w-full h-16 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all duration-500"
+                        >
+                          Verify Credentials
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   <div className="mt-12 flex items-center gap-3 text-[9px] font-black text-gray-300 uppercase tracking-widest">

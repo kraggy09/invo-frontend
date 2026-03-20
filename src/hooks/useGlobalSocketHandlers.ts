@@ -17,6 +17,13 @@ import useBillStore from "../store/bill.store";
 import { Product, useInventoryRequestStore } from "../store/requests.store";
 import { useJourneyStore } from "../store/journey.store";
 import useReturnBillStore from "../store/returnBill.store";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+// Initialize dayjs with timezone support
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export const useGlobalSocketHandlers = () => {
   const { socket, isConnected, terminateSession, blockSession } = useSocket();
@@ -44,6 +51,9 @@ export const useGlobalSocketHandlers = () => {
 
   // Category store
   const setCategories = useCategoriesStore((state) => state.setCategories);
+  const addCategory = useCategoriesStore((state) => state.addCategory);
+  const updateCategoryStore = useCategoriesStore((state) => state.updateCategory);
+  const removeCategory = useCategoriesStore((state) => state.removeCategory);
 
   // Transaction store
   const setTransactions = useTransactionStore((state) => state.setTransactions);
@@ -378,6 +388,21 @@ export const useGlobalSocketHandlers = () => {
     message.info("A product was removed from the catalog");
   }, [removeProduct, afterProductDeleted]);
 
+  const handleCategoryCreated = useCallback((category: any) => {
+    addCategory(category);
+    message.success(`Category ${category.name} created`);
+  }, [addCategory]);
+
+  const handleCategoryUpdated = useCallback((category: any) => {
+    updateCategoryStore(category);
+    message.success(`Category ${category.name} updated`);
+  }, [updateCategoryStore]);
+
+  const handleCategoryDeleted = useCallback((categoryId: string) => {
+    removeCategory(categoryId);
+    message.info("A category was removed");
+  }, [removeCategory]);
+
   const handleCustomerCreated = useCallback((customer: any) => addCustomer(customer), [addCustomer]);
 
   const handleJourneyLogCreated = useCallback((log: any) => {
@@ -395,19 +420,18 @@ export const useGlobalSocketHandlers = () => {
     []
   );
   const fetchInitialData = useCallback(async () => {
-    const startDate = new Date();
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = new Date();
-    endDate.setHours(23, 59, 59, 999);
+    // Ensure all initial data fetching is based on Asia/Kolkata timing
+    const indiaNow = dayjs().tz("Asia/Kolkata");
+    const startDate = indiaNow.startOf("day").toISOString();
+    const endDate = indiaNow.endOf("day").toISOString();
 
     const promiseData = [];
 
     promiseData.push(
       apiCaller.get("/bills", {
         params: {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
+          startDate: startDate,
+          endDate: endDate,
           limit: 10000,
         },
       })
@@ -418,8 +442,8 @@ export const useGlobalSocketHandlers = () => {
     promiseData.push(
       apiCaller.get("/transactions", {
         params: {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
+          startDate: startDate,
+          endDate: endDate,
           limit: 10000,
         },
       })
@@ -432,8 +456,8 @@ export const useGlobalSocketHandlers = () => {
     promiseData.push(
       apiCaller.get("/stocks/requests/all", {
         params: {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
+          startDate: startDate,
+          endDate: endDate,
           limit: 10000,
         },
       })
@@ -442,8 +466,8 @@ export const useGlobalSocketHandlers = () => {
     promiseData.push(
       apiCaller.get("/return-bills", {
         params: {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
+          startDate: startDate,
+          endDate: endDate,
           limit: 10000,
         },
       })
@@ -504,6 +528,9 @@ export const useGlobalSocketHandlers = () => {
     socket.on(SocketEvents.CUSTOMER.CREATED, handleCustomerCreated);
     socket.on(SocketEvents.TRANSACTION.CREATED, handleTransactionCreated);
     socket.on(SocketEvents.TRANSACTION.UPDATED, handleTransactionUpdated);
+    socket.on(SocketEvents.CATEGORY.CREATED, handleCategoryCreated);
+    socket.on(SocketEvents.CATEGORY.UPDATED, handleCategoryUpdated);
+    socket.on(SocketEvents.CATEGORY.DELETED, handleCategoryDeleted);
     socket.on("JOURNEY_LOG_CREATED", handleJourneyLogCreated);
 
     socket.on("SESSION_ALREADY_ACTIVE", () => {
@@ -551,9 +578,12 @@ export const useGlobalSocketHandlers = () => {
       socket.off(SocketEvents.CUSTOMER.UPDATED);
       socket.off(SocketEvents.TRANSACTION.CREATED);
       socket.off(SocketEvents.TRANSACTION.UPDATED);
+      socket.off(SocketEvents.CATEGORY.CREATED);
+      socket.off(SocketEvents.CATEGORY.UPDATED);
+      socket.off(SocketEvents.CATEGORY.DELETED);
       socket.off("JOURNEY_LOG_CREATED");
       socket.off("SESSION_ALREADY_ACTIVE");
       socket.off("SESSION_TERMINATED");
     };
-  }, [socket, isConnected, handleWelcomeMessage, handleNotification, handleBillCreated, handleInventoryUpdateRequest, handleStockUpdated, handleStockRejected, handleProductCreated, handleProductUpdated, handleProductDeleted, handleCustomerCreated, handleTransactionCreated, handleTransactionUpdated, handleJourneyLogCreated]);
+  }, [socket, isConnected, handleWelcomeMessage, handleNotification, handleBillCreated, handleInventoryUpdateRequest, handleStockUpdated, handleStockRejected, handleProductCreated, handleProductUpdated, handleProductDeleted, handleCustomerCreated, handleTransactionCreated, handleTransactionUpdated, handleJourneyLogCreated, handleCategoryCreated, handleCategoryUpdated, handleCategoryDeleted]);
 };

@@ -1,4 +1,4 @@
-import { Table, Button, Radio, Select, Input, InputRef } from "antd";
+import { Table, Button, Radio, Select, Input, InputRef, Checkbox } from "antd";
 import {
   DeleteOutlined,
   PlusOutlined,
@@ -45,19 +45,42 @@ const BillingBody = () => {
   const [tableHeight, setTableHeight] = useState(400);
   const [delayMs, setDelayMs] = useState(2000); // Default 2 seconds
   const [paymentMode, setPaymentMode] = useState("CASH");
+  const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [printBillData, setPrintBillData] = useState(null);
+
+  // Triple right-click shortcut refs
+  const rightClickCount = useRef(0);
+  const rightClickTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handlePaymentRightClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent native right-click menu
+    rightClickCount.current += 1;
+
+    if (rightClickTimer.current) {
+      clearTimeout(rightClickTimer.current);
+    }
+
+    if (rightClickCount.current >= 2) {
+      if (currentBill) {
+        const totalToPay = Math.ceil(currentBill.total + (currentBill?.customer?.outstanding || 0) - currentBill.discount);
+        setPaymentAmount(totalToPay.toString());
+      }
+      rightClickCount.current = 0;
+    } else {
+      rightClickTimer.current = setTimeout(() => {
+        rightClickCount.current = 0;
+      }, 1000);
+    }
+  };
+  const [isDirectPrint, setIsDirectPrint] = useState(true);
 
   const handlePrint = useReactToPrint({
     contentRef: contentRef as React.RefObject<HTMLDivElement>,
-    // onAfterPrint: () => {
-    //   setShowPrint(false);
-    //   removeTabAndBill(
-    //     currentBillingId.toString(),
-    //     bills,
-    //     removeBill,
-    //     setCurrentBillingId
-    //   );
-    // },
+    onAfterPrint: () => {
+      if (isDirectPrint) {
+        handleClosePrint();
+      }
+    },
   });
 
   const handlePrintClick = () => {
@@ -145,6 +168,7 @@ const BillingBody = () => {
   const { user } = useUserStore((state) => state);
 
   const handleCreateBill = async () => {
+    if (showPrint) return; // Prevent double submission
     try {
       setIsCreating(true);
       if (!currentBill) {
@@ -153,6 +177,10 @@ const BillingBody = () => {
       }
       if (!currentBill.customer) {
         toast.error("Please select the customer.");
+        return;
+      }
+      if (currentBill.purchased.length === 0) {
+        toast.error("Bhai ek product to add kro kam se km");
         return;
       }
       for (const product of currentBill.purchased) {
@@ -172,8 +200,7 @@ const BillingBody = () => {
         }
       }
       // API call
-      let paymentValue = paymentInputRef.current?.input?.value;
-      if (paymentValue === "" || paymentValue === undefined) paymentValue = "0";
+      let paymentValue = paymentAmount || "0";
       paymentValue = String(paymentValue);
       const response = await apiCaller.post("/bills", {
         customerId: currentBill.customer._id,
@@ -186,15 +213,22 @@ const BillingBody = () => {
         products: currentBill.purchased,
       });
       if (response.data && response.data.success) {
+        setPaymentAmount(""); // Reset after successful billing
         const billData = response.data.data.bill;
         console.log(billData, "this is the bill data");
         setPrintBillData(billData); // <-- store for printing
         toast.success("Bill created successfully!");
         setShowPrint(true); // Open print modal only after success
 
-        setTimeout(() => {
-          // setShowPrint(false);
-        }, 2000);
+        if (isDirectPrint) {
+          setTimeout(() => {
+            handlePrint();
+          }, 300);
+        } else {
+          setTimeout(() => {
+            // setShowPrint(false);
+          }, 2000);
+        }
       } else {
         toast.error(response.data?.message || "Failed to create bill.");
       }
@@ -442,38 +476,40 @@ const BillingBody = () => {
           </div>
 
           {/* Checkout Logic - 3 Cols */}
-          <div className="xl:col-span-3 flex flex-row items-end gap-3">
-            <div className="flex-1 group">
-              <div className="relative">
-                <Input
-                  ref={paymentInputRef}
-                  size="large"
-                  placeholder="Payment"
-                  prefix={<span className="text-indigo-400 font-black mr-1">₹</span>}
-                  className="h-12 rounded-xl text-lg font-black border-2 border-transparent bg-white shadow-sm transition-all group-hover:border-indigo-100 focus:border-indigo-600 pr-10"
-                />
-                <div className="absolute right-0 top-0 bottom-0 flex items-center">
-                  <Select
-                    value={paymentMode}
-                    className="h-full w-20 custom-compact-select"
-                    bordered={false}
-                    options={[
-                      { value: "CASH", label: <span className="text-[8px] font-black uppercase">Cash</span> },
-                      { value: "ONLINE", label: <span className="text-[8px] font-black uppercase">Digi</span> },
-                    ]}
-                    onChange={setPaymentMode}
+          <div className="xl:col-span-3 flex flex-col gap-2">
+            <div className="flex flex-row items-end gap-3">
+              <div className="flex-1 group">
+                <div className="relative">
+                  <Input
+                    ref={paymentInputRef}
+                    onContextMenu={handlePaymentRightClick}
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    size="large"
+                    placeholder="Payment"
+                    prefix={<span className="text-indigo-400 font-black mr-1">₹</span>}
+                    className="h-12 rounded-xl text-lg font-black border-2 border-transparent bg-white shadow-sm transition-all group-hover:border-indigo-100 focus:border-indigo-600 pr-10"
                   />
                 </div>
               </div>
+              <Button
+                type="primary"
+                onClick={handleCreateBill}
+                loading={isCreating}
+                className="h-12 px-6 bg-indigo-600 border-none text-[10px] font-black rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 uppercase tracking-widest flex-none"
+              >
+                Finish
+              </Button>
             </div>
-            <Button
-              type="primary"
-              onClick={handleCreateBill}
-              loading={isCreating}
-              className="h-12 px-6 bg-indigo-600 border-none text-[10px] font-black rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 uppercase tracking-widest flex-none"
-            >
-              Finish
-            </Button>
+            {/* <div className="flex justify-end">
+              <Checkbox
+                checked={isDirectPrint}
+                onChange={(e) => setIsDirectPrint(e.target.checked)}
+                className="text-[10px] uppercase font-bold text-gray-500 tracking-wider"
+              >
+                Auto Print
+              </Checkbox>
+            </div> */}
           </div>
         </div>
       </div>
@@ -523,6 +559,7 @@ const BillingBody = () => {
           contentRef={contentRef}
           payment={paymentInputRef.current?.input?.value || "0"}
           printBillData={printBillData}
+          isDirectPrint={isDirectPrint}
         />
       )}
     </div>

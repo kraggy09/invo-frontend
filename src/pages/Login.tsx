@@ -3,7 +3,7 @@ import { message } from "../utils/antdStatic";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSocket } from "../contexts/SocketContext";
-import useUserStore from "../store/user.store";
+import useUserStore, { User } from "../store/user.store";
 import { useFetch } from "../hooks/useFetch";
 
 const { Title } = Typography;
@@ -15,6 +15,7 @@ interface LoginResponse {
       _id: string;
       username: string;
       roles: string[];
+      pin?: string;
     };
   };
 }
@@ -49,12 +50,14 @@ const Login = () => {
 
         message.success("Success! Session synchronized.");
 
-        setUser({
+        const newUser: User = {
           _id: response.data.user._id,
           username: response.data.user.username,
           token: response.data.token,
           roles: response.data.user.roles,
-        });
+          pin: response.data.user.pin,
+        };
+        setUser(newUser);
 
         const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
         setTimeout(() => navigate(from), 500);

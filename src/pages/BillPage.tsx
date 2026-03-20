@@ -243,7 +243,7 @@ const BillPage = () => {
   }, [filteredBills, isToday, historicalSummary, pagination.total]);
 
   const handlePinSubmit = () => {
-    if (pin === "1234") {
+    if (user?.pin && pin === user.pin) {
       setShowAdmin(true);
       setPin("");
     } else {
@@ -296,7 +296,26 @@ const BillPage = () => {
       dataIndex: "total",
       key: "total",
       align: "right" as const,
-      render: (t: number, record: any) => <span className={`font-black ${record.isReturn ? "text-red-500" : "text-gray-800"}`}>₹{formatIndianNumber(t)}</span>,
+      render: (t: number, record: any) => {
+        const prevOutstanding = record.isReturn
+          ? Math.round((t || 0) + Math.abs(record.billTotal || 0))
+          : Math.round((t || 0) - (record.billTotal || 0));
+        return (
+          <div className="flex flex-col items-end">
+            <span className={`font-black ${record.isReturn ? "text-red-500" : "text-gray-800"}`}>₹{formatIndianNumber(t)}</span>
+            {prevOutstanding > 0 && (
+              <span className="text-[10px] font-bold text-orange-400 mt-0.5">
+                +₹{formatIndianNumber(prevOutstanding)} Prv
+              </span>
+            )}
+            {prevOutstanding < 0 && (
+              <span className="text-[10px] font-bold text-green-500 mt-0.5">
+                -₹{formatIndianNumber(Math.abs(prevOutstanding))} Adv
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Payment</span>,
@@ -510,26 +529,37 @@ const BillPage = () => {
         {canSeeFinancials && (
           <>
             {!showAdmin ? (
-              <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex items-center gap-3 mb-10 max-w-md mx-auto animate-in fade-in duration-500">
-                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-                  <LockOutlined className="text-indigo-600 text-sm" />
+              <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex flex-col items-center gap-3 mb-10 max-w-md mx-auto animate-in fade-in duration-500">
+                <div className="w-full flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+                    <LockOutlined className="text-indigo-600 text-sm" />
+                  </div>
+                  {!user?.pin ? (
+                    <div className="flex-1 text-center py-2">
+                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-tight">Terminal Locked</p>
+                      <p className="text-[8px] font-bold text-red-400">Ask admin to allow you a pin</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Input.Password
+                        prefix={<LockOutlined className="text-gray-300 mr-1" />}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        placeholder="Enter PIN"
+                        className="h-10 rounded-xl border-gray-100 bg-gray-50/50 font-bold text-xs flex-1"
+                        onPressEnter={handlePinSubmit}
+                        size="small"
+                      />
+                      <Button
+                        type="primary"
+                        onClick={handlePinSubmit}
+                        className="h-10 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
+                      >
+                        Unlock
+                      </Button>
+                    </>
+                  )}
                 </div>
-                <Input.Password
-                  prefix={<LockOutlined className="text-gray-300 mr-1" />}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="Enter PIN"
-                  className="h-10 rounded-xl border-gray-100 bg-gray-50/50 font-bold text-xs flex-1"
-                  onPressEnter={handlePinSubmit}
-                  size="small"
-                />
-                <Button
-                  type="primary"
-                  onClick={handlePinSubmit}
-                  className="h-10 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
-                >
-                  Unlock
-                </Button>
               </div>
             ) : (
               <div className="animate-in fade-in duration-700">

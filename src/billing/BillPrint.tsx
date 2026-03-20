@@ -19,6 +19,7 @@ interface BillPrintProps {
   handlePrint: () => void;
   payment: string;
   printBillData?: any;
+  isDirectPrint?: boolean;
 }
 
 const BillPrint = ({
@@ -27,6 +28,7 @@ const BillPrint = ({
   handlePrint,
   payment,
   printBillData,
+  isDirectPrint = false,
 }: BillPrintProps) => {
   const [withMRP, setWithMRP] = useState(true);
 
@@ -48,6 +50,8 @@ const BillPrint = ({
         onClose();
       }
       if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
         handlePrint();
       }
     };
@@ -124,7 +128,7 @@ const BillPrint = ({
   // Final Outstanding after payment
   const finalOutstanding = totalBeforePayment - paymentValue;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className={`fixed inset-0 bg-black flex items-center justify-center z-50 ${isDirectPrint ? 'opacity-0 pointer-events-none' : 'bg-opacity-50'}`}>
       <div className="bg-white p-6 rounded-lg shadow-lg w-[500px]">
         <div className="flex justify-between items-center mb-4">
           <Title level={4}>Print Bill</Title>
@@ -145,7 +149,7 @@ const BillPrint = ({
               <p className="text-xs font-semibold">Behind Green Land Hotel</p>
               <p className="text-xs font-semibold">Mob:9370564909/9145506000</p>
               <div className="font-bold mt-3">
-                ------------------------------------------------
+                -----------------------------------------
               </div>
               <div className="text-xs justify-between font-semibold  flex ">
                 <span id="left" className="mr-10">
@@ -191,7 +195,7 @@ const BillPrint = ({
             </p>
 
             <div className="font-bold mb-3">
-              ------------------------------------------------
+              -----------------------------------------
             </div>
             <main className="flex text-xs items-center font-semibold justify-center flex-col">
               <table className="min-w-full mx-6">
@@ -298,12 +302,12 @@ const BillPrint = ({
                 </div>
                 {calculateSave(currentBill.purchased) > 0 && (
                   <>
-                    <div>------------------------------------------------</div>
+                    <div>-----------------------------------------</div>
                     <div className="mt-2 font-bold flex min-w-full items-center justify-center text-2xl">
                       You Saved:
                       {calculateSave(currentBill.purchased).toFixed(3)}
                     </div>
-                    <div>------------------------------------------------</div>
+                    <div>-----------------------------------------</div>
                   </>
                 )}
               </div>

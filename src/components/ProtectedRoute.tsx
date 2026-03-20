@@ -51,12 +51,18 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
         console.log("[ProtectedRoute] Auth successful, setting user state and connecting socket.");
 
         setIsAuthenticated(true);
-        setUser({
+        // pin: response.data.data.user.pin,
+
+        const newUser: any = {
           _id: response.data.data.user._id,
           username: response.data.data.user.username,
           token: response.data.data.token,
           roles: response.data.data.user.roles,
-        });
+        }
+        if (response.data.data.user.pin) {
+          newUser["pin"] = response.data.data.user.pin;
+        }
+        setUser(newUser);
 
         // The socket connection should happen AFTER we are sure we are authenticated
         connect();

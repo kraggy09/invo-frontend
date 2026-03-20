@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Card, Spin, Button, Statistic } from "antd";
 import { message } from "../utils/antdStatic";
-import { ArrowLeftOutlined, DollarOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, DollarOutlined, PrinterOutlined } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
 import dayjs from "dayjs";
 import useTransactionStore from "../store/transaction.store";
+import { useReactToPrint } from "react-to-print";
+import TransactionPrint from "../components/TransactionPrint";
 
 const SingleTransactionPage = () => {
   const { id } = useParams();
@@ -14,6 +16,19 @@ const SingleTransactionPage = () => {
   const from = location.state?.from;
   const [loading, setLoading] = useState(false);
   const [transaction, setTransaction] = useState<any>(null);
+  const [showPrint, setShowPrint] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: contentRef as React.RefObject<HTMLDivElement>,
+  });
+
+  const handlePrintClick = () => {
+    setShowPrint(true);
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
+  };
 
   // Try the store first — covers in-app navigation without a network round-trip
   const transactionFromStore = useTransactionStore((state) =>
@@ -54,11 +69,21 @@ const SingleTransactionPage = () => {
           >
             Terminal Root / Previous
           </Button>
-          <div className="text-right hidden sm:block">
-            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block">Ledger Insight</span>
-            <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest text-right">
-              ID: {transaction?.id ? `T-${transaction.id}` : transaction?._id?.slice(-8).toUpperCase()}
-            </span>
+          <div className="flex items-center gap-4 sm:gap-6">
+            <Button
+              type="primary"
+              icon={<PrinterOutlined />}
+              onClick={handlePrintClick}
+              className="h-8 sm:h-10 px-4 sm:px-6 rounded-xl font-black text-[9px] sm:text-[10px] tracking-widest uppercase shadow-md shadow-indigo-100 flex items-center"
+            >
+              Print Receipt
+            </Button>
+            <div className="text-right hidden sm:block">
+              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block">Ledger Insight</span>
+              <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest text-right">
+                ID: {transaction?.id ? `T-${transaction.id}` : transaction?._id?.slice(-8).toUpperCase()}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -153,6 +178,16 @@ const SingleTransactionPage = () => {
           </div>
         )}
       </div>
+
+      {showPrint && transaction && (
+        <TransactionPrint
+          onClose={() => setShowPrint(false)}
+          handlePrint={handlePrintClick}
+          contentRef={contentRef}
+          transactionData={transaction}
+          isPaymentIn={isPaymentIn}
+        />
+      )}
     </main>
   );
 };

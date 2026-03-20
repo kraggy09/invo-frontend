@@ -92,7 +92,19 @@ const NewTransaction: React.FC = () => {
         `${isPaymentIn ? "Payment" : "Transaction"} created successfully!`
       );
 
-      const transactionData = response.data?.data?.transaction || response.data?.transaction || response.data?.data || response.data;
+      let transactionData = response.data?.data;
+      if (transactionData?.transaction?.newTransaction) {
+        transactionData = transactionData.transaction.newTransaction;
+      } else if (transactionData?.payment?.newTransaction) {
+        transactionData = transactionData.payment.newTransaction;
+      } else if (transactionData?.transaction) {
+        transactionData = transactionData.transaction;
+      } else if (transactionData?.payment) {
+        transactionData = transactionData.payment;
+      } else if (transactionData?.newTransaction) {
+        transactionData = transactionData.newTransaction;
+      }
+
       if (transactionData) {
         setPrintTransactionData(transactionData);
         setShowPrint(true);

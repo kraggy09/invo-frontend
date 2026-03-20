@@ -103,7 +103,7 @@ const DailyReportPage = () => {
   const { requests: inventoryRequestsFromStore } = useInventoryRequestStore();
   const returnBillsFromStore = useReturnBillStore((state) => state.returnBills);
 
-  const canSeeFinancials = true;
+  const canSeeFinancials = user?.roles?.some((role) => ["ADMIN", "SUPER_ADMIN", "CREATOR"].includes(role));
 
   // Use fetched report data if in historical mode, otherwise use live store
   const isToday =
@@ -513,7 +513,7 @@ const DailyReportPage = () => {
 
   // PIN logic
   const handlePinSubmit = () => {
-    if (pin === "1234") {
+    if (user?.pin && pin === user.pin) {
       setShowAdmin(true);
       setPin("");
     } else {
@@ -562,7 +562,26 @@ const DailyReportPage = () => {
       dataIndex: "total",
       key: "total",
       align: "right" as const,
-      render: (t: number) => <span className="font-black text-gray-800">₹{t.toLocaleString()}</span>,
+      render: (t: number, record: any) => {
+        const prevOutstanding = record.isReturn
+          ? Math.round((t || 0) + Math.abs(record.billTotal || 0))
+          : Math.round((t || 0) - (record.billTotal || 0));
+        return (
+          <div className="flex flex-col items-end">
+            <span className={`font-black ${record.isReturn ? "text-red-500" : "text-gray-800"}`}>₹{t?.toLocaleString()}</span>
+            {prevOutstanding > 0 && (
+              <span className="text-[10px] font-bold text-orange-400 mt-0.5">
+                +₹{prevOutstanding.toLocaleString()} Prv
+              </span>
+            )}
+            {prevOutstanding < 0 && (
+              <span className="text-[10px] font-bold text-green-500 mt-0.5">
+                -₹{Math.abs(prevOutstanding).toLocaleString()} Adv
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Payment</span>,
@@ -947,26 +966,36 @@ const DailyReportPage = () => {
         {canSeeFinancials && (
           <>
             {!showAdmin ? (
-              <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex items-center gap-3 mb-10 max-w-md mx-auto">
-                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-                  <LockOutlined className="text-indigo-600 text-sm" />
+              <div className="bg-white rounded-[32px] p-4 shadow-sm border border-gray-100 flex flex-col items-center gap-4 mb-10 max-w-md mx-auto animate-in fade-in duration-500">
+                <div className="w-full flex items-center gap-4">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center shrink-0">
+                    <LockOutlined className="text-indigo-600 text-lg" />
+                  </div>
+                  {!user?.pin ? (
+                    <div className="flex-1 text-center py-2">
+                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-tight">Terminal Locked</p>
+                      <p className="text-[9px] font-bold text-red-400 mt-1">Ask admin to allow you a pin</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Input.Password
+                        prefix={<LockOutlined className="text-gray-300 mr-1" />}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        placeholder="ENTER PIN"
+                        className="h-12 rounded-2xl border-gray-100 bg-gray-50/50 font-black tracking-widest text-xs flex-1"
+                        onPressEnter={handlePinSubmit}
+                      />
+                      <Button
+                        type="primary"
+                        onClick={handlePinSubmit}
+                        className="h-12 px-8 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-[10px] font-black tracking-widest shadow-lg shadow-indigo-100 uppercase shrink-0"
+                      >
+                        UNLOCK
+                      </Button>
+                    </>
+                  )}
                 </div>
-                <Input.Password
-                  prefix={<LockOutlined className="text-gray-300 mr-1" />}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="Enter PIN"
-                  className="h-10 rounded-xl border-gray-100 bg-gray-50/50 font-bold text-xs flex-1"
-                  onPressEnter={handlePinSubmit}
-                  size="small"
-                />
-                <Button
-                  type="primary"
-                  onClick={handlePinSubmit}
-                  className="h-10 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
-                >
-                  Unlock
-                </Button>
               </div>
             ) : (
               <div className="space-y-10 animate-in fade-in duration-700 mb-10">

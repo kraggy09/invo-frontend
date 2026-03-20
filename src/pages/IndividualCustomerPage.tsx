@@ -465,7 +465,26 @@ const IndividualCustomerPage = () => {
       dataIndex: "total",
       key: "total",
       align: "right" as const,
-      render: (t: number) => <span className="font-black text-gray-800">₹{t.toLocaleString()}</span>,
+      render: (t: number, record: any) => {
+        const prevOutstanding = record.isReturn
+          ? Math.round((t || 0) + Math.abs(record.billTotal || 0))
+          : Math.round((t || 0) - (record.billTotal || 0));
+        return (
+          <div className="flex flex-col items-end">
+            <span className={`font-black ${record.isReturn ? "text-red-500" : "text-gray-800"}`}>₹{t?.toLocaleString()}</span>
+            {prevOutstanding > 0 && (
+              <span className="text-[10px] font-bold text-orange-400 mt-0.5">
+                +₹{prevOutstanding.toLocaleString()} Prv
+              </span>
+            )}
+            {prevOutstanding < 0 && (
+              <span className="text-[10px] font-bold text-green-500 mt-0.5">
+                -₹{Math.abs(prevOutstanding).toLocaleString()} Adv
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Payment</span>,
@@ -717,7 +736,7 @@ const IndividualCustomerPage = () => {
   ];
 
   const handlePinSubmit = () => {
-    if (pin === "1234") {
+    if (user?.pin && pin === user.pin) {
       setLocked(false);
       setPin("");
     } else {
@@ -920,30 +939,44 @@ const IndividualCustomerPage = () => {
                 label: <span className="px-6 py-4 font-black uppercase text-[10px] tracking-widest">Insight Matrix</span>,
                 children: (
                   <div className="p-4 sm:p-12">
-                    {locked ? (
+                    {locked ?
                       <div className="py-20 text-center max-w-sm mx-auto">
                         <div className="w-20 h-20 rounded-[32px] bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-8 shadow-inner border border-indigo-100">
                           <LockOutlined style={{ fontSize: 28 }} />
                         </div>
-                        <h2 className="text-2xl font-black text-gray-800 mb-2 tracking-tight">Security Protocol</h2>
-                        <p className="text-gray-400 text-xs font-bold mb-10 px-4">Authorized Admin Credentials Required to view comprehensive financial flow analytics.</p>
-                        <Input.Password
-                          value={pin}
-                          onChange={(e) => setPin(e.target.value)}
-                          placeholder="••••"
-                          className="h-16 rounded-[24px] text-center text-3xl font-black mb-6 border-2 border-gray-50 bg-gray-50/30 focus:bg-white transition-all shadow-inner"
-                          onPressEnter={handlePinSubmit}
-                          maxLength={4}
-                        />
-                        <Button
-                          type="primary"
-                          onClick={handlePinSubmit}
-                          className="w-full h-14 bg-indigo-600 border-none font-black text-[10px] tracking-widest rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 uppercase"
-                        >
-                          Verify & Decode Insights
-                        </Button>
+                        <div className="bg-white rounded-[32px] p-4 shadow-sm border border-gray-100 flex flex-col items-center gap-4 mb-10 max-w-md mx-auto animate-in fade-in duration-500">
+                          <div className="w-full flex items-center gap-4">
+                            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center shrink-0">
+                              <LockOutlined className="text-indigo-600 text-lg" />
+                            </div>
+                            {!user?.pin ? (
+                              <div className="flex-1 text-center py-2">
+                                <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-tight">Terminal Locked</p>
+                                <p className="text-[9px] font-bold text-red-400 mt-1">Ask admin to allow you a pin</p>
+                              </div>
+                            ) : (
+                              <>
+                                <Input.Password
+                                  prefix={<LockOutlined className="text-gray-300 mr-1" />}
+                                  value={pin}
+                                  onChange={(e) => setPin(e.target.value)}
+                                  placeholder="ENTER PIN"
+                                  className="h-12 rounded-2xl border-gray-100 bg-gray-50/50 font-black tracking-widest text-xs flex-1"
+                                  onPressEnter={handlePinSubmit}
+                                />
+                                <Button
+                                  type="primary"
+                                  onClick={handlePinSubmit}
+                                  className="h-12 px-8 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-[10px] font-black tracking-widest shadow-lg shadow-indigo-100 uppercase shrink-0"
+                                >
+                                  UNLOCK
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    ) : (
+                      :
                       <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                           <div>
@@ -1033,7 +1066,7 @@ const IndividualCustomerPage = () => {
                           </div>
                         </div>
                       </div>
-                    )}
+                    }
                   </div>
                 ),
               }] : [])
