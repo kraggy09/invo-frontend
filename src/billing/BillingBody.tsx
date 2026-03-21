@@ -277,9 +277,9 @@ const BillingBody = () => {
           onChange={(e) => handlePriceChange(record, e.target.value)}
           className="pos-type-selector"
         >
-          <Radio.Button value="RETAIL">RT</Radio.Button>
-          <Radio.Button value="WHOLESALE">WS</Radio.Button>
-          <Radio.Button value="SUPERWHOLESALE">SW</Radio.Button>
+          <Radio.Button tabIndex={-1} value="RETAIL">RT</Radio.Button>
+          <Radio.Button tabIndex={-1} value="WHOLESALE">WS</Radio.Button>
+          <Radio.Button tabIndex={-1} value="SUPERWHOLESALE">SW</Radio.Button>
         </Radio.Group>
       ),
     },
