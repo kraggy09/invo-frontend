@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { ICustomer as Customer } from "./customer.store";
 import { IProduct } from "./product.store";
 import { calculatePriceTag, PriceType } from "../utils/priceUtils";
+import { generateUUID } from "../utils";
 import { BillItem } from "./bill.store";
 
 export type PurchasedProduct = {
@@ -104,6 +105,7 @@ export type Bill = {
   createdAt: string;
   lastActivityAt: string;
   billType: PriceType;
+  idempotencyKey: string;
 };
 
 type BillingStore = {
@@ -157,7 +159,13 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
 
   return {
     bills: [],
-    addBill: (bill) => set((state) => ({ bills: [...state.bills, bill] })),
+    addBill: (bill) =>
+      set((state) => ({
+        bills: [
+          ...state.bills,
+          { ...bill, idempotencyKey: bill.idempotencyKey || generateUUID() },
+        ],
+      })),
     initialBills: (bills: Bill[]) => set(() => ({ bills: bills })),
     removeBill: (id) =>
       set((state) => {
@@ -270,6 +278,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
           purchased,
           total: purchased.reduce((sum, p) => sum + p.total, 0),
           lastActivityAt: new Date().toISOString(),
+          idempotencyKey: bill.idempotencyKey || "", // Fallback
         };
 
         // Create a new bills array with the updated bill

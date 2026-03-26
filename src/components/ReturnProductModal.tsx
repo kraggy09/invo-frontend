@@ -3,6 +3,7 @@ import { Modal, Table, InputNumber, Select, Button, Tag } from "antd";
 import { message } from "../utils/antdStatic";
 import { DollarOutlined, InfoCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
+import { generateUUID } from "../utils";
 
 interface ReturnProductModalProps {
     isOpen: boolean;
@@ -20,12 +21,14 @@ const ReturnProductModal: React.FC<ReturnProductModalProps> = ({
     const [returnItems, setReturnItems] = useState<{ [key: string]: number }>({});
     const [paymentMode, setPaymentMode] = useState<"ADJUSTMENT" | "CASH">("ADJUSTMENT");
     const [loading, setLoading] = useState(false);
+    const [idempotencyKey, setIdempotencyKey] = useState(generateUUID());
 
     // Reset state when opened with a new bill
     useEffect(() => {
         if (isOpen) {
             setReturnItems({});
             setPaymentMode("ADJUSTMENT");
+            setIdempotencyKey(generateUUID());
         }
     }, [isOpen, bill]);
 
@@ -80,7 +83,8 @@ const ReturnProductModal: React.FC<ReturnProductModalProps> = ({
                 customerId: bill.customer?._id || bill.customer,
                 paymentMode,
                 items: itemsToReturn,
-                totalAmount: totalReturnAmount
+                totalAmount: totalReturnAmount,
+                idempotencyKey,
             });
             message.success("Return processed successfully");
             onSuccess();

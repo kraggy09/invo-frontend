@@ -196,9 +196,9 @@ const BillingBody = () => {
         transactionId: transactionId,
         payment: paymentValue,
         paymentMode: paymentMode, // <-- use state here
-        discount: currentBill.discount,
         createdBy: user?._id,
         products: currentBill.purchased,
+        idempotencyKey: currentBill.idempotencyKey,
       });
       if (response.data && response.data.success) {
         setPaymentAmount(""); // Reset after successful billing

@@ -188,7 +188,6 @@ const DailyReportPage = () => {
       approvedAt: t.approvedAt,
       rejectedAt: t.rejectedAt,
     }))
-    .reverse();
 
   const transactionsToUseForPayments = !isToday ? reportData.payments : transactionsFromStore;
 

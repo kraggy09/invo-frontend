@@ -485,7 +485,7 @@ export const useGlobalSocketHandlers = () => {
         const requests = responses[7].data.data.requests;
         const approvals = responses[8].data.data.transactions;
         const returnBillsRes = responses[9]?.data?.data?.returnBills;
-        console.log(requests, "This are the requests");
+        console.log(transactions, "This are the transactions");
 
         const productsMap: Map<string, number> = new Map(
           products.map((p: Product, i: number) => [p._id, i])

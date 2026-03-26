@@ -13,6 +13,7 @@ import { ArrowLeftOutlined, PlusOutlined, UserAddOutlined } from "@ant-design/ic
 import { useNavigate } from "react-router-dom";
 import useCustomerStore, { ICustomer } from "../store/customer.store";
 import apiCaller from "../utils/apiCaller";
+import { generateUUID } from "../utils";
 
 const { Title, Text } = Typography;
 
@@ -21,6 +22,7 @@ const NewCustomer = () => {
   const navigate = useNavigate();
   const { setCustomers } = useCustomerStore();
   const [form] = Form.useForm();
+  const [idempotencyKey, setIdempotencyKey] = useState(generateUUID());
   const inputRef = useRef<InputRef>(null);
 
   useEffect(() => {
@@ -30,9 +32,13 @@ const NewCustomer = () => {
   const handleSubmit = async (values: any) => {
     setLoading(true);
     try {
-      const res = await apiCaller.post("/customers", values);
+      const res = await apiCaller.post("/customers", {
+        ...values,
+        idempotencyKey,
+      });
 
       message.success("Customer registry updated successfully");
+      setIdempotencyKey(generateUUID());
       navigate("/customers");
     } catch (error: any) {
       message.error(error.response?.data?.message || "Registry initialization failed");

@@ -20,6 +20,7 @@ import useCustomerStore from "../store/customer.store";
 import apiCaller from "../utils/apiCaller";
 import useTransactionStore from "../store/transaction.store";
 import TransactionPrint from "./TransactionPrint";
+import { generateUUID } from "../utils";
 
 const NewTransaction: React.FC = () => {
   const [form] = Form.useForm();
@@ -28,6 +29,7 @@ const NewTransaction: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [printTransactionData, setPrintTransactionData] = useState<any>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState(generateUUID());
 
   const contentRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
@@ -79,6 +81,7 @@ const NewTransaction: React.FC = () => {
           paymentMode: values.paymentMode,
           customerId: selectedCustomer._id,
           transactionId: transactionId,
+          idempotencyKey,
         });
       } else {
         response = await apiCaller.post("/transactions", {
@@ -86,6 +89,7 @@ const NewTransaction: React.FC = () => {
           amount: values.amount,
           purpose: values.purpose,
           transactionId: transactionId,
+          idempotencyKey,
         });
       }
       toast.success(
@@ -112,6 +116,7 @@ const NewTransaction: React.FC = () => {
 
       form.resetFields();
       setSelectedCustomer(null);
+      setIdempotencyKey(generateUUID());
     } catch (error: any) {
       toast.error(
         error.response?.data?.message || "Failed to submit transaction"

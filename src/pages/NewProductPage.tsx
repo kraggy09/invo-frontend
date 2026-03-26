@@ -4,11 +4,13 @@ import { message } from "../utils/antdStatic";
 import useCategoriesStore from "../store/categories.store";
 import apiCaller from "../utils/apiCaller";
 import ProductForm, { ProductFormValues } from "../components/ProductForm";
+import { generateUUID } from "../utils";
 
 const NewProductPage = () => {
   const navigate = useNavigate();
   const { categories } = useCategoriesStore();
   const [loading, setLoading] = useState(false);
+  const [idempotencyKey, setIdempotencyKey] = useState(generateUUID());
 
   const categoryOptions = categories.map((cat) => ({
     value: cat.name,
@@ -32,8 +34,10 @@ const NewProductPage = () => {
         box: Number(values.box),
         minQuantity: Number(values.minQuantity),
         category: values.category,
+        idempotencyKey,
       });
       message.success("Product created successfully");
+      setIdempotencyKey(generateUUID());
       navigate("/products");
     } catch (err: any) {
       message.error(err?.response?.data?.msg || "Failed to create product");
