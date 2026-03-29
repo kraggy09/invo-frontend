@@ -140,7 +140,7 @@ const BillPrint = ({
         </div>
 
         {currentBill && (
-          <div ref={contentRef} className="text-sm ">
+          <div ref={contentRef} className="text-sm" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
             <header className="flex items-center flex-col justify-center">
               <h1 className="ml-1 font-bold">
                 Sultan Communication & General Stroes

@@ -3,10 +3,27 @@
 
 
 @theme {
-  --color-jeansBlue:#1560bd
+  --color-jeansBlue: #1560bd
 }
-html,body,#root  {
+
+html,
+body,
+#root {
   font-family: 'Sora', sans-serif;
   height: 100%;
   width: 100%;
+}
+
+/* ── Dropdown option highlight (hover / keyboard navigation) ────────────── */
+.ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  background-color: #a3acbf !important;
+  /* gray-500 */
+  color: #ffffff !important;
+}
+
+.ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background-color: #4b5563 !important;
+  /* gray-600 */
+  color: #ffffff !important;
+  font-weight: 600 !important;
 }
