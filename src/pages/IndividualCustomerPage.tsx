@@ -339,8 +339,8 @@ const IndividualCustomerPage = () => {
     text += `--- *Recent Ledger* ---\n`;
     historyData.history.slice(-10).forEach((h: any) => {
       const date = dayjs(h.date).format("DD/MM");
-      const dr = h.type === 'BILL' ? h.total : (h.type === 'TRANSACTION' && !h.paymentIn ? h.amount : 0);
-      const cr = h.type === 'BILL' ? h.payment : (h.paymentIn ? h.amount : (h.type === 'RETURN' && h.paymentMode === 'ADJUSTMENT' ? h.totalAmount : 0));
+      const dr = h.netChange > 0 ? h.netChange : 0;
+      const cr = h.netChange < 0 ? Math.abs(h.netChange) : 0;
 
       text += `${date} | ${h.description}\n`;
       if (dr > 0) text += `DR: +₹${formatIndianNumber(dr)}\n`;
@@ -461,25 +461,18 @@ const IndividualCustomerPage = () => {
       render: (t: number) => <span className="font-black text-gray-800">₹{t?.toLocaleString()}</span>,
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total</span>,
-      dataIndex: "total",
-      key: "total",
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total Balance</span>,
+      key: "balance",
       align: "right" as const,
-      render: (t: number, record: any) => {
-        const prevOutstanding = record.isReturn
-          ? Math.round((t || 0) + Math.abs(record.billTotal || 0))
-          : Math.round((t || 0) - (record.billTotal || 0));
+      render: (_: any, record: any) => {
+        const nb = record.newBalance ?? record.total;
+        const pb = record.previousBalance;
         return (
           <div className="flex flex-col items-end">
-            <span className={`font-black ${record.isReturn ? "text-red-500" : "text-gray-800"}`}>₹{t?.toLocaleString()}</span>
-            {prevOutstanding > 0 && (
-              <span className="text-[10px] font-bold text-orange-400 mt-0.5">
-                +₹{prevOutstanding.toLocaleString()} Prv
-              </span>
-            )}
-            {prevOutstanding < 0 && (
-              <span className="text-[10px] font-bold text-green-500 mt-0.5">
-                -₹{Math.abs(prevOutstanding).toLocaleString()} Adv
+            <span className={`font-black ${(record.isReturn || record.netChange < 0) ? "text-red-500" : "text-gray-800"}`}>₹{nb?.toLocaleString()}</span>
+            {pb !== undefined && (
+              <span className={`text-[10px] font-bold mt-0.5 ${pb > 0 ? "text-orange-400" : "text-green-500"}`}>
+                ₹{pb.toLocaleString()} Prv
               </span>
             )}
           </div>
@@ -495,14 +488,17 @@ const IndividualCustomerPage = () => {
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Outstanding</span>,
-      dataIndex: "outstanding",
+      dataIndex: "newBalance",
       key: "outstanding",
       align: "right" as const,
-      render: (o: number) => (
-        <span className={`font-black ${o > 0 ? "text-orange-500" : o < 0 ? "text-green-500" : "text-gray-300"}`}>
-          {o < 0 ? "-" : ""}₹{Math.abs(o).toLocaleString()}
-        </span>
-      ),
+      render: (o: number, record: any) => {
+        const val = o ?? record.outstanding;
+        return (
+          <span className={`font-black ${val > 0 ? "text-orange-500" : val < 0 ? "text-green-500" : "text-gray-300"}`}>
+            {val < 0 ? "-" : ""}₹{Math.abs(val).toLocaleString()}
+          </span>
+        );
+      },
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Created By</span>,
@@ -1157,10 +1153,7 @@ const IndividualCustomerPage = () => {
                       title: 'DEBIT (+)',
                       align: 'right',
                       render: (_, record: any) => {
-                        let debit = 0;
-                        if (record.type === 'BILL') debit = record.total;
-                        if (record.type === 'TRANSACTION' && !record.paymentIn) debit = record.amount;
-
+                        const debit = record.netChange > 0 ? record.netChange : 0;
                         return debit > 0 ? (
                           <span className="text-xs font-black text-orange-500">₹{formatIndianNumber(debit)}</span>
                         ) : <span className="text-gray-200">-</span>;
@@ -1170,11 +1163,7 @@ const IndividualCustomerPage = () => {
                       title: 'CREDIT (-)',
                       align: 'right',
                       render: (_, record: any) => {
-                        let credit = 0;
-                        if (record.type === 'BILL') credit = record.payment;
-                        if (record.type === 'TRANSACTION' && record.paymentIn) credit = record.amount;
-                        if (record.type === 'RETURN' && record.paymentMode === 'ADJUSTMENT') credit = record.totalAmount;
-
+                        const credit = record.netChange < 0 ? Math.abs(record.netChange) : 0;
                         return credit > 0 ? (
                           <span className="text-xs font-black text-green-600">₹{formatIndianNumber(credit)}</span>
                         ) : <span className="text-gray-200">-</span>;

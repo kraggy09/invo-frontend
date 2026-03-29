@@ -190,12 +190,13 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
     setCurrentBillingId: (id) => set(() => ({ currentBillingId: id })),
     setCustomerForBill: (customer: Customer | null, id: string) => {
       set((state) => {
-        const bills = [...state.bills];
-        const billIndex = bills.findIndex((bill) => bill.id === id);
+        const billIndex = state.bills.findIndex((bill) => bill.id === id);
 
         if (billIndex === -1) return state;
 
-        bills[billIndex].customer = customer;
+        const bills = state.bills.map((bill, i) =>
+          i === billIndex ? { ...bill, customer } : bill
+        );
         return { bills };
       });
     },
@@ -293,19 +294,23 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
         const idx = state.bills.findIndex(
           (bill) => bill.id === billId.toString()
         );
-        state.bills[idx].purchased = state.bills[idx].purchased.filter(
+        if (idx === -1) return state;
+
+        const filteredPurchased = state.bills[idx].purchased.filter(
           (product) => product.id !== productId
         );
         const updatedBill = {
           ...state.bills[idx],
-          total: state.bills[idx].purchased.reduce(
+          purchased: filteredPurchased,
+          total: filteredPurchased.reduce(
             (sum, product) => sum + product.total,
             0
           ),
           lastActivityAt: new Date().toISOString(),
         };
-        const newBills = [...state.bills];
-        newBills[idx] = updatedBill;
+        const newBills = state.bills.map((bill, i) =>
+          i === idx ? updatedBill : bill
+        );
         return { bills: newBills };
       });
     },
@@ -543,32 +548,31 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
           const newPurchased = bill.purchased.map((item) => {
             if (item.id === updatedProduct._id) {
               billUpdated = true;
-              const newItem = { ...item };
-              newItem.name = updatedProduct.name;
-              newItem.mrp = updatedProduct.mrp;
-              newItem.category = updatedProduct.category;
-              newItem.measuring = updatedProduct.measuring;
-              newItem.barcode = updatedProduct.barcode;
-
-              newItem.retailPrice = updatedProduct.retailPrice;
-              newItem.wholesalePrice = updatedProduct.wholesalePrice;
-              newItem.superWholesalePrice = updatedProduct.superWholesalePrice;
-
-              if (newItem.type === "SUPERWHOLESALE") {
-                newItem.price = updatedProduct.superWholesalePrice;
-              } else if (newItem.type === "WHOLESALE") {
-                newItem.price = updatedProduct.wholesalePrice;
-              } else {
-                newItem.price = updatedProduct.retailPrice;
-              }
+              const price =
+                item.type === "SUPERWHOLESALE"
+                  ? updatedProduct.superWholesalePrice
+                  : item.type === "WHOLESALE"
+                    ? updatedProduct.wholesalePrice
+                    : updatedProduct.retailPrice;
 
               const totalPieces =
-                newItem.piece +
-                newItem.box * newItem.boxQuantity +
-                newItem.packet * newItem.packetQuantity;
+                item.piece +
+                item.box * item.boxQuantity +
+                item.packet * item.packetQuantity;
 
-              newItem.total = totalPieces * newItem.price - (newItem.discount || 0);
-              return newItem;
+              return {
+                ...item,
+                name: updatedProduct.name,
+                mrp: updatedProduct.mrp,
+                category: updatedProduct.category,
+                measuring: updatedProduct.measuring,
+                barcode: updatedProduct.barcode,
+                retailPrice: updatedProduct.retailPrice,
+                wholesalePrice: updatedProduct.wholesalePrice,
+                superWholesalePrice: updatedProduct.superWholesalePrice,
+                price,
+                total: totalPieces * price - (item.discount || 0),
+              };
             }
             return item;
           });
@@ -633,13 +637,13 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
     },
     addCreatedAt: (billId: string, createdAt: string, customer: Customer) => {
       set((state) => {
-        const bills = [...state.bills];
-        const billIndex = bills.findIndex((bill) => bill.id === billId);
+        const billIndex = state.bills.findIndex((bill) => bill.id === billId);
 
         if (billIndex === -1) return state;
 
-        bills[billIndex].createdAt = createdAt;
-        bills[billIndex].customer = customer;
+        const bills = state.bills.map((bill, i) =>
+          i === billIndex ? { ...bill, createdAt, customer } : bill
+        );
         return { bills };
       });
     },

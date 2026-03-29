@@ -71,8 +71,8 @@ const SelectWithSuggestions = <T extends { _id: string }>({
   };
 
   const handleSelect = (
-    value: string,
-    option: { item: T } | { item: T }[] | undefined
+    _value: string,
+    option: any
   ) => {
     if (option && !Array.isArray(option)) {
       onSelect(option.item);
@@ -104,7 +104,7 @@ const SelectWithSuggestions = <T extends { _id: string }>({
         showArrow={false}
         filterOption={false}
         onSearch={handleSearch}
-        onChange={handleSelect}
+        onSelect={handleSelect}
         onClear={handleClear}
         className="w-full"
         notFoundContent={null}

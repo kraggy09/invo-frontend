@@ -60,29 +60,21 @@ const useTransactionStore = create<TransactionStore>((set) => ({
   },
   approveTransaction: (transaction: ITransaction) => {
     set((state) => {
-      const idx = state.transactionApprovals.findIndex((t) => t._id === transaction._id);
-      if (idx !== -1) {
-        const newApprovals = [...state.transactionApprovals];
-        newApprovals.splice(idx, 1);
-        return {
-          transactionApprovals: newApprovals,
-          transactions: [transaction, ...state.transactions],
-        };
-      }
-      return state;
+      const exists = state.transactionApprovals.some((t) => t._id === transaction._id);
+      if (!exists) return state;
+      return {
+        transactionApprovals: state.transactionApprovals.filter((t) => t._id !== transaction._id),
+        transactions: [transaction, ...state.transactions],
+      };
     });
   },
   rejectTransaction: (transaction: ITransaction) => {
     set((state) => {
-      const idx = state.transactionApprovals.findIndex((t) => t._id === transaction._id);
-      if (idx !== -1) {
-        const newApprovals = [...state.transactionApprovals];
-        newApprovals.splice(idx, 1);
-        return {
-          transactionApprovals: newApprovals,
-        };
-      }
-      return state;
+      const exists = state.transactionApprovals.some((t) => t._id === transaction._id);
+      if (!exists) return state;
+      return {
+        transactionApprovals: state.transactionApprovals.filter((t) => t._id !== transaction._id),
+      };
     });
   },
   deleteTransaction: (transactionId) =>
