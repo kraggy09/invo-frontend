@@ -233,8 +233,8 @@ const SearchWithSuggestions = ({
                 <div
                   key={index}
                   className={`px-4 py-2 cursor-pointer transition-colors ${index === selectedIndex
-                    ? "bg-gray-300 text-white"
-                    : "hover:bg-gray-300 hover:text-white"
+                    ? "bg-blue-200 text-gray-800"
+                    : "hover:bg-blue-100 text-gray-800"
                     }`}
                   onClick={() => handleSelect(item)}
                 >

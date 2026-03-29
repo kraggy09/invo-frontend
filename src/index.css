@@ -16,14 +16,14 @@ body,
 
 /* ── Dropdown option highlight (hover / keyboard navigation) ────────────── */
 .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
-  background-color: #a3acbf !important;
-  /* gray-500 */
-  color: #ffffff !important;
+  background-color: #dbeafe !important;
+  /* blue-100 */
+  color: #1f2937 !important;
 }
 
 .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
-  background-color: #4b5563 !important;
-  /* gray-600 */
-  color: #ffffff !important;
+  background-color: #bfdbfe !important;
+  /* blue-200 */
+  color: #1f2937 !important;
   font-weight: 600 !important;
 }
