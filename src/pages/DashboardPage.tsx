@@ -218,7 +218,7 @@ const DashboardPage = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                     {[
                       {
-                        label: "Gross Yield",
+                        label: "Total Sales",
                         value: dashboardData?.totalCurrSales?.[0]?.overallSales || 0,
                         prev: dashboardData?.totalPreviousSales?.[0]?.overallSales || 0,
                         icon: <LineChartOutlined />,
@@ -226,7 +226,7 @@ const DashboardPage = () => {
                         bg: "bg-indigo-50/30"
                       },
                       {
-                        label: "Net Inflow",
+                        label: "Total Payments",
                         value: dashboardData?.currentTransactions?.[0]?.overallPayment || 0,
                         prev: dashboardData?.previousTransaction?.[0]?.overallPayment || 0,
                         icon: <DollarOutlined />,
@@ -267,12 +267,12 @@ const DashboardPage = () => {
                     <div className="flex justify-between items-center mb-12">
                       <div className="flex items-center gap-4">
                         <div className="w-2 h-8 bg-indigo-600 rounded-full" />
-                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em]">Revenue Velocity Matrix</h3>
+                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em]">Business Snapshot</h3>
                       </div>
-                      <div className="flex items-center gap-2">
+                      {/* <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-indigo-600" />
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Yield</span>
-                      </div>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest"></span>
+                      </div> */}
                     </div>
                     <div className="h-[400px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -326,7 +326,7 @@ const DashboardPage = () => {
                   {dashboardData?.dailySummary && (
                     <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 relative overflow-hidden group animate-in fade-in slide-in-from-bottom-8 duration-1000">
                       <div className="flex items-center justify-between mb-10">
-                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em]">Operational Insight Logic</h3>
+                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em]">Daily Breakdown</h3>
                         <div className="flex items-center gap-2 px-3 py-1 bg-indigo-50 rounded-full border border-indigo-100">
                           <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
                           <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Real-time Node</span>
@@ -367,7 +367,7 @@ const DashboardPage = () => {
                   {/* Overall Asset Performance Section */}
                   <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100 relative overflow-hidden group animate-in fade-in slide-in-from-bottom-10 duration-1000">
                     <div className="flex items-center justify-between mb-10">
-                      <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em]">Asset Performance Matrix</h3>
+                      <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em]">Asset Performance</h3>
                       <div className="flex items-center gap-2 px-3 py-1 bg-indigo-50 rounded-full border border-indigo-100">
                         <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">{days} Day Cumulative</span>
                       </div>
@@ -420,7 +420,7 @@ const DashboardPage = () => {
                   </div>
                   <h2 className="text-3xl font-black text-gray-800 tracking-tighter mb-4 uppercase">Analytics Encrypted</h2>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-12 max-w-md mx-auto leading-relaxed">
-                    This terminal contains highly sensitive financial and operational intelligence. Please provide your security credentials to proceed.
+                    Please enter your PIN to access the analytics dashboard
                   </p>
 
                   <div className="w-full max-w-xs space-y-6">
@@ -450,11 +450,6 @@ const DashboardPage = () => {
                     )}
                   </div>
 
-                  <div className="mt-12 flex items-center gap-3 text-[9px] font-black text-gray-300 uppercase tracking-widest">
-                    <div className="w-8 h-[1px] bg-gray-100" />
-                    Encrypted Protocol v2.4.0
-                    <div className="w-8 h-[1px] bg-gray-100" />
-                  </div>
                 </div>
               )
             ) : (
@@ -483,7 +478,7 @@ const DashboardPage = () => {
           <div className="lg:col-span-4 space-y-8">
             {/* Quick Access Matrix */}
             <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-              <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">System Access Root</h3>
+              <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">Quick Access</h3>
               <div className="grid grid-cols-2 gap-6">
                 {[
                   { to: "/new-bill", icon: <DollarOutlined />, label: "New Billing", color: "text-indigo-600", bg: "hover:bg-indigo-50/50" },
@@ -522,7 +517,7 @@ const DashboardPage = () => {
             {/* Consumer Dynamics */}
             {dashboardData?.quickStats && (
               <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-                <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">Consumer Dynamics</h3>
+                <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">Customer Base</h3>
                 <div className="grid grid-cols-2 gap-4">
                   {[
                     { label: "Total Base", val: dashboardData.quickStats.totalCustomers, icon: <UserOutlined />, color: "indigo" },
@@ -541,7 +536,7 @@ const DashboardPage = () => {
 
             {/* Recent Registry Entries */}
             <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
-              <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">Recent Registry</h3>
+              <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">Recent Bills</h3>
               <div className="space-y-6">
                 {dashboardData?.recentCustomers.map((c, i) => (
                   <div key={i} className="flex items-center justify-between group cursor-default">

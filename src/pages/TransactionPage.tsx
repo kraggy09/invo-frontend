@@ -105,8 +105,8 @@ const TransactionPage: React.FC = () => {
         <Spin spinning={loading} size="large">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
             <div>
-              <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Verification Queue</h1>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Authorized Ledger Approvals</p>
+              <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Verification Logs</h1>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Review and verify transactions</p>
             </div>
 
             <div className="flex items-center gap-4 w-full md:w-auto">
@@ -222,10 +222,10 @@ const TransactionPage: React.FC = () => {
               <div className="w-24 h-24 bg-indigo-50 rounded-[32px] flex items-center justify-center mx-auto mb-8 shadow-inner">
                 <CheckOutlined className="text-4xl text-indigo-500" />
               </div>
-              <h2 className="text-2xl font-black text-gray-800 tracking-tight leading-tight mb-2">Queue Fully Synchronized</h2>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-10">No pending ledger approvals found at this terminal</p>
+              <h2 className="text-2xl font-black text-gray-800 tracking-tight leading-tight mb-2">No New Transactions</h2>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-10">No pending transactions approvals found at this terminal</p>
               <Button
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate("/")}
                 className="h-12 px-8 rounded-2xl border-2 border-gray-100 text-[10px] font-black tracking-widest text-gray-500 hover:border-indigo-100 hover:text-indigo-600 transition-all"
               >
                 RETURN TO DASHBOARD

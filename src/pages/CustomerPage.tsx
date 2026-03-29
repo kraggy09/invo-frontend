@@ -49,7 +49,7 @@ const CustomerPage = () => {
 
   const columns: ColumnsType<CustomerWithTransactions> = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Client Name</span>,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Customer Name</span>,
       dataIndex: "name",
       key: "name",
       render: (text: string) => (
@@ -75,19 +75,7 @@ const CustomerPage = () => {
       ),
       sorter: (a, b) => b.outstanding - a.outstanding,
     },
-    {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Activity</span>,
-      dataIndex: "transactions",
-      key: "transactions",
-      render: (_: any, record: CustomerWithTransactions) => (
-        <div className="flex justify-center">
-          <span className="bg-gray-100 text-gray-600 font-black text-[10px] px-2 py-0.5 rounded uppercase">
-            {record.transactions?.length || 0} Txns
-          </span>
-        </div>
-      ),
-      sorter: (a, b) => (b.transactions?.length || 0) - (a.transactions?.length || 0),
-    },
+
   ];
 
   return (
@@ -95,8 +83,8 @@ const CustomerPage = () => {
       {/* Header Section - Responsive scaling */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8 lg:mb-12 max-w-[1600px] mx-auto w-full">
         <div>
-          <h1 className="text-3xl lg:text-4xl font-black text-gray-900 tracking-tight leading-none">Client Directory</h1>
-          <p className="text-[10px] lg:text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] mt-2 ml-1">Enterprise Relationship Management</p>
+          <h1 className="text-3xl lg:text-4xl font-black text-gray-900 tracking-tight leading-none">Customer Directory</h1>
+          <p className="text-[10px] lg:text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] mt-2 ml-1">Manage your customers and their history</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-stretch sm:items-center">
@@ -112,7 +100,7 @@ const CustomerPage = () => {
             onClick={() => navigate("/newCustomer")}
             className="group flex justify-center items-center h-14 lg:h-16 px-8 lg:px-10 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_auto] hover:bg-right border-none rounded-[24px] text-[11px] font-black tracking-widest text-white shadow-xl shadow-indigo-500/30 hover:shadow-purple-500/40 uppercase transition-all duration-500 hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] w-full sm:w-auto gap-2"
           >
-            Register Client
+            Add Customer
           </Button>
         </div>
       </div>
@@ -121,14 +109,14 @@ const CustomerPage = () => {
       <div className="bg-white/80 backdrop-blur-sm rounded-[32px] lg:rounded-[40px] shadow-sm p-6 lg:p-10 mb-8 border border-gray-100 max-w-[1600px] mx-auto w-full">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-end">
           <div className="flex-1 w-full text-left">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2 block">Advanced CRM Search</label>
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2 block">Find your Customer</label>
             <Input
               placeholder="Search by name, identity or contact handle..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-14 lg:h-16 rounded-2xl lg:rounded-3xl border-2 border-gray-50 bg-gray-50/30 px-6 font-black focus:bg-white transition-all text-gray-700"
               allowClear
-              prefix={<span className="text-indigo-400 mr-2 text-[10px] font-black uppercase tracking-widest">Query:</span>}
+              prefix={<span className="text-indigo-400 mr-2 text-[10px] font-black uppercase tracking-widest">Search:</span>}
             />
           </div>
           <div className="w-full lg:w-80 text-left">

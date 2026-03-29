@@ -69,6 +69,7 @@ const DailyReportPage = () => {
     transactions: { current: 1, total: 0, pageSize: 15 },
     payments: { current: 1, total: 0, pageSize: 15 },
     returnBills: { current: 1, total: 0, pageSize: 15 },
+    inventoryRequests: { current: 1, total: 0, pageSize: 15 }
   });
 
   const [showAdmin, setShowAdmin] = useState(false);
@@ -166,7 +167,7 @@ const DailyReportPage = () => {
     };
   });
 
-  const mappedBills = [...pureMappedBills, ...mappedReturnBills].sort((a, b) => {
+  const mappedBills = [...pureMappedBills, ...(isToday ? mappedReturnBills : [])].sort((a, b) => {
     const timeA = new Date(a.rawData.createdAt || a.rawData.date).getTime();
     const timeB = new Date(b.rawData.createdAt || b.rawData.date).getTime();
     return timeB - timeA;
@@ -402,24 +403,25 @@ const DailyReportPage = () => {
 
       const [summaryRes, billsRes, transactionsRes, paymentsRes, returnBillsRes, inventoryRequestsRes] = await Promise.all([
         apiCaller.get("/bills/summary", { params: { startDate, endDate } }),
-        apiCaller.get("/bills", { params: { startDate, endDate, page: 1, limit: 15 } }),
-        apiCaller.get("/transactions", { params: { startDate, endDate, page: 1, limit: 15, paymentIn: true } }),
-        apiCaller.get("/transactions", { params: { startDate, endDate, page: 1, limit: 15, paymentIn: false } }),
+        apiCaller.get("/bills", { params: { startDate, endDate, page: 1, limit: 15, search: billSearch || undefined, minAmount: billAmountRange[0] > 0 ? billAmountRange[0] : undefined, maxAmount: billAmountRange[1] < Infinity ? billAmountRange[1] : undefined } }),
+        apiCaller.get("/transactions", { params: { startDate, endDate, page: 1, limit: 15, paymentIn: true, search: transactionSearch || undefined, minAmount: transactionAmountRange[0] > 0 ? transactionAmountRange[0] : undefined, maxAmount: transactionAmountRange[1] < Infinity ? transactionAmountRange[1] : undefined } }),
+        apiCaller.get("/transactions", { params: { startDate, endDate, page: 1, limit: 15, paymentIn: false, search: transactionSearch || undefined, minAmount: transactionAmountRange[0] > 0 ? transactionAmountRange[0] : undefined, maxAmount: transactionAmountRange[1] < Infinity ? transactionAmountRange[1] : undefined } }),
         apiCaller.get("/return-bills", { params: { startDate, endDate, page: 1, limit: 15 } }),
-        apiCaller.get("/stocks/requests/all", { params: { startDate, endDate } })
+        apiCaller.get("/stocks/requests/all", { params: { startDate, endDate, page: 1, limit: 15, search: requestSearch || undefined, status: requestFilterType !== "all" ? requestFilterType : undefined } })
       ]);
 
       const billsData = billsRes.data.data;
       const transData = transactionsRes.data.data;
       const paysData = paymentsRes.data.data;
       const returnsData = returnBillsRes.data.data;
+      const reqsData = inventoryRequestsRes.data.data;
 
       setReportData({
         bills: billsData.bills || [],
         transactions: transData.transactions || [],
         payments: paysData.transactions || [],
         returnBills: returnsData.returnBills || [],
-        inventoryRequests: inventoryRequestsRes.data.data?.requests || inventoryRequestsRes.data.requests || [],
+        inventoryRequests: reqsData.requests || [],
       });
 
       setPagination({
@@ -427,6 +429,7 @@ const DailyReportPage = () => {
         transactions: { current: 1, total: transData.total || 0, pageSize: 15 },
         payments: { current: 1, total: paysData.total || 0, pageSize: 15 },
         returnBills: { current: 1, total: returnsData.total || 0, pageSize: 15 },
+        inventoryRequests: { current: 1, total: reqsData.total || 0, pageSize: 15 },
       });
 
       const summaryData = summaryRes.data.data;
@@ -455,7 +458,14 @@ const DailyReportPage = () => {
     const endDate = dateRange[1]?.endOf("day").toISOString();
     setLoading(true);
     try {
-      const res = await apiCaller.get("/bills", { params: { startDate, endDate, page, limit: 15 } });
+      const res = await apiCaller.get("/bills", {
+        params: {
+          startDate, endDate, page, limit: 15,
+          search: billSearch || undefined,
+          minAmount: billAmountRange[0] > 0 ? billAmountRange[0] : undefined,
+          maxAmount: billAmountRange[1] < Infinity ? billAmountRange[1] : undefined
+        }
+      });
       setReportData(prev => ({ ...prev, bills: res.data.data.bills }));
       setPagination(prev => ({ ...prev, bills: { ...prev.bills, current: page, total: res.data.data.total } }));
     } catch (err) {
@@ -470,7 +480,14 @@ const DailyReportPage = () => {
     const endDate = dateRange[1]?.endOf("day").toISOString();
     setLoading(true);
     try {
-      const res = await apiCaller.get("/transactions", { params: { startDate, endDate, page, limit: 15, paymentIn: true } });
+      const res = await apiCaller.get("/transactions", {
+        params: {
+          startDate, endDate, page, limit: 15, paymentIn: true,
+          search: transactionSearch || undefined,
+          minAmount: transactionAmountRange[0] > 0 ? transactionAmountRange[0] : undefined,
+          maxAmount: transactionAmountRange[1] < Infinity ? transactionAmountRange[1] : undefined
+        }
+      });
       setReportData(prev => ({ ...prev, transactions: res.data.data.transactions }));
       setPagination(prev => ({ ...prev, transactions: { ...prev.transactions, current: page, total: res.data.data.total } }));
     } catch (err) {
@@ -485,7 +502,14 @@ const DailyReportPage = () => {
     const endDate = dateRange[1]?.endOf("day").toISOString();
     setLoading(true);
     try {
-      const res = await apiCaller.get("/transactions", { params: { startDate, endDate, page, limit: 15, paymentIn: false } });
+      const res = await apiCaller.get("/transactions", {
+        params: {
+          startDate, endDate, page, limit: 15, paymentIn: false,
+          search: transactionSearch || undefined,
+          minAmount: transactionAmountRange[0] > 0 ? transactionAmountRange[0] : undefined,
+          maxAmount: transactionAmountRange[1] < Infinity ? transactionAmountRange[1] : undefined
+        }
+      });
       setReportData(prev => ({ ...prev, payments: res.data.data.transactions }));
       setPagination(prev => ({ ...prev, payments: { ...prev.payments, current: page, total: res.data.data.total } }));
     } catch (err) {
@@ -509,6 +533,52 @@ const DailyReportPage = () => {
       setLoading(false);
     }
   };
+
+  const handleRequestPageChange = async (page: number) => {
+    const startDate = dateRange[0]?.startOf("day").toISOString();
+    const endDate = dateRange[1]?.endOf("day").toISOString();
+    setLoading(true);
+    try {
+      const res = await apiCaller.get("/stocks/requests/all", {
+        params: {
+          startDate, endDate, page, limit: 15,
+          search: requestSearch || undefined,
+          status: requestFilterType !== "all" ? requestFilterType : undefined
+        }
+      });
+      setReportData(prev => ({ ...prev, inventoryRequests: res.data.data.requests }));
+      setPagination(prev => ({ ...prev, inventoryRequests: { ...prev.inventoryRequests, current: page, total: res.data.data.total } }));
+    } catch (err) {
+      message.error("Failed to load requests");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isToday) return;
+    const handler = setTimeout(() => {
+      handleBillPageChange(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [billSearch, billAmountRange, isToday]);
+
+  useEffect(() => {
+    if (isToday) return;
+    const handler = setTimeout(() => {
+      if (activeTab === "transactions") handleTransactionPageChange(1);
+      if (activeTab === "payments") handlePaymentPageChange(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [transactionSearch, transactionAmountRange, transactionFilterType, isToday, activeTab]);
+
+  useEffect(() => {
+    if (isToday) return;
+    const handler = setTimeout(() => {
+      handleRequestPageChange(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [requestSearch, requestFilterType, isToday]);
 
   // PIN logic
   const handlePinSubmit = () => {
@@ -957,8 +1027,8 @@ const DailyReportPage = () => {
     <main className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-10">
-          <h1 className="text-3xl font-black text-gray-800 tracking-tighter leading-tight">Operation Audits</h1>
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Cross-Terminal Analytical Intelligence</p>
+          <h1 className="text-3xl font-black text-gray-800 tracking-tighter leading-tight">Daily Report</h1>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Summary of business</p>
         </div>
 
         {/* Performance Summary Matrix */}
@@ -1005,14 +1075,14 @@ const DailyReportPage = () => {
                     onClick={() => setShowAdmin(false)}
                     className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] hover:text-red-500 transition-all flex items-center gap-2"
                   >
-                    DECRYPT FINANCIALS / LOCK LAYER
+                    HIDE FINANCIALS / LOCK LAYER
                   </Button>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                   {[
                     {
-                      label: "Net Margin",
+                      label: "Profit",
                       val: `₹${summary.profit.toLocaleString()}`,
                       icon: <DollarOutlined />,
                       sub: `${summary.marginPercent}% yield`,
@@ -1020,7 +1090,7 @@ const DailyReportPage = () => {
                       bg: "bg-green-50/30",
                     },
                     {
-                      label: "Settlements",
+                      label: "Payment Recieved",
                       val: `₹${summary.totalPaymentIn.toLocaleString()}`,
                       icon: <ArrowDownOutlined />,
                       sub: "Inward Liquidity",
@@ -1028,7 +1098,7 @@ const DailyReportPage = () => {
                       bg: "bg-indigo-50/30",
                     },
                     {
-                      label: "Disbursements",
+                      label: "Payment Sent",
                       val: `₹${summary.totalPaymentOut.toLocaleString()}`,
                       icon: <ArrowUpOutlined />,
                       sub: "Outward Flow",
@@ -1039,15 +1109,15 @@ const DailyReportPage = () => {
                       label: "Gross Billed",
                       val: `₹${summary.totalBillAmount.toLocaleString()}`,
                       icon: <FileTextOutlined />,
-                      sub: "Ledger Volume",
+                      sub: "Total Sales",
                       color: "bg-blue-600 shadow-blue-100",
                       bg: "bg-blue-50/30",
                     },
                     {
-                      label: "Peak Load",
+                      label: "Peak Hour",
                       val: summary.peakHour,
                       icon: <ClockCircleOutlined />,
-                      sub: "High Traffic Node",
+                      sub: "Busiest hour",
                       color: "bg-violet-600 shadow-violet-100",
                       bg: "bg-violet-50/30",
                     },
@@ -1135,7 +1205,7 @@ const DailyReportPage = () => {
                   loading={loading}
                   className="h-12 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
                 >
-                  Fetch
+                  Get Report
                 </Button>
               </div>
             </div>
@@ -1366,7 +1436,12 @@ const DailyReportPage = () => {
                 scroll={{ x: 1000 }}
                 className="modern-table no-border-table"
                 rowClassName={(record) => (record.rejected ? "opacity-60 grayscale" : "")}
-                pagination={{ pageSize: 15 }}
+                pagination={!isToday ? {
+                  current: pagination.inventoryRequests.current,
+                  total: pagination.inventoryRequests.total,
+                  pageSize: pagination.inventoryRequests.pageSize,
+                  onChange: handleRequestPageChange
+                } : { pageSize: 15, showSizeChanger: false }}
               />
             )}
           </div>

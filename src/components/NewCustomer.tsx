@@ -59,7 +59,7 @@ const NewCustomer = () => {
           />
           <div>
             <h1 className="text-xl font-black text-gray-800 tracking-tight leading-none">Create Customer</h1>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5">New Account Registry</p>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5">New Customer Registry</p>
           </div>
         </div>
 
@@ -69,12 +69,11 @@ const NewCustomer = () => {
               <UserAddOutlined className="text-2xl" />
             </div>
             <div>
-              <p className="text-[10px] font-black text-indigo-100 uppercase tracking-widest mb-1">Identity Management</p>
-              <h2 className="text-xl font-black tracking-tight leading-none">Register New Client</h2>
+              <p className="text-[10px] font-black text-indigo-100 uppercase tracking-widest mb-1">Customer Management</p>
+              <h2 className="text-xl font-black tracking-tight leading-none">Register New Customer</h2>
             </div>
           </div>
-
-          <Form
+          <div className="px-4 pt-4"> <Form
             layout="vertical"
             form={form}
             onFinish={handleSubmit}
@@ -83,7 +82,7 @@ const NewCustomer = () => {
             className="p-8"
           >
             <Form.Item
-              label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Legal Name</span>}
+              label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1"> Name</span>}
               name="name"
               rules={[
                 { required: true, message: "Identification required." },
@@ -146,7 +145,8 @@ const NewCustomer = () => {
                 COMMIT TO REGISTRY
               </Button>
             </Form.Item>
-          </Form>
+          </Form></div>
+
         </div>
       </div>
 

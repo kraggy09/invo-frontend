@@ -769,10 +769,7 @@ const IndividualCustomerPage = () => {
           >
             Terminal Root / CRM
           </Button>
-          <div className="text-right hidden sm:block">
-            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block">Registry Sync 2.0</span>
-            <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest text-right">Authorized Account Terminal</span>
-          </div>
+
         </div>
 
         {/* Profile Card */}
@@ -783,16 +780,11 @@ const IndividualCustomerPage = () => {
                 {customer?.name?.charAt(0).toUpperCase()}
               </div>
               <div>
-                <div className="inline-flex items-center gap-2 px-2 py-0.5 bg-indigo-500/50 rounded-full mb-2 border border-indigo-400/30 backdrop-blur-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                  <span className="text-[8px] font-black uppercase tracking-widest">Active Registry</span>
-                </div>
                 <h1 className="text-3xl sm:text-4xl font-black tracking-tighter leading-tight capitalize">{customer?.name}</h1>
                 <div className="flex items-center gap-4 mt-2">
-                  <span className="text-xs font-bold text-indigo-100/70 bg-white/5 border border-white/10 px-3 py-1 rounded-xl focus:outline-none">
-                    {customer?.phone}
+                  <span className=" font-bold text-indigo-100/70 bg-white/5 border border-white/10 px-3 py-1 rounded-xl focus:outline-none">
+                    Mobile No : {customer?.phone}
                   </span>
-                  <span className="text-[10px] font-black text-indigo-100/40 uppercase tracking-widest">ID: {customer?._id?.slice(-6).toUpperCase()}</span>
                 </div>
               </div>
             </div>
@@ -882,7 +874,7 @@ const IndividualCustomerPage = () => {
               },
               {
                 key: "transactions",
-                label: <span className="px-6 py-4 font-black uppercase text-[10px] tracking-widest">Ledger</span>,
+                label: <span className="px-6 py-4 font-black uppercase text-[10px] tracking-widest">Transactions</span>,
                 children: (
                   <div className="p-2 sm:p-8">
                     <Table

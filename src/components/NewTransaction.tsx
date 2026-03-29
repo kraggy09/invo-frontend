@@ -130,7 +130,7 @@ const NewTransaction: React.FC = () => {
     "text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1";
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50/50 p-4 sm:p-6 relative overflow-hidden">
+    <main className="flex flex-col items-center justify-center p-4 mt-20 sm:p-6 relative overflow-hidden">
       {/* BG decor */}
       <div className="absolute top-0 left-0 w-full h-full opacity-[0.03] pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600 rounded-full blur-[120px]" />
@@ -176,222 +176,224 @@ const NewTransaction: React.FC = () => {
           </div>
 
           {/* Form Body */}
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            autoComplete="off"
-            requiredMark={false}
-            className="p-6 sm:p-10"
-          >
-            {/* Mode Toggle */}
-            <div className="mb-6">
-              <label className={labelCls}>Transaction Mode</label>
-              <div className="flex gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => handleModeChange("in")}
-                  className={`flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${isPaymentIn
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                    : "bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-200"
-                    }`}
-                >
-                  <ArrowDownOutlined /> Payment In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleModeChange("out")}
-                  className={`flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${!isPaymentIn
-                    ? "bg-orange-50 border-orange-200 text-orange-700"
-                    : "bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-200"
-                    }`}
-                >
-                  <ArrowUpOutlined /> Cash Out
-                </button>
-              </div>
-            </div>
-
-            {/* Customer / Name */}
-            {isPaymentIn ? (
-              <>
-                <Form.Item
-                  label={<span className={labelCls}>Customer</span>}
-                  rules={[
-                    {
-                      validator: () =>
-                        selectedCustomer
-                          ? Promise.resolve()
-                          : Promise.reject("Please select a customer"),
-                    },
-                  ]}
-                >
-                  <Select
-                    showSearch
-                    placeholder="Search customer by name"
-                    className="txn-select"
-                    optionFilterProp="label"
-                    value={selectedCustomer?._id || undefined}
-                    onChange={handleCustomerSelect}
-                    options={customers.map((c) => ({
-                      value: c._id,
-                      label: c.name,
-                    }))}
-                    optionRender={(option) => {
-                      const customer = customers.find(
-                        (c) => c._id === option.value
-                      );
-                      return (
-                        <div className="flex justify-between items-center py-1">
-                          <span className="font-bold capitalize">
-                            {customer?.name}
-                          </span>
-                          <span
-                            className={`text-[10px] font-black px-2 py-0.5 rounded-md ${(customer?.outstanding || 0) > 0
-                              ? "bg-orange-50 text-orange-600"
-                              : "bg-green-50 text-green-600"
-                              }`}
-                          >
-                            ₹{(customer?.outstanding || 0).toLocaleString()}
-                          </span>
-                        </div>
-                      );
-                    }}
-                  />
-                </Form.Item>
-
-                {/* Outstanding display */}
-                {selectedCustomer && (
-                  <div
-                    className={`rounded-2xl p-4 mb-6 flex items-center justify-between border ${selectedCustomer.outstanding > 0
-                      ? "bg-orange-50/50 border-orange-100"
-                      : "bg-green-50/50 border-green-100"
+          <div className="px-4">
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              autoComplete="off"
+              requiredMark={false}
+              className="px-6 sm:p-10"
+            >
+              {/* Mode Toggle */}
+              <div className="mb-6">
+                <label className={labelCls}>Transaction Mode</label>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange("in")}
+                    className={`flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${isPaymentIn
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                      : "bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-200"
                       }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${selectedCustomer.outstanding > 0
-                          ? "bg-orange-100 text-orange-600"
-                          : "bg-green-100 text-green-600"
-                          }`}
-                      >
-                        <DollarOutlined className="text-sm" />
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                          Outstanding
-                        </p>
-                        <p
-                          className={`text-lg font-black tracking-tight ${selectedCustomer.outstanding > 0
-                            ? "text-orange-600"
-                            : "text-green-600"
+                    <ArrowDownOutlined /> Payment In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange("out")}
+                    className={`flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${!isPaymentIn
+                      ? "bg-orange-50 border-orange-200 text-orange-700"
+                      : "bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-200"
+                      }`}
+                  >
+                    <ArrowUpOutlined /> Cash Out
+                  </button>
+                </div>
+              </div>
+
+              {/* Customer / Name */}
+              {isPaymentIn ? (
+                <>
+                  <Form.Item
+                    label={<span className={labelCls}>Customer</span>}
+                    rules={[
+                      {
+                        validator: () =>
+                          selectedCustomer
+                            ? Promise.resolve()
+                            : Promise.reject("Please select a customer"),
+                      },
+                    ]}
+                  >
+                    <Select
+                      showSearch
+                      placeholder="Search customer by name"
+                      className="txn-select"
+                      optionFilterProp="label"
+                      value={selectedCustomer?._id || undefined}
+                      onChange={handleCustomerSelect}
+                      options={customers.map((c) => ({
+                        value: c._id,
+                        label: c.name,
+                      }))}
+                      optionRender={(option) => {
+                        const customer = customers.find(
+                          (c) => c._id === option.value
+                        );
+                        return (
+                          <div className="flex justify-between items-center py-1">
+                            <span className="font-bold capitalize">
+                              {customer?.name}
+                            </span>
+                            <span
+                              className={`text-[10px] font-black px-2 py-0.5 rounded-md ${(customer?.outstanding || 0) > 0
+                                ? "bg-orange-50 text-orange-600"
+                                : "bg-green-50 text-green-600"
+                                }`}
+                            >
+                              ₹{(customer?.outstanding || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        );
+                      }}
+                    />
+                  </Form.Item>
+
+                  {/* Outstanding display */}
+                  {selectedCustomer && (
+                    <div
+                      className={`rounded-2xl p-4 mb-6 flex items-center justify-between border ${selectedCustomer.outstanding > 0
+                        ? "bg-orange-50/50 border-orange-100"
+                        : "bg-green-50/50 border-green-100"
+                        }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center ${selectedCustomer.outstanding > 0
+                            ? "bg-orange-100 text-orange-600"
+                            : "bg-green-100 text-green-600"
                             }`}
                         >
-                          ₹{selectedCustomer.outstanding.toLocaleString()}
-                        </p>
+                          <DollarOutlined className="text-sm" />
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                            Outstanding
+                          </p>
+                          <p
+                            className={`text-lg font-black tracking-tight ${selectedCustomer.outstanding > 0
+                              ? "text-orange-600"
+                              : "text-green-600"
+                              }`}
+                          >
+                            ₹{selectedCustomer.outstanding.toLocaleString()}
+                          </p>
+                        </div>
                       </div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest capitalize">
+                        {selectedCustomer.name}
+                      </p>
                     </div>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest capitalize">
-                      {selectedCustomer.name}
-                    </p>
-                  </div>
-                )}
-              </>
-            ) : (
+                  )}
+                </>
+              ) : (
+                <Form.Item
+                  name="name"
+                  label={<span className={labelCls}>Party Name</span>}
+                  rules={[
+                    { required: true, message: "Please enter party name" },
+                  ]}
+                >
+                  <Input
+                    placeholder="e.g. Electricity Board"
+                    className="txn-field"
+                  />
+                </Form.Item>
+              )}
+
+              {/* Amount */}
               <Form.Item
-                name="name"
-                label={<span className={labelCls}>Party Name</span>}
+                name="amount"
+                label={<span className={labelCls}>Amount (₹)</span>}
                 rules={[
-                  { required: true, message: "Please enter party name" },
+                  { required: true, message: "Please enter amount" },
+                  {
+                    type: "number",
+                    min: 1,
+                    message: "Amount must be greater than 0",
+                  },
                 ]}
               >
-                <Input
-                  placeholder="e.g. Electricity Board"
-                  className="txn-field"
+                <InputNumber
+                  className="txn-number"
+                  placeholder="0.00"
+                  min={1}
+                  formatter={(value) =>
+                    `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) =>
+                    value!.replace(/\$\s?|(,*)/g, "") as any
+                  }
                 />
               </Form.Item>
-            )}
 
-            {/* Amount */}
-            <Form.Item
-              name="amount"
-              label={<span className={labelCls}>Amount (₹)</span>}
-              rules={[
-                { required: true, message: "Please enter amount" },
-                {
-                  type: "number",
-                  min: 1,
-                  message: "Amount must be greater than 0",
-                },
-              ]}
-            >
-              <InputNumber
-                className="txn-number"
-                placeholder="0.00"
-                min={1}
-                formatter={(value) =>
-                  `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                }
-                parser={(value) =>
-                  value!.replace(/\$\s?|(,*)/g, "") as any
-                }
-              />
-            </Form.Item>
+              {/* Purpose / Payment Mode */}
+              {isPaymentIn ? (
+                <Form.Item
+                  name="paymentMode"
+                  label={<span className={labelCls}>Payment Mode</span>}
+                  rules={[
+                    { required: true, message: "Please select payment mode" },
+                  ]}
+                >
+                  <Select placeholder="Select mode" className="txn-select">
+                    <Select.Option value="CASH">
+                      <div className="flex items-center gap-2">
+                        <WalletOutlined /> Cash
+                      </div>
+                    </Select.Option>
+                    <Select.Option value="ONINE">
+                      <div className="flex items-center gap-2">
+                        <SwapOutlined /> Online Transfer
+                      </div>
+                    </Select.Option>
+                  </Select>
+                </Form.Item>
+              ) : (
+                <Form.Item
+                  name="purpose"
+                  label={<span className={labelCls}>Purpose</span>}
+                  rules={[
+                    { required: true, message: "Please select purpose" },
+                  ]}
+                >
+                  <Select placeholder="Select purpose" className="txn-select">
+                    <Select.Option value="home">Home Purpose</Select.Option>
+                    <Select.Option value="party">Party Payment</Select.Option>
+                    <Select.Option value="cash">Cash Requirement</Select.Option>
+                    <Select.Option value="other">Other</Select.Option>
+                  </Select>
+                </Form.Item>
+              )}
 
-            {/* Purpose / Payment Mode */}
-            {isPaymentIn ? (
-              <Form.Item
-                name="paymentMode"
-                label={<span className={labelCls}>Payment Mode</span>}
-                rules={[
-                  { required: true, message: "Please select payment mode" },
-                ]}
-              >
-                <Select placeholder="Select mode" className="txn-select">
-                  <Select.Option value="CASH">
-                    <div className="flex items-center gap-2">
-                      <WalletOutlined /> Cash
-                    </div>
-                  </Select.Option>
-                  <Select.Option value="ONINE">
-                    <div className="flex items-center gap-2">
-                      <SwapOutlined /> Online Transfer
-                    </div>
-                  </Select.Option>
-                </Select>
+              {/* Submit */}
+              <Form.Item className="pt-2 mb-0">
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  icon={<SendOutlined />}
+                  className={`w-full h-14 border-none rounded-2xl text-xs font-black tracking-[0.15em] shadow-xl transition-all hover:translate-y-[-2px] active:scale-95 uppercase flex items-center justify-center gap-2 ${isPaymentIn
+                    ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
+                    : "bg-orange-600 hover:bg-orange-700 shadow-orange-100"
+                    }`}
+                >
+                  {isPaymentIn ? "Receive Payment" : "Record Expense"}
+                </Button>
               </Form.Item>
-            ) : (
-              <Form.Item
-                name="purpose"
-                label={<span className={labelCls}>Purpose</span>}
-                rules={[
-                  { required: true, message: "Please select purpose" },
-                ]}
-              >
-                <Select placeholder="Select purpose" className="txn-select">
-                  <Select.Option value="home">Home Purpose</Select.Option>
-                  <Select.Option value="party">Party Payment</Select.Option>
-                  <Select.Option value="cash">Cash Requirement</Select.Option>
-                  <Select.Option value="other">Other</Select.Option>
-                </Select>
-              </Form.Item>
-            )}
-
-            {/* Submit */}
-            <Form.Item className="pt-2 mb-0">
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={loading}
-                icon={<SendOutlined />}
-                className={`w-full h-14 border-none rounded-2xl text-xs font-black tracking-[0.15em] shadow-xl transition-all hover:translate-y-[-2px] active:scale-95 uppercase flex items-center justify-center gap-2 ${isPaymentIn
-                  ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
-                  : "bg-orange-600 hover:bg-orange-700 shadow-orange-100"
-                  }`}
-              >
-                {isPaymentIn ? "Receive Payment" : "Record Expense"}
-              </Button>
-            </Form.Item>
-          </Form>
+            </Form>
+          </div>
         </div>
       </div>
 

@@ -154,7 +154,7 @@ const InventoryRequest = ({
       <div className="p-4 sm:p-5 flex items-center justify-between border-b border-gray-50">
         <div>
           <h2 className="text-lg font-black text-gray-800 tracking-tight">
-            Inventory Handover
+            Inventory Update Requests
           </h2>
           <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mt-1">
             Review and approve stock adjustments
