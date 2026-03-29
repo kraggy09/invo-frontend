@@ -172,7 +172,7 @@ const BillingBody = () => {
         return;
       }
       for (const product of currentBill.purchased) {
-        if (product.piece === 0 && product.packet === 0 && product.box === 0) {
+        if (product.piece === 0 && product.packet * product.packetQuantity === 0 && product.box * product.boxQuantity === 0) {
           toast.error(
             `Please enter a quantity for the product ${product.name}`
           );
