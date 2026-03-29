@@ -31,6 +31,7 @@ export const useAddTab = () => {
             createdAt: new Date().toISOString(),
             lastActivityAt: new Date().toISOString(),
             billType: billType as "RETAIL" | "WHOLESALE" | "SUPERWHOLESALE",
+            idempotencyKey: crypto.randomUUID(),
         };
 
         addBill(newBill);
