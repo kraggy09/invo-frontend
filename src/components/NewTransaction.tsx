@@ -353,7 +353,7 @@ const NewTransaction: React.FC = () => {
                         <WalletOutlined /> Cash
                       </div>
                     </Select.Option>
-                    <Select.Option value="ONINE">
+                    <Select.Option value="ONLINE">
                       <div className="flex items-center gap-2">
                         <SwapOutlined /> Online Transfer
                       </div>

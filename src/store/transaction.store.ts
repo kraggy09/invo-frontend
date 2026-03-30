@@ -17,7 +17,7 @@ export interface ITransaction {
   approvedAt?: Date | string;
   rejectedAt?: Date | string;
   createdAt: Date | string;
-  paymentMode: "CASH" | "ONINE" | "PRODUCT_RETURN";
+  paymentMode: "CASH" | "ONLINE" | "PRODUCT_RETURN";
 }
 
 type TransactionStore = {
