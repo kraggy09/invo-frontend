@@ -141,9 +141,25 @@ const UpdateStock = () => {
     field: "piece" | "packet" | "box",
     value: number
   ) => {
-    setRequestList((list) =>
-      list.map((item) => (item._id === id ? { ...item, [field]: value } : item))
-    );
+
+    const newRequests = [...requestList];
+    newRequests.map((item) => {
+      if (id === item._id) {
+        if (field === "box") {
+          item.box = value;
+          item.packet = 0;
+          item.piece = 0;
+        } else if (field === "packet") {
+          item.packet = value;
+          item.piece = 0;
+        } else if (field === "piece") {
+          item.piece = value;
+
+        }
+      }
+      return item;
+    })
+    setRequestList(newRequests);
   };
 
   const removeProduct = (id: string) => {
