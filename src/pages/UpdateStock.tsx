@@ -101,14 +101,15 @@ const UpdateStock = () => {
 
   const tryAutoAddProduct = useCallback(
     (value: string) => {
+      if (!value.trim()) return;
       const lower = value.trim().toLowerCase();
-      const matched = products.find(
+      const matchedProducts = products.filter(
         (p) =>
-          p.name.toLowerCase() === lower ||
+          p.name.toLowerCase().includes(lower) ||
           p.barcode.some((b: any) => String(b).toLowerCase() === lower)
       );
-      if (matched) {
-        addProduct(matched);
+      if (matchedProducts.length === 1) {
+        addProduct(matchedProducts[0]);
       }
     },
     [products, addProduct]
@@ -225,9 +226,10 @@ const UpdateStock = () => {
       width: 50,
       render: (_: any, record: RequestItem) => (
         <Button
+          tabIndex={-1}
           type="text"
           danger
-          icon={<DeleteOutlined />}
+          icon={<DeleteOutlined tabIndex={-1} />}
           onClick={() => removeProduct(record._id)}
         />
       ),

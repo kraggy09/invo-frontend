@@ -16,7 +16,6 @@ interface BillPrintProps {
   onClose: () => void;
   contentRef: React.RefObject<HTMLDivElement | null>;
   handlePrint: () => void;
-  payment: string;
   printBillData?: any;
   isDirectPrint?: boolean;
 }
@@ -25,7 +24,6 @@ const BillPrint = ({
   onClose,
   contentRef,
   handlePrint,
-  payment,
   printBillData,
   isDirectPrint = false,
 }: BillPrintProps) => {
@@ -109,22 +107,22 @@ const BillPrint = ({
 
   console.log(currentBill, "current bill");
   // Calculate Bill Total from purchased
-  const billTotal = currentBill?.purchased
+  const billTotal = Math.ceil(currentBill?.purchased
     ? currentBill.purchased.reduce(
       (sum: number, p: any) => sum + (p.total || 0),
       0
     )
-    : currentBill?.total || 0;
+    : currentBill?.total || 0);
   // Discount
-  const discount = currentBill?.discount || 0;
+  const discount = Math.ceil(currentBill?.discount || 0);
   // Outstanding from customer
-  const customerOutstanding = currentBill.total - billTotal + discount;
+  const customerOutstanding = Math.ceil(currentBill.total - billTotal + discount);
   // Payment
-  const paymentValue = currentBill.payment || 0;
+  const paymentValue = Math.ceil(currentBill.payment || 0);
   // Total before payment (rounded)
   const totalBeforePayment = Math.ceil(billTotal + customerOutstanding - discount);
   // Final Outstanding after payment
-  const finalOutstanding = totalBeforePayment - paymentValue;
+  const finalOutstanding = Math.ceil(totalBeforePayment - paymentValue);
   return (
     <div className={`fixed inset-0 bg-black flex items-center justify-center z-50 ${isDirectPrint ? 'opacity-0 pointer-events-none' : 'bg-opacity-50'}`}>
       <div className="bg-white p-6 rounded-lg shadow-lg w-[500px]">
@@ -163,7 +161,7 @@ const BillPrint = ({
                   </p>
                 </span>
                 <span id="right">
-                  <p>Payment: {payment}</p>
+                  <p>Payment: {paymentValue}</p>
                   <p>
                     Time :{" "}
                     {currentBill.createdAt
@@ -263,7 +261,7 @@ const BillPrint = ({
                 </div>
                 {paymentValue > 0 && (
                   <div className="">
-                    Payment:{payment === "" ? 0 : "-" + payment}
+                    Payment:{paymentValue === 0 ? 0 : "-" + paymentValue}
                   </div>
                 )}
                 <div className="">
@@ -284,7 +282,7 @@ const BillPrint = ({
                     <div>-----------------------------------------</div>
                     <div className="mt-2 font-bold flex min-w-full items-center justify-center text-2xl">
                       You Saved:
-                      {calculateSave(currentBill.purchased).toFixed(3)}
+                      {calculateSave(currentBill.purchased).toFixed(2)}
                     </div>
                     <div>-----------------------------------------</div>
                   </>

@@ -564,7 +564,6 @@ const BillingBody = () => {
           onClose={handleClosePrint}
           handlePrint={handlePrintClick}
           contentRef={contentRef}
-          payment={paymentInputRef.current?.input?.value || "0"}
           printBillData={printBillData}
           isDirectPrint={isDirectPrint}
         />

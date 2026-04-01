@@ -76,10 +76,10 @@ const SingleBillPage = () => {
         record.discount > 0 ? (
           <div className="flex flex-col items-center leading-tight">
             <span className="text-[10px] font-bold text-gray-400 line-through mb-0.5">₹{(t + record.discount).toLocaleString()}</span>
-            <span className="font-black text-indigo-600">₹{t.toLocaleString()}</span>
+            <span className="font-black text-indigo-600">₹{t % 1 === 0 ? t.toLocaleString() : t.toFixed(2).toLocaleString()}</span>
           </div>
         ) : (
-          <span className="font-black text-indigo-600">₹{t.toLocaleString()}</span>
+          <span className="font-black text-indigo-600">₹{t % 1 === 0 ? t.toLocaleString() : t.toFixed(2).toLocaleString()}</span>
         )
       ),
     },
@@ -240,10 +240,10 @@ const SingleBillPage = () => {
               <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm text-center group hover:border-gray-200 transition-all flex flex-col justify-center">
                 <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-1">Sub-Total</span>
                 <div className="flex items-baseline justify-center gap-1.5">
-                  <span className="text-2xl font-black text-gray-800 tracking-tighter">₹{Number(billProductTotal).toLocaleString()}</span>
+                  <span className="text-2xl font-black text-gray-800 tracking-tighter">₹{Math.ceil(billProductTotal).toLocaleString()}</span>
                   <span className="text-sm font-black text-orange-400" title="Previous Outstanding / Adjustments">
-                    {bill?.total - billProductTotal >= 0 ? "+" : ""}
-                    {Number(bill?.total - billProductTotal).toLocaleString()}
+                    {Math.ceil(bill?.total - billProductTotal) >= 0 ? "+" : ""}
+                    {Math.floor(bill?.total - billProductTotal).toLocaleString()}
                   </span>
                 </div>
                 <div className="mt-1 flex items-center justify-center gap-1.5 border-t border-gray-50 pt-1">
@@ -291,7 +291,7 @@ const SingleBillPage = () => {
                         <div className="text-right pr-6 text-[10px] font-black text-gray-300 uppercase tracking-widest">Statement Total Identification</div>
                       </Table.Summary.Cell>
                       <Table.Summary.Cell index={1} colSpan={2} className="py-8">
-                        <div className="text-3xl font-black text-indigo-600 tracking-tighter">₹{total.toLocaleString()}</div>
+                        <div className="text-3xl font-black text-indigo-600 tracking-tighter">₹{Math.ceil(total).toLocaleString()}</div>
                       </Table.Summary.Cell>
                     </Table.Summary.Row>
                   );
@@ -315,7 +315,6 @@ const SingleBillPage = () => {
               onClose={() => { }}
               contentRef={printContentRef}
               handlePrint={() => { }}
-              payment={bill?.payment?.toString() || "0"}
               printBillData={printBillData}
             />
           </div>

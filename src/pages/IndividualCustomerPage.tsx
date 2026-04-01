@@ -458,7 +458,7 @@ const IndividualCustomerPage = () => {
       dataIndex: "billTotal",
       key: "billTotal",
       align: "right" as const,
-      render: (t: number) => <span className="font-black text-gray-800">₹{t?.toLocaleString()}</span>,
+      render: (t: number) => <span className="font-black text-gray-800">₹{Math.ceil(t).toLocaleString()}</span>,
     },
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total Balance</span>,
