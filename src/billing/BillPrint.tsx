@@ -9,7 +9,6 @@ import {
   calculateMeasuring,
   calculateTime,
 } from "../utils/bill.util";
-import { formatIndianNumber } from "../utils";
 
 const { Title } = Typography;
 
@@ -121,7 +120,7 @@ const BillPrint = ({
   // Outstanding from customer
   const customerOutstanding = currentBill.total - billTotal + discount;
   // Payment
-  const paymentValue = Number(payment) || 0;
+  const paymentValue = currentBill.payment || 0;
   // Total before payment (rounded)
   const totalBeforePayment = Math.ceil(billTotal + customerOutstanding - discount);
   // Final Outstanding after payment
@@ -140,7 +139,7 @@ const BillPrint = ({
         </div>
 
         {currentBill && (
-          <div ref={contentRef} className="text-sm" style={{ fontFamily: "'Courier New', Courier, monospace", fontWeight: 700 }}>
+          <div ref={contentRef} className="text-sm" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>
             <header className="flex items-center flex-col justify-center">
               <h1 className="ml-1 font-bold">
                 Sultan Communication & General Stroes
@@ -247,20 +246,20 @@ const BillPrint = ({
               <div className="min-w-full mt-2 flex flex-col pr-2 justify-end items-end">
                 <div className="">
                   Bill Total:
-                  {formatIndianNumber(billTotal)}₹
+                  {billTotal}
                 </div>
                 {discount > 0 && (
-                  <div>Discount:-{formatIndianNumber(discount)}</div>
+                  <div>Discount:-{(discount)}</div>
                 )}
                 {customerOutstanding !== 0 && (
                   <div>
                     {customerOutstanding > 0 ? "Outstanding:" : "Balance:"}
-                    {formatIndianNumber(customerOutstanding)}₹
+                    {customerOutstanding}
                   </div>
                 )}
                 <div className="">
                   Total:
-                  {formatIndianNumber(totalBeforePayment)}
+                  {totalBeforePayment}
                 </div>
                 {paymentValue > 0 && (
                   <div className="">
@@ -271,12 +270,12 @@ const BillPrint = ({
                   {finalOutstanding > 0 ? (
                     <span>
                       Outstanding:
-                      {formatIndianNumber(finalOutstanding)}
+                      {finalOutstanding}
                     </span>
                   ) : (
                     <span>
                       Balance:
-                      {formatIndianNumber(finalOutstanding)}
+                      {finalOutstanding}
                     </span>
                   )}
                 </div>

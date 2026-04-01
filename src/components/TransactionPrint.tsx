@@ -1,7 +1,6 @@
 import { Typography } from "antd";
 import { useEffect } from "react";
 import { calculateDate, calculateTime } from "../utils/bill.util";
-import { formatIndianNumber } from "../utils";
 import useUserStore from "../store/user.store";
 
 const { Title } = Typography;
@@ -59,7 +58,7 @@ const TransactionPrint = ({
                     </button>
                 </div>
 
-                <div ref={contentRef} className="text-sm" style={{ fontFamily: "'Courier New', Courier, monospace", fontWeight: 700 }}>
+                <div ref={contentRef} className="text-sm" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>
                     <header className="flex items-center flex-col justify-center">
                         <h1 className="ml-1 font-bold">
                             Sultan Communication & General Stroes
@@ -125,17 +124,17 @@ const TransactionPrint = ({
 
                             {(transactionData.previousOutstanding !== undefined) && (
                                 <div>
-                                    Previous Balance: {formatIndianNumber(transactionData.previousOutstanding)}₹
+                                    Previous Balance: {transactionData.previousOutstanding}
                                 </div>
                             )}
 
                             <div className="text-base font-bold mt-2">
-                                Amount {isDebit ? "Paid" : "Received"}: {formatIndianNumber(amount)}₹
+                                Amount {isDebit ? "Paid" : "Received"}: {amount}
                             </div>
 
                             {(transactionData.newOutstanding !== undefined) && (
                                 <div className="mt-2 text-sm border-t border-dashed border-gray-400 pt-2 w-full text-right">
-                                    New Balance: {formatIndianNumber(transactionData.newOutstanding)}₹
+                                    New Balance: {transactionData.newOutstanding}
                                 </div>
                             )}
                         </div>

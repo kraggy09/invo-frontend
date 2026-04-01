@@ -1,6 +1,5 @@
 import { Typography } from "antd";
 import { useEffect } from "react";
-import { formatIndianNumber } from "../utils";
 import dayjs from "dayjs";
 
 const { Title } = Typography;
@@ -55,7 +54,7 @@ const ReturnBillPrint = ({
                     </button>
                 </div>
 
-                <div ref={contentRef} className="text-sm" style={{ fontFamily: "'Courier New', Courier, monospace", fontWeight: 700 }}>
+                <div ref={contentRef} style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>
                     <header className="flex items-center flex-col justify-center">
                         <h1 className="ml-1 font-bold">
                             Sultan Communication & General Stroes
@@ -150,30 +149,30 @@ const ReturnBillPrint = ({
                         <div className="min-w-full flex flex-col pr-2 justify-end items-end gap-1 text-sm font-bold">
                             <div className="flex gap-4 pb-1 border-b border-gray-300 w-48 justify-between">
                                 <span>Ref Total:</span>
-                                <span>{formatIndianNumber(productsTotal)}₹</span>
+                                <span>{productsTotal}</span>
                             </div>
 
                             {discount > 0 && (
                                 <div className="flex gap-4 w-48 text-orange-600 justify-between">
                                     <span>Revert Discount:</span>
-                                    <span>-{formatIndianNumber(discount)}₹</span>
+                                    <span>-{discount}</span>
                                 </div>
                             )}
 
                             <div className="flex gap-4 w-48 text-indigo-600 justify-between">
                                 <span>Total Refund:</span>
-                                <span>{formatIndianNumber(returnBill.totalAmount)}₹</span>
+                                <span>{returnBill.totalAmount}</span>
                             </div>
 
                             {previousOutstanding !== undefined && newOutstanding !== undefined && paymentMode === "ADJUSTMENT" && (
                                 <>
                                     <div className="flex gap-4 mt-2 w-48 text-xs text-gray-500 justify-between">
                                         <span>Prev Balance:</span>
-                                        <span>{previousOutstanding < 0 ? "-" : ""}{formatIndianNumber(Math.abs(previousOutstanding))}₹</span>
+                                        <span>{previousOutstanding < 0 ? "-" : ""}{Math.abs(previousOutstanding)}₹</span>
                                     </div>
                                     <div className="flex gap-4 w-48 justify-between">
                                         <span>New Balance:</span>
-                                        <span>{newOutstanding < 0 ? "-" : ""}{formatIndianNumber(Math.abs(newOutstanding))}₹</span>
+                                        <span>{newOutstanding < 0 ? "-" : ""}{Math.abs(newOutstanding)}₹</span>
                                     </div>
                                 </>
                             )}
