@@ -217,7 +217,7 @@ const DailyReportPage = () => {
         date: dateVal ? dayjs(dateVal).format("DD/MM/YYYY") : "",
         time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
         dateTime: dayjs(dateVal).format("DD/MM/YYYY HH:mm"),
-        productName: request.product.name,
+        productName: request.product?.name ?? "Deleted Product",
         createdBy: request.createdBy.name,
         stockChange: `${!request.approved ? request.oldStock : request.stockAtUpdate
           } → ${request.newStock}`,
