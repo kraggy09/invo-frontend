@@ -238,10 +238,10 @@ const InventoryRequest = ({
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">
-                          {inv.product.name}
+                          {inv?.product?.name ?? "Deleted Product"}
                         </div>
                         <div className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">
-                          MRP: ₹{inv.product.mrp}
+                          MRP: ₹{inv?.product?.mrp ?? 0}
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-right">
