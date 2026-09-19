@@ -16,9 +16,12 @@ interface CategoriesStore {
 }
 const useCategoriesStore = create<CategoriesStore>((set) => ({
   categories: [],
-  setCategories: (categories: Category[]) => set({ categories }),
+  setCategories: (categories: Category[]) =>
+    set({ categories: Array.isArray(categories) ? categories.filter(Boolean) : [] }),
   addCategory: (category: Category) =>
-    set((state) => ({ categories: [...state.categories, category] })),
+    set((state) => ({
+      categories: category ? [...state.categories, category] : state.categories,
+    })),
   updateCategory: (category: Category) =>
     set((state) => ({
       categories: state.categories.map((c) =>

@@ -225,16 +225,18 @@ const ProductPage = () => {
                 >
                   Global View
                 </div>
-                {categories.map((cat) => (
-                  <div
-                    key={cat.name}
-                    onClick={() => { setCategory(cat.name); setCurrentPage(1); }}
-                    className={`px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all duration-300 border ${category === cat.name ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100" : "bg-gray-50 text-gray-500 border-gray-50 hover:bg-gray-100"
-                      }`}
-                  >
-                    {cat.name}
-                  </div>
-                ))}
+                {(categories || [])
+                  .filter((c) => c && c.name && c.name !== "null")
+                  .map((cat) => (
+                    <div
+                      key={cat.name}
+                      onClick={() => { setCategory(cat.name); setCurrentPage(1); }}
+                      className={`px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all duration-300 border ${category === cat.name ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100" : "bg-gray-50 text-gray-500 border-gray-50 hover:bg-gray-100"
+                        }`}
+                    >
+                      {cat.name}
+                    </div>
+                  ))}
               </div>
             </div>
 

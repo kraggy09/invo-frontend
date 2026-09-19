@@ -8,6 +8,7 @@ import {
   Select,
 } from "antd";
 import { ArrowLeftOutlined, ShoppingOutlined, PlusOutlined, EditOutlined, CloseOutlined, BarcodeOutlined } from "@ant-design/icons";
+import useUserStore from "../store/user.store";
 
 export type ProductFormValues = {
   name: string;
@@ -22,7 +23,7 @@ export type ProductFormValues = {
   packet: number | string;
   box: number | string;
   minQuantity: number | string;
-  category: string;
+  category: string | null;
 };
 
 interface ProductFormProps {
@@ -38,15 +39,15 @@ const defaultValues: ProductFormValues = {
   measuring: "",
   mrp: "",
   costPrice: "",
-  retailPrice: "",
-  wholesalePrice: "",
-  superWholesalePrice: "",
+  retailPrice: 0,
+  wholesalePrice: 0,
+  superWholesalePrice: 0,
   barcode: [],
-  stock: "",
-  packet: "",
-  box: "",
+  stock: 0,
+  packet: 0,
+  box: 0,
   minQuantity: 1,
-  category: "",
+  category: null,
 };
 
 const ProductForm = ({
@@ -60,6 +61,37 @@ const ProductForm = ({
   const navigate = useNavigate();
   const [barcodes, setBarcodes] = useState<string[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
+
+  const pricingMode = useUserStore(
+    (state) => state.user?.shopSettings?.pricingMode
+  );
+  const isRetailOnly =
+    pricingMode === "RETAIL_ONLY" ||
+    (pricingMode as string)?.toUpperCase() === "RETAIL_ONLY" ||
+    (pricingMode as string)?.toUpperCase() === "RETAIL";
+
+  const handleFinish = (values: any) => {
+    const finalValues: ProductFormValues = {
+      ...values,
+      barcode: barcodes,
+      category:
+        values.category && values.category.trim() !== "" && values.category !== "null"
+          ? values.category
+          : null,
+      retailPrice: Number(values.retailPrice) || 0,
+      wholesalePrice: isRetailOnly
+        ? Number(values.retailPrice) || 0
+        : Number(values.wholesalePrice) || 0,
+      superWholesalePrice: isRetailOnly
+        ? Number(values.retailPrice) || 0
+        : Number(values.superWholesalePrice) || 0,
+      packet: isRetailOnly ? 0 : Number(values.packet) || 0,
+      box: isRetailOnly ? 0 : Number(values.box) || 0,
+      stock: Number(values.stock) || 0,
+      minQuantity: Number(values.minQuantity) || 1,
+    };
+    onSubmit(finalValues);
+  };
 
   useEffect(() => {
     const merged = { ...defaultValues, ...initialValues };
@@ -145,7 +177,7 @@ const ProductForm = ({
           <Form
             form={form}
             layout="vertical"
-            onFinish={onSubmit}
+            onFinish={handleFinish}
             initialValues={{ ...defaultValues, ...initialValues }}
             autoComplete="off"
             requiredMark={false}
@@ -235,14 +267,17 @@ const ProductForm = ({
                 </div>
 
                 <Form.Item
-                  label={<span className={labelCls}>Category</span>}
+                  label={<span className={labelCls}>Category (Optional)</span>}
                   name="category"
-                  rules={[{ required: true, message: "Category required" }]}
                 >
                   <Select
                     showSearch
-                    placeholder="Select category"
-                    options={categories}
+                    allowClear
+                    placeholder="Select category (or none)"
+                    options={[
+                      { value: "", label: "(None / Uncategorized)" },
+                      ...categories,
+                    ]}
                     optionFilterProp="label"
                     className="product-select"
                   />
@@ -254,10 +289,16 @@ const ProductForm = ({
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1.5 h-6 bg-green-500 rounded-full" />
-                <h3 className="text-[11px] font-black text-gray-800 uppercase tracking-[0.15em]">Pricing Matrix</h3>
+                <h3 className="text-[11px] font-black text-gray-800 uppercase tracking-[0.15em]">
+                  {isRetailOnly ? "Pricing" : "Pricing Matrix"}
+                </h3>
               </div>
               <div className="bg-gray-50/50 rounded-[24px] p-5 sm:p-6 border border-gray-50">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
+                <div
+                  className={`grid grid-cols-1 sm:grid-cols-2 ${
+                    isRetailOnly ? "lg:grid-cols-3" : "lg:grid-cols-3"
+                  } gap-x-6 gap-y-1`}
+                >
                   <Form.Item
                     label={<span className={labelCls}>MRP (₹)</span>}
                     name="mrp"
@@ -279,20 +320,24 @@ const ProductForm = ({
                   >
                     <InputNumber min={0} className="product-number" placeholder="0.00" />
                   </Form.Item>
-                  <Form.Item
-                    label={<span className={labelCls}>Wholesale (₹)</span>}
-                    name="wholesalePrice"
-                    rules={[{ required: true, message: "Wholesale price required" }]}
-                  >
-                    <InputNumber min={0} className="product-number" placeholder="0.00" />
-                  </Form.Item>
-                  <Form.Item
-                    label={<span className={labelCls}>Super WS (₹)</span>}
-                    name="superWholesalePrice"
-                    rules={[{ required: true, message: "Super wholesale price required" }]}
-                  >
-                    <InputNumber min={0} className="product-number" placeholder="0.00" />
-                  </Form.Item>
+                  {!isRetailOnly && (
+                    <>
+                      <Form.Item
+                        label={<span className={labelCls}>Wholesale (₹)</span>}
+                        name="wholesalePrice"
+                        rules={[{ required: true, message: "Wholesale price required" }]}
+                      >
+                        <InputNumber min={0} className="product-number" placeholder="0.00" />
+                      </Form.Item>
+                      <Form.Item
+                        label={<span className={labelCls}>Super WS (₹)</span>}
+                        name="superWholesalePrice"
+                        rules={[{ required: true, message: "Super wholesale price required" }]}
+                      >
+                        <InputNumber min={0} className="product-number" placeholder="0.00" />
+                      </Form.Item>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -303,7 +348,11 @@ const ProductForm = ({
                 <div className="w-1.5 h-6 bg-orange-500 rounded-full" />
                 <h3 className="text-[11px] font-black text-gray-800 uppercase tracking-[0.15em]">Inventory Configuration</h3>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1">
+              <div
+                className={`grid grid-cols-2 ${
+                  isRetailOnly ? "sm:grid-cols-2" : "sm:grid-cols-4"
+                } gap-x-6 gap-y-1`}
+              >
                 <Form.Item
                   label={<span className={labelCls}>Stock</span>}
                   name="stock"
@@ -317,20 +366,24 @@ const ProductForm = ({
                     disabled={mode === "edit"}
                   />
                 </Form.Item>
-                <Form.Item
-                  label={<span className={labelCls}>Packet Size</span>}
-                  name="packet"
-                  rules={[{ required: true, message: "Packet size required" }]}
-                >
-                  <InputNumber min={0} className="product-number" placeholder="0" />
-                </Form.Item>
-                <Form.Item
-                  label={<span className={labelCls}>Box Size</span>}
-                  name="box"
-                  rules={[{ required: true, message: "Box size required" }]}
-                >
-                  <InputNumber min={0} className="product-number" placeholder="0" />
-                </Form.Item>
+                {!isRetailOnly && (
+                  <>
+                    <Form.Item
+                      label={<span className={labelCls}>Packet Size</span>}
+                      name="packet"
+                      rules={[{ required: true, message: "Packet size required" }]}
+                    >
+                      <InputNumber min={0} className="product-number" placeholder="0" />
+                    </Form.Item>
+                    <Form.Item
+                      label={<span className={labelCls}>Box Size</span>}
+                      name="box"
+                      rules={[{ required: true, message: "Box size required" }]}
+                    >
+                      <InputNumber min={0} className="product-number" placeholder="0" />
+                    </Form.Item>
+                  </>
+                )}
                 <Form.Item
                   label={<span className={labelCls}>Min Quantity</span>}
                   name="minQuantity"

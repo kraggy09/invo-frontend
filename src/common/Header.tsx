@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Dropdown, Menu, Avatar, Drawer, Button } from "antd";
+import { Dropdown, Menu, Avatar, Drawer, Button, Tag, Modal, List } from "antd";
 import {
   UserOutlined,
   LogoutOutlined,
@@ -18,9 +18,13 @@ import {
   BellOutlined,
   PlusOutlined,
   DatabaseOutlined,
+  ShopOutlined,
+  RightOutlined,
 } from "@ant-design/icons";
-
-import useUserStore from "../store/user.store";
+import { message } from "../utils/antdStatic";
+import apiCaller from "../utils/apiCaller";
+import useUserStore, { ShopOption } from "../store/user.store";
+import { useSocket } from "../contexts/SocketContext";
 
 const navLinks = [
   {
@@ -92,22 +96,111 @@ const navLinks = [
 const Header = () => {
   const navigate = useNavigate();
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
-  const { user } = useUserStore();
+  const [switchShopModalVisible, setSwitchShopModalVisible] = useState(false);
+  const [switchingShop, setSwitchingShop] = useState(false);
+
+  const { user, availableShops, setUser, logout } = useUserStore();
+  const { disconnect, connect } = useSocket();
 
   const filteredNavLinks = navLinks.filter((link) => {
     if (!link.roles) return true;
     return user?.roles?.some((role) => link.roles?.includes(role));
   });
 
+  const shopName = user?.shopName;
+
   const handleMenuClick = ({ key }: { key: string }) => {
     if (key === "logout") {
+      disconnect();
       localStorage.clear();
+      logout();
       navigate("/login");
+    } else if (key === "switch-shop") {
+      setSwitchShopModalVisible(true);
     } else {
       navigate(key);
     }
     setMobileMenuVisible(false);
   };
+
+  const handleSwitchShop = async (targetShopId: string) => {
+    if (targetShopId === user?.shopId) {
+      setSwitchShopModalVisible(false);
+      return;
+    }
+
+    setSwitchingShop(true);
+    try {
+      const response = await apiCaller.post("/users/switch-shop", { shopId: targetShopId });
+      if (response.data?.success) {
+        const { user: updatedUser, token } = response.data.data;
+        localStorage.setItem("token", token);
+        setUser({
+          ...user,
+          ...updatedUser,
+          token: token,
+          shopId: updatedUser.shopId,
+          shopName: updatedUser.shopName,
+          shopAddress: updatedUser.shopAddress || "",
+          shopPhone: updatedUser.shopPhone || "",
+          roles: updatedUser.roles,
+          shopSettings: updatedUser.shopSettings,
+        });
+
+        // Reconnect socket to leave old shop room and join new shop room
+        disconnect();
+        setTimeout(() => {
+          connect();
+        }, 100);
+
+        message.success(`Switched to ${updatedUser.shopName}`);
+        setSwitchShopModalVisible(false);
+        navigate("/");
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || "Failed to switch shop");
+    } finally {
+      setSwitchingShop(false);
+    }
+  };
+
+  const menuItems: any[] = [
+    ...filteredNavLinks.map((item) => ({
+      key: item.path,
+      label: (
+        <span className="flex items-center gap-2 py-1.5 px-1 text-base">
+          {item.icon}
+          <span>{item.label}</span>
+        </span>
+      ),
+    })),
+  ];
+
+  if (availableShops && availableShops.length > 1) {
+    menuItems.push(
+      { type: "divider" },
+      {
+        key: "switch-shop",
+        label: (
+          <span className="flex items-center gap-2 py-1.5 px-1 text-base text-indigo-400 font-medium">
+            <ShopOutlined /> Switch Shop
+          </span>
+        ),
+      }
+    );
+  }
+
+  menuItems.push(
+    { type: "divider" },
+    {
+      key: "logout",
+      label: (
+        <span className="text-red-600 font-semibold flex items-center gap-2 py-1.5 px-1">
+          <LogoutOutlined /> Logout
+        </span>
+      ),
+    }
+  );
 
   const menu = (
     <Menu
@@ -118,26 +211,7 @@ const Header = () => {
         overflow: "hidden",
         padding: 4,
       }}
-      items={[
-        ...filteredNavLinks.map((item) => ({
-          key: item.path,
-          label: (
-            <span className="flex items-center gap-2 py-1.5 px-1 text-base">
-              {item.icon}
-              <span>{item.label}</span>
-            </span>
-          ),
-        })),
-        { type: "divider" },
-        {
-          key: "logout",
-          label: (
-            <span className="text-red-600 font-semibold flex items-center gap-2 py-1.5 px-1">
-              <LogoutOutlined /> Logout
-            </span>
-          ),
-        },
-      ]}
+      items={menuItems}
     />
   );
 
@@ -158,6 +232,31 @@ const Header = () => {
           >
             InvoSync
           </h1>
+          {shopName && (
+            <div
+              onClick={() => {
+                if (availableShops && availableShops.length > 1) {
+                  setSwitchShopModalVisible(true);
+                }
+              }}
+              className={`hidden sm:flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/20 transition-all ${
+                availableShops && availableShops.length > 1
+                  ? "cursor-pointer hover:bg-white/20 hover:border-indigo-400"
+                  : ""
+              }`}
+              title={
+                availableShops && availableShops.length > 1
+                  ? "Click to switch shop"
+                  : undefined
+              }
+            >
+              <ShopOutlined className="text-indigo-300 text-xs" />
+              <span className="text-xs font-semibold text-white/80 truncate max-w-[120px]">{shopName}</span>
+              {availableShops && availableShops.length > 1 && (
+                <span className="text-[10px] text-indigo-300 font-bold ml-0.5">▾</span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -224,6 +323,65 @@ const Header = () => {
           ]}
         />
       </Drawer>
+
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-lg font-bold">
+            <ShopOutlined className="text-indigo-600" />
+            <span>Switch Shop</span>
+          </div>
+        }
+        open={switchShopModalVisible}
+        onCancel={() => setSwitchShopModalVisible(false)}
+        footer={null}
+        destroyOnClose
+        centered
+      >
+        <p className="text-sm text-gray-500 mb-4">
+          Select a shop to switch your active workspace session:
+        </p>
+        <List
+          loading={switchingShop}
+          dataSource={availableShops}
+          renderItem={(shop: ShopOption) => {
+            const isCurrent = shop.shopId === user?.shopId;
+            return (
+              <List.Item
+                key={shop.shopId}
+                onClick={() => !isCurrent && handleSwitchShop(shop.shopId)}
+                className={`p-3 rounded-xl border mb-2 transition-all ${
+                  isCurrent
+                    ? "bg-indigo-50 border-indigo-200 cursor-default"
+                    : "hover:bg-gray-50 cursor-pointer border-gray-100 hover:border-indigo-200"
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-800">
+                        {shop.shopName}
+                      </span>
+                      {isCurrent && (
+                        <Tag color="indigo" className="text-[10px]">
+                          Current
+                        </Tag>
+                      )}
+                    </div>
+                    <div className="flex gap-1 mt-1">
+                      {shop.roles?.map((r) => (
+                        <Tag key={r} className="text-[10px] m-0">
+                          {r}
+                        </Tag>
+                      ))}
+                    </div>
+                  </div>
+                  {!isCurrent && <RightOutlined className="text-gray-400" />}
+                </div>
+              </List.Item>
+            );
+          }}
+        />
+      </Modal>
     </div>
   );
 };
