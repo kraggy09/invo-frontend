@@ -81,27 +81,50 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const connect = useCallback(() => {
     console.log("[SocketContext] Connect called.");
 
-    // If we have a socket instance that is disconnected, manual connect
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.log("[SocketContext] No token found, socket connection aborted.");
+      return;
+    }
+
+    const currentAuthToken = (socket.current?.auth as any)?.token || (globalSocket?.auth as any)?.token;
+
+    // If socket exists and token has changed (e.g., switched shop or re-logged in as another user),
+    // tear down old socket so a new one is created with the new token
+    if ((socket.current || globalSocket) && currentAuthToken && currentAuthToken !== token) {
+      console.log("[SocketContext] Token changed, recreating socket for new session...");
+      if (socket.current) {
+        socket.current.disconnect();
+        socket.current = null;
+      }
+      if (globalSocket) {
+        globalSocket.disconnect();
+        globalSocket = null;
+      }
+      setIsConnected(false);
+      globalIsConnected = false;
+      setIsReconnecting(false);
+      globalIsReconnecting = false;
+    }
+
+    // If we have a socket instance that is connected with the current token, don't create another one
+    if (socket.current?.connected) {
+      console.log("[SocketContext] Socket instance already connected with active token.");
+      return;
+    }
+
+    // If we have a socket instance that is disconnected with the current token, reconnect it
     if (socket.current && !socket.current.connected) {
-      console.log("[SocketContext] Socket instance exists but disconnected, connecting...");
+      console.log("[SocketContext] Socket instance exists but disconnected, reconnecting...");
+      socket.current.auth = { token };
       socket.current.connect();
       return;
     }
 
-    // If we already have a socket instance that is connected, don't create another one
-    if (socket.current || globalSocket) {
-      console.log("[SocketContext] Socket instance already exists and potentially connected, skipping initialization.");
-      if (!socket.current && globalSocket) {
-        socket.current = globalSocket;
-        setIsConnected(globalIsConnected);
-        setIsReconnecting(globalIsReconnecting);
-      }
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.log("[SocketContext] No token found, socket connection aborted.");
+    if (!socket.current && globalSocket?.connected && currentAuthToken === token) {
+      socket.current = globalSocket;
+      setIsConnected(globalIsConnected);
+      setIsReconnecting(globalIsReconnecting);
       return;
     }
 

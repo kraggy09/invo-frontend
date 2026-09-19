@@ -74,8 +74,21 @@ const BillingBody = () => {
   };
   const [isDirectPrint, setIsDirectPrint] = useState(true);
 
+  const pricingMode = useUserStore((state) => state.user?.shopSettings?.pricingMode);
+  const isRetailOnly =
+    pricingMode === "RETAIL_ONLY" ||
+    (pricingMode as string)?.toUpperCase() === "RETAIL_ONLY" ||
+    (pricingMode as string)?.toUpperCase() === "RETAIL";
+  const printType = useUserStore((state) => state.user?.shopSettings?.printType) || "THERMAL";
+
+  const pageStyle =
+    printType === "A4"
+      ? "@page { size: A4 portrait; margin: 10mm; } @media print { body { -webkit-print-color-adjust: exact; } }"
+      : "@page { size: 80mm auto; margin: 2mm; } @media print { body { -webkit-print-color-adjust: exact; } }";
+
   const handlePrint = useReactToPrint({
     contentRef: contentRef as React.RefObject<HTMLDivElement>,
+    pageStyle,
     onAfterPrint: () => {
       if (isDirectPrint) {
         handleClosePrint();
@@ -265,24 +278,38 @@ const BillingBody = () => {
       align: "center",
       render: (price: number) => <span className="font-black text-gray-700">{price}</span>,
     },
-    {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Type</span>,
-      key: "priceType",
-      align: "center",
-      width: 140,
-      render: (_: unknown, record: PurchasedProduct) => (
-        <Radio.Group
-          size="small"
-          value={record.type}
-          onChange={(e) => handlePriceChange(record, e.target.value)}
-          className="pos-type-selector"
-        >
-          <Radio.Button tabIndex={-1} value="RETAIL">RT</Radio.Button>
-          <Radio.Button tabIndex={-1} value="WHOLESALE">WS</Radio.Button>
-          <Radio.Button tabIndex={-1} value="SUPERWHOLESALE">SW</Radio.Button>
-        </Radio.Group>
-      ),
-    },
+    ...(!isRetailOnly
+      ? [
+          {
+            title: (
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+                Type
+              </span>
+            ),
+            key: "priceType",
+            align: "center" as const,
+            width: 140,
+            render: (_: unknown, record: PurchasedProduct) => (
+              <Radio.Group
+                size="small"
+                value={record.type}
+                onChange={(e) => handlePriceChange(record, e.target.value)}
+                className="pos-type-selector"
+              >
+                <Radio.Button tabIndex={-1} value="RETAIL">
+                  RT
+                </Radio.Button>
+                <Radio.Button tabIndex={-1} value="WHOLESALE">
+                  WS
+                </Radio.Button>
+                <Radio.Button tabIndex={-1} value="SUPERWHOLESALE">
+                  SW
+                </Radio.Button>
+              </Radio.Group>
+            ),
+          },
+        ]
+      : []),
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">PCS</span>,
       dataIndex: "piece",
@@ -304,46 +331,50 @@ const BillingBody = () => {
         />
       ),
     },
-    {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">PKT</span>,
-      dataIndex: "packet",
-      key: "packet",
-      align: "center",
-      width: 70,
-      render: (_: unknown, record: PurchasedProduct) => (
-        <InputNumber
-          size="small"
-          className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50 w-full"
-          value={record.packet}
-          onChange={(val) => {
-            updateProductQuantities(record.id, currentBillingId.toString(), {
-              packet: val ?? 0,
-            });
-          }}
-          controls={false}
-        />
-      ),
-    },
-    {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">BOX</span>,
-      dataIndex: "box",
-      key: "box",
-      align: "center",
-      width: 70,
-      render: (_: unknown, record: PurchasedProduct) => (
-        <InputNumber
-          size="small"
-          className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50 w-full"
-          value={record.box}
-          onChange={(val) => {
-            updateProductQuantities(record.id, currentBillingId.toString(), {
-              box: val ?? 0,
-            });
-          }}
-          controls={false}
-        />
-      ),
-    },
+    ...(!isRetailOnly
+      ? [
+          {
+            title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">PKT</span>,
+            dataIndex: "packet",
+            key: "packet",
+            align: "center" as const,
+            width: 70,
+            render: (_: unknown, record: PurchasedProduct) => (
+              <InputNumber
+                size="small"
+                className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50 w-full"
+                value={record.packet}
+                onChange={(val) => {
+                  updateProductQuantities(record.id, currentBillingId.toString(), {
+                    packet: val ?? 0,
+                  });
+                }}
+                controls={false}
+              />
+            ),
+          },
+          {
+            title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">BOX</span>,
+            dataIndex: "box",
+            key: "box",
+            align: "center" as const,
+            width: 70,
+            render: (_: unknown, record: PurchasedProduct) => (
+              <InputNumber
+                size="small"
+                className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50 w-full"
+                value={record.box}
+                onChange={(val) => {
+                  updateProductQuantities(record.id, currentBillingId.toString(), {
+                    box: val ?? 0,
+                  });
+                }}
+                controls={false}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Disc.</span>,
       dataIndex: "discount",

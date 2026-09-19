@@ -58,11 +58,23 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
           username: response.data.data.user.username,
           token: response.data.data.token,
           roles: response.data.data.user.roles,
-        }
+          shopId: response.data.data.user.shopId,
+          shopName: response.data.data.user.shopName,
+          shopAddress: response.data.data.user.shopAddress || "",
+          shopPhone: response.data.data.user.shopPhone || "",
+          shopSettings: response.data.data.user.shopSettings,
+        };
         if (response.data.data.user.pin) {
           newUser["pin"] = response.data.data.user.pin;
         }
+        if (response.data.data.token) {
+          localStorage.setItem("token", response.data.data.token);
+        }
         setUser(newUser);
+
+        if (response.data.data.shops && response.data.data.shops.length > 0) {
+          useUserStore.getState().setAvailableShops(response.data.data.shops);
+        }
 
         // The socket connection should happen AFTER we are sure we are authenticated
         connect();

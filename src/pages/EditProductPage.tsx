@@ -20,10 +20,13 @@ const EditProductPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const categoryOptions = categories.map((cat) => ({
-    value: cat.name,
-    label: cat.name,
-  }));
+  const categoryOptions = (categories || [])
+    .filter(Boolean)
+    .filter((cat) => cat.name && cat.name !== "null")
+    .map((cat) => ({
+      value: cat.name,
+      label: cat.name,
+    }));
 
   useEffect(() => {
     // Priority 1: navigation state (fastest — set when clicking Edit from ProductPage)

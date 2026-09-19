@@ -6,7 +6,7 @@ const apiCaller = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1",
 });
 
-const exemptedRoutes = ["/login", "/signup"];
+const exemptedRoutes = ["/login", "/signup", "/user/select-shop", "/users/select-shop"];
 
 const isExemptedRoute = (url: string): boolean => {
   return exemptedRoutes.some((route) => url.includes(route));

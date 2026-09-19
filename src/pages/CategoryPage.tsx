@@ -123,7 +123,8 @@ const CategoryPage = () => {
       setLoading(true);
       try {
         const res = await apiCaller.get("/categories");
-        setCategories(res.data.categories || []);
+        const fetched = res.data?.data?.categories || res.data?.categories || [];
+        setCategories(fetched);
       } catch (err) {
         console.error("Failed to sync registry categories", err);
       } finally {
@@ -137,11 +138,15 @@ const CategoryPage = () => {
     setLoading(true);
     try {
       if (cat._id && !cat._id.includes(".")) {
-        await apiCaller.put(`/categories/${cat._id}`, cat);
-        setCategories(categories.map((c) => (c._id === cat._id ? { ...c, ...cat } : c)));
+        const res = await apiCaller.put(`/categories/${cat._id}`, cat);
+        const updated = res.data?.data?.category || res.data?.category || cat;
+        setCategories(categories.map((c) => (c._id === cat._id ? { ...c, ...updated } : c)));
       } else {
         const res = await apiCaller.post("/categories", cat);
-        setCategories([...categories, res.data.category]);
+        const created = res.data?.data?.category || res.data?.category;
+        if (created) {
+          setCategories([...categories, created]);
+        }
       }
       message.success("Registry partition updated");
       setModalOpen(false);
@@ -209,55 +214,61 @@ const CategoryPage = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {categories.map((cat) => (
-            <div
-              key={cat._id}
-              className="group bg-white rounded-[32px] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-indigo-100 transition-all duration-500 overflow-hidden cursor-pointer flex flex-col items-center p-8 relative"
-              onClick={() => {
-                setSelected(cat);
-                setModalOpen(true);
-              }}
-            >
-              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all">
-                <div className="flex gap-1">
-                  <Button
-                    type="text"
-                    icon={<EditOutlined className="text-gray-400 hover:text-indigo-600" />}
-                    onClick={(e) => { e.stopPropagation(); setSelected(cat); setModalOpen(true); }}
-                    className="w-8 h-8 rounded-lg hover:bg-indigo-50 flex items-center justify-center p-0"
-                  />
-                  <Button
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={(e) => { e.stopPropagation(); handleDelete(cat); }}
-                    className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center p-0"
-                  />
+          {categories && categories.length > 0 ? (
+            categories.filter(Boolean).map((cat) => (
+              <div
+                key={cat._id || cat.name}
+                className="group bg-white rounded-[32px] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-indigo-100 transition-all duration-500 overflow-hidden cursor-pointer flex flex-col items-center p-8 relative"
+                onClick={() => {
+                  setSelected(cat);
+                  setModalOpen(true);
+                }}
+              >
+                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="flex gap-1">
+                    <Button
+                      type="text"
+                      icon={<EditOutlined className="text-gray-400 hover:text-indigo-600" />}
+                      onClick={(e) => { e.stopPropagation(); setSelected(cat); setModalOpen(true); }}
+                      className="w-8 h-8 rounded-lg hover:bg-indigo-50 flex items-center justify-center p-0"
+                    />
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(cat); }}
+                      className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center p-0"
+                    />
+                  </div>
+                </div>
+
+                <div className="w-20 h-20 rounded-[32px] bg-indigo-50 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner border border-indigo-100 grayscale hover:grayscale-0">
+                  <span className="text-3xl font-black text-indigo-600">
+                    {cat.name ? cat.name[0].toUpperCase() : "?"}
+                  </span>
+                </div>
+
+                <h2 className="text-lg font-black text-gray-800 capitalize tracking-tighter mb-6 text-center">
+                  {cat.name || "Unnamed"}
+                </h2>
+
+                <div className="w-full space-y-3 bg-gray-50/50 p-5 rounded-2.5xl border border-gray-50">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Wholesale Partition</span>
+                    <span className="text-xs font-black text-indigo-600">{cat.wholesale}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Super Wholesale Partition</span>
+                    <span className="text-xs font-black text-indigo-600">{cat.superWholeSale}</span>
+                  </div>
                 </div>
               </div>
-
-              <div className="w-20 h-20 rounded-[32px] bg-indigo-50 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner border border-indigo-100 grayscale hover:grayscale-0">
-                <span className="text-3xl font-black text-indigo-600">
-                  {cat.name[0].toUpperCase()}
-                </span>
-              </div>
-
-              <h2 className="text-lg font-black text-gray-800 capitalize tracking-tighter mb-6 text-center">
-                {cat.name}
-              </h2>
-
-              <div className="w-full space-y-3 bg-gray-50/50 p-5 rounded-2.5xl border border-gray-50">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Wholesale Partition</span>
-                  <span className="text-xs font-black text-indigo-600">{cat.wholesale}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Super Wholesale Partition</span>
-                  <span className="text-xs font-black text-indigo-600">{cat.superWholeSale}</span>
-                </div>
-              </div>
+            ))
+          ) : (
+            <div className="col-span-full py-16 text-center text-gray-400 font-bold">
+              No categories found in this shop. Create one to get started.
             </div>
-          ))}
+          )}
         </div>
       </div>
     </main>

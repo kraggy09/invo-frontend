@@ -21,6 +21,8 @@ const TransactionPrint = ({
     isPaymentIn,
 }: TransactionPrintProps) => {
     const { user } = useUserStore();
+    const shopAddress = user?.shopAddress || "";
+    const shopPhone = user?.shopPhone || "";
 
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
@@ -60,11 +62,11 @@ const TransactionPrint = ({
 
                 <div ref={contentRef} className="text-sm" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>
                     <header className="flex items-center flex-col justify-center">
-                        <h1 className="ml-1 font-bold">
-                            Sultan Communication & General Stroes
+                        <h1 className="ml-1 font-bold text-center">
+                            {user?.shopName || "InvoSync Shop"}
                         </h1>
-                        <p className="text-xs font-semibold">Behind Green Land Hotel</p>
-                        <p className="text-xs font-semibold">Mob:9370564909/9145506000</p>
+                        {shopAddress && <p className="text-xs font-semibold">{shopAddress}</p>}
+                        {shopPhone && <p className="text-xs font-semibold">Mob:{shopPhone}</p>}
                         <div className="font-bold mt-3">
                             -----------------------------------------
                         </div>

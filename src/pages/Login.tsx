@@ -1,24 +1,22 @@
-import { Button, Form, Input, Typography } from "antd";
+import { Button, Form, Input, Typography, Modal, List, Tag } from "antd";
 import { message } from "../utils/antdStatic";
-import { UserOutlined, LockOutlined } from "@ant-design/icons";
+import {
+  UserOutlined,
+  LockOutlined,
+  ShopOutlined,
+  RightOutlined,
+} from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSocket } from "../contexts/SocketContext";
-import useUserStore, { User } from "../store/user.store";
+import useUserStore, { User, ShopOption } from "../store/user.store";
 import { useFetch } from "../hooks/useFetch";
+import { useState } from "react";
+import axios from "axios";
+import apiCaller from "../utils/apiCaller";
 
 const { Title } = Typography;
 
-interface LoginResponse {
-  data: {
-    token: string;
-    user: {
-      _id: string;
-      username: string;
-      roles: string[];
-      pin?: string;
-    };
-  };
-}
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 interface LoginRequest {
   username: string;
@@ -29,8 +27,49 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { connect } = useSocket();
-  const { setUser, setIsAuthenticated } = useUserStore((state) => state);
-  const { fetchData, loading } = useFetch<LoginResponse>();
+  const {
+    setUser,
+    setIsAuthenticated,
+    setPendingShopSelection,
+    setAvailableShops,
+    availableShops,
+    pendingShopSelection,
+    pendingUserId,
+    setPendingUserId,
+  } = useUserStore((state) => state);
+  const { fetchData, loading } = useFetch<any>();
+  const [selectingShop, setSelectingShop] = useState(false);
+
+  const handleLoginSuccess = (data: any) => {
+    const { user, token, shops } = data;
+    localStorage.setItem("token", token);
+    localStorage.setItem("isAuthenticated", "true");
+    setIsAuthenticated(true);
+    if (shops && shops.length > 0) {
+      setAvailableShops(shops);
+    }
+    connect();
+    message.success(`Welcome back, ${user.username}!`);
+
+    const newUser: User = {
+      _id: user._id,
+      username: user.username,
+      token: token,
+      roles: user.roles,
+      pin: user.pin,
+      shopId: user.shopId?.toString(),
+      shopName: user.shopName,
+      shopAddress: user.shopAddress || "",
+      shopPhone: user.shopPhone || "",
+      shopSettings: user.shopSettings,
+    };
+    setUser(newUser);
+
+    const from =
+      (location.state as { from?: { pathname: string } })?.from?.pathname ||
+      "/";
+    setTimeout(() => navigate(from), 500);
+  };
 
   const onFinish = async (values: LoginRequest) => {
     try {
@@ -43,27 +82,51 @@ const Login = () => {
       });
 
       if (response) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("isAuthenticated", "true");
-        setIsAuthenticated(true);
-        connect();
+        const data = response.data;
 
-        message.success("Success! Session synchronized.");
+        console.log(data, "This is the data");
 
-        const newUser: User = {
-          _id: response.data.user._id,
-          username: response.data.user.username,
-          token: response.data.token,
-          roles: response.data.user.roles,
-          pin: response.data.user.pin,
-        };
-        setUser(newUser);
-
-        const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
-        setTimeout(() => navigate(from), 500);
+        if (data.requireShopSelection) {
+          // User belongs to multiple shops — show shop selection modal
+          setAvailableShops(data.shops);
+          setPendingUserId(data.userId);
+          setPendingShopSelection(true);
+        } else {
+          // Single shop — auto-login
+          handleLoginSuccess(data);
+        }
       }
     } catch (error: any) {
-      message.error(error?.response?.data?.message || error?.response?.data?.msg || "Access Denied. Please verify credentials.");
+      console.log(error, "This is the error");
+
+      message.error(
+        error?.response?.data?.message ||
+          error?.response?.data?.msg ||
+          "Access Denied. Please verify credentials.",
+      );
+    }
+  };
+
+  const handleShopSelect = async (shop: ShopOption) => {
+    if (!pendingUserId) return;
+    setSelectingShop(true);
+    try {
+      const response = await apiCaller.post("/users/select-shop", {
+        userId: pendingUserId,
+        shopId: shop.shopId,
+      });
+      if (response.data?.success) {
+        setPendingShopSelection(false);
+        setPendingUserId(null);
+        handleLoginSuccess(response.data.data);
+      }
+    } catch (error: any) {
+      message.error(
+        error?.response?.data?.message ||
+          "Failed to select shop. Please try again.",
+      );
+    } finally {
+      setSelectingShop(false);
     }
   };
 
@@ -86,10 +149,14 @@ const Login = () => {
               <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-[28px] mx-auto mb-8 flex items-center justify-center border border-white/20 shadow-2xl group-hover:rotate-6 transition-all duration-500">
                 <LockOutlined className="text-white text-4xl" />
               </div>
-              <h1 className="text-4xl font-black text-white tracking-tighter leading-tight mb-2">InvoSync</h1>
+              <h1 className="text-4xl font-black text-white tracking-tighter leading-tight mb-2">
+                InvoSync
+              </h1>
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10">
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-300 animate-pulse" />
-                <span className="text-[9px] font-black text-indigo-100 uppercase tracking-[0.2em]">Secured Login</span>
+                <span className="text-[9px] font-black text-indigo-100 uppercase tracking-[0.2em]">
+                  Secured Login
+                </span>
               </div>
             </div>
           </div>
@@ -97,8 +164,12 @@ const Login = () => {
           {/* Authentication Layer */}
           <div className="p-10 sm:p-14">
             <div className="mb-10">
-              <h2 className="text-2xl font-black text-gray-800 tracking-tighter">Login</h2>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5 leading-relaxed">Enter your credentials to login</p>
+              <h2 className="text-2xl font-black text-gray-800 tracking-tighter">
+                Login
+              </h2>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5 leading-relaxed">
+                Enter your credentials to login
+              </p>
             </div>
 
             <Form
@@ -110,8 +181,14 @@ const Login = () => {
             >
               <Form.Item
                 name="username"
-                label={<span className="text-[10px] font-black text-gray-300 uppercase tracking-widest ml-1">User ID</span>}
-                rules={[{ required: true, message: "Please enter your User ID" }]}
+                label={
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest ml-1">
+                    User ID
+                  </span>
+                }
+                rules={[
+                  { required: true, message: "Please enter your User ID" },
+                ]}
               >
                 <Input
                   prefix={<UserOutlined className="text-indigo-400 mr-2" />}
@@ -123,7 +200,11 @@ const Login = () => {
 
               <Form.Item
                 name="password"
-                label={<span className="text-[10px] font-black text-gray-300 uppercase tracking-widest ml-1">Password</span>}
+                label={
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest ml-1">
+                    Password
+                  </span>
+                }
                 rules={[{ required: true, message: "Password is required" }]}
               >
                 <Input.Password
@@ -153,6 +234,63 @@ const Login = () => {
           </div>
         </div>
       </div>
+
+      {/* Shop Selection Modal */}
+      <Modal
+        open={pendingShopSelection}
+        onCancel={() => setPendingShopSelection(false)}
+        footer={null}
+        centered
+        title={
+          <div className="flex items-center gap-3 py-2">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
+              <ShopOutlined className="text-white text-lg" />
+            </div>
+            <div>
+              <div className="font-black text-gray-800 text-base">
+                Select a Shop
+              </div>
+              <div className="text-xs text-gray-400">
+                You have access to multiple shops
+              </div>
+            </div>
+          </div>
+        }
+        closable={!selectingShop}
+        maskClosable={!selectingShop}
+      >
+        <List
+          dataSource={availableShops}
+          renderItem={(shop: ShopOption) => (
+            <List.Item
+              onClick={() => handleShopSelect(shop)}
+              className="cursor-pointer hover:bg-indigo-50 rounded-xl px-4 transition-all border border-transparent hover:border-indigo-100 mb-2"
+              style={{ borderRadius: 12, padding: "12px 16px" }}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                    <ShopOutlined className="text-indigo-600 text-base" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-800">
+                      {shop.shopName}
+                    </div>
+                    <div className="flex gap-1 mt-0.5">
+                      {shop.roles.map((role) => (
+                        <Tag key={role} color="blue" className="text-xs m-0">
+                          {role}
+                        </Tag>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <RightOutlined className="text-gray-300" />
+              </div>
+            </List.Item>
+          )}
+        />
+      </Modal>
 
       <style>{`
         .login-field {

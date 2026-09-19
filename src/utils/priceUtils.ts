@@ -1,4 +1,5 @@
 import useCategoriesStore from "../store/categories.store";
+import useUserStore from "../store/user.store";
 import { Product } from "../store/currentBill.store";
 
 export type PriceType = "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL";
@@ -8,25 +9,31 @@ export const calculatePriceTag = (
   val: number,
   billType: PriceType
 ): { type: PriceType; price: number } => {
-  const { categories } = useCategoriesStore.getState();
-  console.log(categories, "Categories from heaven");
-
-  const categoryInfo = categories.find((cat) => cat.name === product.category);
-  console.log(categoryInfo, "Category info from heaven", product.category);
-  if (!categoryInfo) {
+  const pricingMode = useUserStore.getState().user?.shopSettings?.pricingMode;
+  if (
+    pricingMode === "RETAIL_ONLY" ||
+    (pricingMode as string)?.toUpperCase() === "RETAIL_ONLY" ||
+    (pricingMode as string)?.toUpperCase() === "RETAIL"
+  ) {
     return { type: "RETAIL", price: product.retailPrice };
   }
 
-  if (billType === "SUPERWHOLESALE") {
-    return { type: "SUPERWHOLESALE", price: product.superWholesalePrice };
-  } else if (billType === "WHOLESALE" && val < categoryInfo.superWholeSale) {
-    return { type: "WHOLESALE", price: product.wholesalePrice };
+  if (
+    !product.category ||
+    product.category === "null" ||
+    product.category === "none"
+  ) {
+    return { type: "RETAIL", price: product.retailPrice };
   }
 
-  if (product.category === "null" && val === 1) {
-    return { type: product.type as PriceType, price: product.retailPrice };
-  } else if (product.category === "null") {
-    return { type: product.type as PriceType, price: product.price };
+  const { categories } = useCategoriesStore.getState();
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const categoryInfo = safeCategories.find(
+    (cat) => cat && cat.name === product.category
+  );
+
+  if (!categoryInfo) {
+    return { type: "RETAIL", price: product.retailPrice };
   }
 
   const { wholesale, superWholeSale } = categoryInfo;

@@ -12,10 +12,13 @@ const NewProductPage = () => {
   const [loading, setLoading] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(generateUUID());
 
-  const categoryOptions = categories.map((cat) => ({
-    value: cat.name,
-    label: cat.name,
-  }));
+  const categoryOptions = (categories || [])
+    .filter(Boolean)
+    .filter((cat) => cat.name && cat.name !== "null")
+    .map((cat) => ({
+      value: cat.name,
+      label: cat.name,
+    }));
 
   const handleSubmit = async (values: ProductFormValues) => {
     setLoading(true);
