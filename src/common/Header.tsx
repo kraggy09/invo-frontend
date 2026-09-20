@@ -25,6 +25,7 @@ import { message } from "../utils/antdStatic";
 import apiCaller from "../utils/apiCaller";
 import useUserStore, { ShopOption } from "../store/user.store";
 import { useSocket } from "../contexts/SocketContext";
+import { resetAllStores, resetShopScopedStores } from "../utils/resetAllStores";
 
 const navLinks = [
   {
@@ -112,9 +113,8 @@ const Header = () => {
   const handleMenuClick = ({ key }: { key: string }) => {
     if (key === "logout") {
       disconnect();
-      localStorage.clear();
-      logout();
-      navigate("/login");
+      resetAllStores();
+      window.location.href = "/login";
     } else if (key === "switch-shop") {
       setSwitchShopModalVisible(true);
     } else {
@@ -135,6 +135,10 @@ const Header = () => {
       if (response.data?.success) {
         const { user: updatedUser, token } = response.data.data;
         localStorage.setItem("token", token);
+
+        // Wipe all previous shop data from memory
+        resetShopScopedStores();
+
         setUser({
           ...user,
           ...updatedUser,

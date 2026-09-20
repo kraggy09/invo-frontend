@@ -425,88 +425,94 @@ export const useGlobalSocketHandlers = () => {
     const startDate = indiaNow.startOf("day").toISOString();
     const endDate = indiaNow.endOf("day").toISOString();
 
-    const promiseData = [];
-
-    promiseData.push(
+    const results = await Promise.allSettled([
       apiCaller.get("/bills", {
         params: {
           startDate: startDate,
           endDate: endDate,
           limit: 10000,
         },
-      })
-    );
-
-    promiseData.push(apiCaller.get("/customers"));
-
-    promiseData.push(
+      }),
+      apiCaller.get("/customers"),
       apiCaller.get("/transactions", {
         params: {
           startDate: startDate,
           endDate: endDate,
           limit: 10000,
         },
-      })
-    );
-
-    promiseData.push(apiCaller.get("/products"));
-    promiseData.push(apiCaller.get("/categories"));
-    promiseData.push(apiCaller.get("/bills/latest-id"));
-    promiseData.push(apiCaller.get("/transactions/latest-id"));
-    promiseData.push(
+      }),
+      apiCaller.get("/products"),
+      apiCaller.get("/categories"),
+      apiCaller.get("/bills/latest-id"),
+      apiCaller.get("/transactions/latest-id"),
       apiCaller.get("/stocks/requests/all", {
         params: {
           startDate: startDate,
           endDate: endDate,
           limit: 10000,
         },
-      })
-    );
-    promiseData.push(apiCaller.get("/transactions/approvals"));
-    promiseData.push(
+      }),
+      apiCaller.get("/transactions/approvals"),
       apiCaller.get("/return-bills", {
         params: {
           startDate: startDate,
           endDate: endDate,
           limit: 10000,
         },
-      })
+      }),
+    ]);
+
+    const getVal = (index: number, path: (data: any) => any, fallback: any) => {
+      const res = results[index];
+      if (res.status === "fulfilled" && res.value?.data?.data) {
+        try {
+          const val = path(res.value.data.data);
+          return val !== undefined && val !== null ? val : fallback;
+        } catch {
+          return fallback;
+        }
+      }
+      return fallback;
+    };
+
+    const bills = getVal(0, (d) => d.bills, []);
+    const customers = getVal(1, (d) => d.customers, []);
+    const transactions = getVal(2, (d) => d.transactions, []);
+    const products = getVal(3, (d) => d.products, []);
+    const categories = getVal(4, (d) => d.categories, []);
+    const billingId = getVal(5, (d) => d.billId, 0);
+    const transactionId = getVal(6, (d) => d.transactionId, 0);
+    const requests = getVal(7, (d) => d.requests, []);
+    const approvals = getVal(8, (d) => d.transactions, []);
+    const returnBillsRes = getVal(9, (d) => d.returnBills, []);
+
+    const productsMap: Map<string, number> = new Map(
+      (products || []).map((p: Product, i: number) => [p._id, i])
     );
-
-    await Promise.all(promiseData)
-      .then((responses) => {
-        const bills = responses[0].data.data.bills;
-        const customers = responses[1].data.data.customers;
-        const transactions = responses[2].data.data.transactions;
-        const products = responses[3].data.data.products;
-        const categories = responses[4].data.data.categories;
-        const billingId = responses[5].data.data.billId;
-        const transactionId = responses[6].data.data.transactionId;
-        const requests = responses[7].data.data.requests;
-        const approvals = responses[8].data.data.transactions;
-        const returnBillsRes = responses[9]?.data?.data?.returnBills;
-        console.log(transactions, "This are the transactions");
-
-        const productsMap: Map<string, number> = new Map(
-          products.map((p: Product, i: number) => [p._id, i])
-        );
-        console.log(productsMap, "This is the products map");
-        setProductMap(productsMap);
-        setRequests(requests);
-        setCustomers(customers);
-        setBillingId(billingId);
-        setProducts(products);
-        setBills(bills);
-        setReturnBills(returnBillsRes || []);
-        setTransactions(transactions);
-        setTransactionId(transactionId);
-        setCategories(categories);
-        setTransactionApproval(approvals);
-      })
-      .catch((error) => {
-        console.error("Error fetching initial data:", error);
-      });
-  }, []);
+    setProductMap(productsMap);
+    setRequests(requests);
+    setCustomers(customers);
+    setBillingId(billingId);
+    setProducts(products);
+    setBills(bills);
+    setReturnBills(returnBillsRes || []);
+    setTransactions(transactions);
+    setTransactionId(transactionId);
+    setCategories(categories);
+    setTransactionApproval(approvals);
+  }, [
+    setProductMap,
+    setRequests,
+    setCustomers,
+    setBillingId,
+    setProducts,
+    setBills,
+    setReturnBills,
+    setTransactions,
+    setTransactionId,
+    setCategories,
+    setTransactionApproval,
+  ]);
 
   const modalVisibleRef = useRef(false);
 

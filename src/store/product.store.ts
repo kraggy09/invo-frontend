@@ -31,6 +31,7 @@ interface ProductStore {
   removeProduct: (productId: string) => void;
   productMap: Map<string, number>;
   setProductMap: (map: Map<string, number>) => void;
+  reset: () => void;
 }
 
 const useProductStore = create<ProductStore>((set) => ({
@@ -88,6 +89,14 @@ const useProductStore = create<ProductStore>((set) => ({
       return { products: newProducts, productMap: newMap };
     });
   },
+
+  reset: () =>
+    set({
+      products: [],
+      loading: false,
+      error: null,
+      productMap: new Map<string, number>(),
+    }),
 }));
 
 export default useProductStore;

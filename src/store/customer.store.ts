@@ -19,6 +19,7 @@ interface CustomerStore {
   updateOutstanding: (id: string, newOutstanding: number) => ICustomer | undefined;
   addCustomer: (customer: ICustomer) => void;
   updateCustomer: (customer: ICustomer) => void;
+  reset: () => void;
 }
 
 const useCustomerStore = create<CustomerStore>((set, get) => ({
@@ -65,6 +66,13 @@ const useCustomerStore = create<CustomerStore>((set, get) => ({
         a.name.localeCompare(b.name)
       );
       return { customers: newCustomers };
+    }),
+
+  reset: () =>
+    set({
+      customers: [],
+      loading: false,
+      error: null,
     }),
 }));
 

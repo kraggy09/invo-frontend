@@ -25,12 +25,14 @@ type ReturnBillStore = {
     returnBills: ReturnBill[];
     setReturnBills: (returnBills: ReturnBill[]) => void;
     addReturnBill: (returnBill: ReturnBill) => void;
+    reset: () => void;
 };
 
 const useReturnBillStore = create<ReturnBillStore>((set) => ({
     returnBills: [],
     setReturnBills: (returnBills) => set({ returnBills }),
     addReturnBill: (returnBill) => set((state) => ({ returnBills: [...state.returnBills, returnBill] })),
+    reset: () => set({ returnBills: [] }),
 }));
 
 export default useReturnBillStore;

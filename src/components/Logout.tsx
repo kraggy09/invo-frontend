@@ -1,21 +1,15 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useSocket } from "../contexts/SocketContext";
+import { resetAllStores } from "../utils/resetAllStores";
 
 const Logout = () => {
-  const navigate = useNavigate();
   const { disconnect } = useSocket();
 
   useEffect(() => {
-    // Remove token
-    localStorage.removeItem("token");
-
-    // Disconnect socket
     disconnect();
-
-    // Redirect to login
-    navigate("/login");
-  }, [navigate, disconnect]);
+    resetAllStores();
+    window.location.href = "/login";
+  }, [disconnect]);
 
   return null;
 };

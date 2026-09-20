@@ -40,6 +40,7 @@ interface InventoryRequestStore {
   afterStockUpdated: (
     requestsMap: Map<string, { stockAtUpdate: number; newStock: number }>
   ) => void;
+  reset: () => void;
 }
 
 export const useInventoryRequestStore = create<InventoryRequestStore>(
@@ -68,6 +69,7 @@ export const useInventoryRequestStore = create<InventoryRequestStore>(
       console.log("Stock updated for requests:", updatedRequests);
     },
     setError: (error) => set({ error }),
+    reset: () => set({ requests: [], loading: false, error: null }),
   })
 );
 

@@ -152,6 +152,7 @@ type BillingStore = {
   ) => void;
   afterProductUpdated: (product: IProduct) => void;
   afterProductDeleted: (productId: string) => void;
+  reset: () => void;
 };
 
 const useCurrentBillStore = create<BillingStore>((set, get) => {
@@ -647,6 +648,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
         return { bills };
       });
     },
+    reset: () => set({ bills: [] }),
   };
 });
 
