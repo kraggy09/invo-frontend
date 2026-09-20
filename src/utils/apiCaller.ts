@@ -1,5 +1,6 @@
 import axios, { InternalAxiosRequestConfig, AxiosResponse } from "axios";
 import useUserStore from "../store/user.store";
+import { resetAllStores } from "./resetAllStores";
 axios.defaults.withCredentials = true;
 
 const apiCaller = axios.create({
@@ -44,8 +45,7 @@ apiCaller.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("isAuthenticated");
+      resetAllStores();
     }
     return Promise.reject(error);
   }

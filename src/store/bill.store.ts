@@ -66,6 +66,7 @@ type BillStore = {
   setBills: (bills: Bill[]) => void;
   addBill: (bill: Bill) => void;
   updateBill: (updatedBill: Partial<Bill> & { _id: string }) => void;
+  reset: () => void;
 };
 
 const useBillStore = create<BillStore>((set) => ({
@@ -80,6 +81,7 @@ const useBillStore = create<BillStore>((set) => ({
         b._id === updatedBill._id ? { ...b, ...updatedBill } : b
       ),
     })),
+  reset: () => set({ bills: [], billingId: 0 }),
 }));
 
 export default useBillStore;

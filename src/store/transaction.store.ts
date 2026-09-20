@@ -33,6 +33,7 @@ type TransactionStore = {
   approveTransaction: (transaction: ITransaction) => void;
   rejectTransaction: (transaction: ITransaction) => void;
   deleteTransaction: (transactionId: string) => void;
+  reset: () => void;
 };
 
 const useTransactionStore = create<TransactionStore>((set) => ({
@@ -81,6 +82,14 @@ const useTransactionStore = create<TransactionStore>((set) => ({
     set((state) => ({
       transactions: state.transactions.filter((t) => t._id !== transactionId),
     })),
+  reset: () =>
+    set({
+      transactionId: 0,
+      transactionApprovals: [],
+      transactions: [],
+      loading: false,
+      error: null,
+    }),
 }));
 
 export default useTransactionStore;

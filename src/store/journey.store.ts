@@ -21,6 +21,7 @@ interface JourneyStore {
     limit: number;
     fetchLogs: (page?: number, limit?: number, startDate?: string, endDate?: string) => Promise<void>;
     addLogFromSocket: (log: IJourneyLog) => void;
+    reset: () => void;
 }
 
 export const useJourneyStore = create<JourneyStore>((set, get) => ({
@@ -59,5 +60,14 @@ export const useJourneyStore = create<JourneyStore>((set, get) => ({
             logs: [log, ...state.logs].slice(0, state.limit),
             total: state.total + 1
         }));
-    }
+    },
+
+    reset: () =>
+        set({
+            logs: [],
+            loading: false,
+            total: 0,
+            page: 1,
+            limit: 20,
+        }),
 }));

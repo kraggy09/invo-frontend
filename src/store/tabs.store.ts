@@ -22,6 +22,7 @@ type TabsStore = {
     removeBill: (id: string) => void,
     setCurrentBillingId: (id: number) => void
   ) => void;
+  reset: () => void;
 };
 
 const useTabsStore = create<TabsStore>((set, get) => ({
@@ -97,6 +98,7 @@ const useTabsStore = create<TabsStore>((set, get) => ({
     set({ tabs: newTabs, activeKey: newActiveKey });
     setCurrentBillingId(newCurrentBillingId);
   },
+  reset: () => set({ tabs: [], activeKey: "1" }),
 }));
 
 export default useTabsStore;

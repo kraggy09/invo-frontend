@@ -44,6 +44,7 @@ type UserStore = {
   pendingUserId: string | null;
   setPendingUserId: (userId: string | null) => void;
   logout: () => void;
+  reset: () => void;
 };
 
 const useUserStore = create<UserStore>((set) => ({
@@ -62,6 +63,15 @@ const useUserStore = create<UserStore>((set) => ({
   pendingUserId: null,
   setPendingUserId: (pendingUserId) => set({ pendingUserId }),
   logout: () =>
+    set({
+      user: null,
+      isAuthenticated: false,
+      socketId: "",
+      availableShops: [],
+      pendingShopSelection: false,
+      pendingUserId: null,
+    }),
+  reset: () =>
     set({
       user: null,
       isAuthenticated: false,

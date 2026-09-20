@@ -13,6 +13,7 @@ interface CategoriesStore {
   addCategory: (category: Category) => void;
   updateCategory: (category: Category) => void;
   removeCategory: (categoryId: string) => void;
+  reset: () => void;
 }
 const useCategoriesStore = create<CategoriesStore>((set) => ({
   categories: [],
@@ -32,6 +33,7 @@ const useCategoriesStore = create<CategoriesStore>((set) => ({
     set((state) => ({
       categories: state.categories.filter((c) => c._id !== categoryId),
     })),
+  reset: () => set({ categories: [] }),
 }));
 
 export default useCategoriesStore;
