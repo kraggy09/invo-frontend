@@ -6,6 +6,7 @@ import { ArrowLeftOutlined, DollarOutlined, PrinterOutlined } from "@ant-design/
 import apiCaller from "../utils/apiCaller";
 import dayjs from "dayjs";
 import useTransactionStore from "../store/transaction.store";
+import useUserStore from "../store/user.store";
 import { useReactToPrint } from "react-to-print";
 import TransactionPrint from "../components/TransactionPrint";
 
@@ -19,8 +20,15 @@ const SingleTransactionPage = () => {
   const [showPrint, setShowPrint] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const printType = useUserStore((state) => state.user?.shopSettings?.printType) || "THERMAL";
+  const pageStyle =
+    printType === "A4"
+      ? "@page { size: A4 portrait; margin: 10mm; } @media print { body { -webkit-print-color-adjust: exact; } }"
+      : "@page { size: 80mm auto; margin: 2mm 3mm; } @media print { body { -webkit-print-color-adjust: exact; } }";
+
   const handlePrint = useReactToPrint({
     contentRef: contentRef as React.RefObject<HTMLDivElement>,
+    pageStyle,
   });
 
   const handlePrintClick = () => {

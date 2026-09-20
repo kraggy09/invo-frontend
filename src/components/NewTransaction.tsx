@@ -21,6 +21,7 @@ import apiCaller from "../utils/apiCaller";
 import useTransactionStore from "../store/transaction.store";
 import TransactionPrint from "./TransactionPrint";
 import { generateUUID } from "../utils";
+import useUserStore from "../store/user.store";
 
 const NewTransaction: React.FC = () => {
   const [form] = Form.useForm();
@@ -32,8 +33,15 @@ const NewTransaction: React.FC = () => {
   const [idempotencyKey, setIdempotencyKey] = useState(generateUUID());
 
   const contentRef = useRef<HTMLDivElement>(null);
+  const printType = useUserStore((state) => state.user?.shopSettings?.printType) || "THERMAL";
+  const pageStyle =
+    printType === "A4"
+      ? "@page { size: A4 portrait; margin: 10mm; } @media print { body { -webkit-print-color-adjust: exact; } }"
+      : "@page { size: 80mm auto; margin: 2mm 3mm; } @media print { body { -webkit-print-color-adjust: exact; } }";
+
   const handlePrint = useReactToPrint({
     contentRef: contentRef as React.RefObject<HTMLDivElement>,
+    pageStyle,
   });
   const transactionId = useTransactionStore((state) => state.transactionId);
 

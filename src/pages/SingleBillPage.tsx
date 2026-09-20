@@ -9,6 +9,7 @@ import { useReactToPrint } from "react-to-print";
 import apiCaller from "../utils/apiCaller";
 import dayjs from "dayjs";
 import ReturnProductModal from "../components/ReturnProductModal";
+import useUserStore from "../store/user.store";
 
 const SingleBillPage = () => {
   const { id } = useParams();
@@ -94,9 +95,15 @@ const SingleBillPage = () => {
 
   // Prepare BillPrint data
   const printContentRef = useRef<HTMLDivElement | null>(null);
+  const printType = useUserStore((state) => state.user?.shopSettings?.printType) || "THERMAL";
+  const pageStyle =
+    printType === "A4"
+      ? "@page { size: A4 portrait; margin: 10mm; } @media print { body { -webkit-print-color-adjust: exact; } }"
+      : "@page { size: 80mm auto; margin: 2mm 3mm; } @media print { body { -webkit-print-color-adjust: exact; } }";
 
   const handlePrint = useReactToPrint({
     contentRef: printContentRef as React.RefObject<HTMLDivElement>,
+    pageStyle,
   });
 
   // Map API bill data to BillPrint expected structure.

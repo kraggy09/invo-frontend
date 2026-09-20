@@ -27,3 +27,14 @@ export const calculateMeasuring = (total: number) => {
     return formatted + " kg";
   }
 };
+
+export const formatNum = (val: number | string | undefined | null): string => {
+  if (val === undefined || val === null || val === "") return "0";
+  const num = typeof val === "number" ? val : Number(val);
+  if (isNaN(num)) return "0";
+  const rounded = Math.round(num * 100) / 100;
+  if (rounded % 1 === 0) {
+    return rounded.toFixed(0);
+  }
+  return rounded.toFixed(2);
+};
