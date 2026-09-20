@@ -3,50 +3,41 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-/* ── Thermal Printer Font Stacks (Heavy Weight & Dark Monochrome for Thermal Heads) ── */
+/* ── Thermal Printer Font Stacks (Crisp & Balanced for Thermal Heads) ── */
 .font-thermal-a {
   font-family: "FontA", "FontA11", "FontA12", "Font A", "JetBrains Mono", "Roboto Mono", "Courier New", Courier, monospace;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 600;
   color: #000000;
-  -webkit-text-stroke: 0.2px #000000;
 }
 
 .font-thermal-b {
   font-family: "FontB", "FontB11", "FontB12", "Font B", "JetBrains Mono", "Roboto Mono", "Courier New", Courier, monospace;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 500;
   color: #000000;
-  -webkit-text-stroke: 0.15px #000000;
 }
 
-/* ── Thermal Receipt Global High-Contrast Styles ── */
+/* ── Thermal Receipt Global Crisp & Balanced Styles ── */
 .thermal-receipt {
-  font-weight: 700 !important;
+  font-weight: 500;
   color: #000000 !important;
-  -webkit-text-stroke: 0.2px #000000;
 }
 
 .thermal-receipt * {
   color: #000000 !important;
 }
 
-.thermal-receipt p,
-.thermal-receipt span,
-.thermal-receipt td,
-.thermal-receipt th,
-.thermal-receipt div {
-  font-weight: 700;
-}
-
 .thermal-receipt .font-bold,
-.thermal-receipt .font-extrabold,
-.thermal-receipt .font-black,
 .thermal-receipt th,
 .thermal-receipt strong,
 .thermal-receipt b {
-  font-weight: 900 !important;
-  -webkit-text-stroke: 0.35px #000000;
+  font-weight: 700 !important;
+}
+
+.thermal-receipt .font-black,
+.thermal-receipt .font-extrabold {
+  font-weight: 800 !important;
 }
 
 

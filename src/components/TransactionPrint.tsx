@@ -266,20 +266,6 @@ const TransactionPrint = ({
                                 margin: 0 auto !important;
                                 padding: 1mm 0 !important;
                                 color: #000 !important;
-                                font-weight: 700 !important;
-                                -webkit-text-stroke: 0.25px #000 !important;
-                            }
-                            .thermal-receipt * {
-                                color: #000 !important;
-                                font-weight: 700 !important;
-                            }
-                            .thermal-receipt .font-bold,
-                            .thermal-receipt .font-extrabold,
-                            .thermal-receipt .font-black,
-                            .thermal-receipt th,
-                            .thermal-receipt strong {
-                                font-weight: 900 !important;
-                                -webkit-text-stroke: 0.4px #000 !important;
                             }
                         }
                     `}</style>
