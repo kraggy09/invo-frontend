@@ -28,13 +28,19 @@ export const calculateMeasuring = (total: number) => {
   }
 };
 
-export const formatNum = (val: number | string | undefined | null): string => {
+export const formatNum = (
+  val: number | string | undefined | null,
+  useCommas: boolean = true
+): string => {
   if (val === undefined || val === null || val === "") return "0";
   const num = typeof val === "number" ? val : Number(val);
   if (isNaN(num)) return "0";
   const rounded = Math.round(num * 100) / 100;
-  if (rounded % 1 === 0) {
-    return rounded.toFixed(0);
+  if (!useCommas) {
+    return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(2);
   }
-  return rounded.toFixed(2);
+  return rounded.toLocaleString("en-IN", {
+    minimumFractionDigits: rounded % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
 };

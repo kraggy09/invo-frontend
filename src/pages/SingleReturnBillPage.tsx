@@ -38,7 +38,7 @@ const SingleReturnBillPage = () => {
     const pageStyle =
         printType === "A4"
             ? "@page { size: A4 portrait; margin: 10mm; } @media print { body { -webkit-print-color-adjust: exact; } }"
-            : "@page { size: 80mm auto; margin: 2mm 3mm; } @media print { body { -webkit-print-color-adjust: exact; } }";
+            : "@page { size: 80mm auto; margin: 2mm 2mm; } @media print { body { -webkit-print-color-adjust: exact; } }";
 
     const handlePrint = useReactToPrint({
         contentRef: printContentRef as React.RefObject<HTMLDivElement>,

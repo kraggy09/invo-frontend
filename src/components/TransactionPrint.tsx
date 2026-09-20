@@ -244,11 +244,11 @@ const TransactionPrint = ({
                         </div>
                     ) : (
                         /* ================== THERMAL 80MM RECEIPT LAYOUT ================== */
-                        <div>
+                        <div className="thermal-receipt font-thermal-a text-black leading-tight select-none px-1">
                     <style>{`
                         @page {
                             size: 80mm auto;
-                            margin: 2mm 3mm 4mm 3mm;
+                            margin: 2mm 2mm 3mm 2mm;
                         }
                         @media print {
                             html, body {
@@ -262,9 +262,9 @@ const TransactionPrint = ({
                             }
                             .thermal-receipt {
                                 width: 100% !important;
-                                max-width: 76mm !important;
+                                max-width: 71mm !important;
                                 margin: 0 auto !important;
-                                padding: 1mm 0 !important;
+                                padding: 0 1.5mm !important;
                                 color: #000 !important;
                             }
                         }

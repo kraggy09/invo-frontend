@@ -263,7 +263,7 @@ const ReturnBillPrint = ({
           <style>{`
             @page {
               size: 80mm auto;
-              margin: 2mm 3mm 4mm 3mm;
+              margin: 2mm 2mm 3mm 2mm;
             }
             @media print {
               html, body {
@@ -277,9 +277,9 @@ const ReturnBillPrint = ({
               }
               .thermal-receipt {
                 width: 100% !important;
-                max-width: 76mm !important;
+                max-width: 71mm !important;
                 margin: 0 auto !important;
-                padding: 1mm 0 !important;
+                padding: 0 1.5mm !important;
                 color: #000 !important;
               }
             }
@@ -334,7 +334,7 @@ const ReturnBillPrint = ({
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="truncate max-w-[160px]">
+              <span className="truncate max-w-[155px]">
                 <span className="font-black">Cust: </span>
                 <span className="capitalize font-bold">
                   {returnBill?.customer?.name || "Walk-in Customer"}
@@ -364,32 +364,31 @@ const ReturnBillPrint = ({
             <table className="w-full text-xs font-thermal-a border-collapse">
               <thead>
                 <tr className="border-b-2 border-dashed border-black text-xs font-black">
-                  <th className="text-left pb-1 font-black w-[42%]">ITEM</th>
-                  <th className="text-center pb-1 font-black w-[18%]">QTY</th>
+                  <th className="text-left pb-1 font-black w-[46%]">ITEM</th>
+                  <th className="text-center pb-1 font-black w-[16%]">QTY</th>
                   <th className="text-right pb-1 font-black w-[18%]">RATE</th>
-                  <th className="text-right pb-1 font-black w-[22%]">REFUND</th>
+                  <th className="text-right pb-1 font-black w-[20%]">REFUND</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100">
                 {returnBill?.items?.map((item: any, index: number) => {
                   return (
                     <tr
                       key={item._id || index}
-                      className="border-b border-dashed border-black"
                     >
                       <td className="py-1 pr-1 align-top text-left">
-                        <div className="leading-tight capitalize font-bold break-words">
+                        <div className="leading-tight capitalize font-semibold break-words">
                           {item.product?.name || "Unknown Product"}
                         </div>
                       </td>
-                      <td className="py-1 text-center align-top whitespace-nowrap font-thermal-b font-bold">
+                      <td className="py-1 text-center align-top whitespace-nowrap font-thermal-b font-medium">
                         {item.quantityReturned}
                       </td>
-                      <td className="py-1 text-right align-top whitespace-nowrap font-thermal-b font-bold">
+                      <td className="py-1 text-right align-top whitespace-nowrap font-thermal-b font-medium">
                         {formatNum(item.returnPrice || 0)}
                       </td>
-                      <td className="py-1 text-right align-top font-black whitespace-nowrap">
-                        {Math.ceil(item.returnTotal || 0)}
+                      <td className="py-1 text-right align-top font-bold whitespace-nowrap">
+                        {formatNum(Math.ceil(item.returnTotal || 0))}
                       </td>
                     </tr>
                   );
