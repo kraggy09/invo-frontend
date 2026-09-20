@@ -266,43 +266,57 @@ const TransactionPrint = ({
                                 margin: 0 auto !important;
                                 padding: 1mm 0 !important;
                                 color: #000 !important;
+                                font-weight: 700 !important;
+                                -webkit-text-stroke: 0.25px #000 !important;
+                            }
+                            .thermal-receipt * {
+                                color: #000 !important;
+                                font-weight: 700 !important;
+                            }
+                            .thermal-receipt .font-bold,
+                            .thermal-receipt .font-extrabold,
+                            .thermal-receipt .font-black,
+                            .thermal-receipt th,
+                            .thermal-receipt strong {
+                                font-weight: 900 !important;
+                                -webkit-text-stroke: 0.4px #000 !important;
                             }
                         }
                     `}</style>
 
                     {/* Shop Header */}
                     <header className="flex flex-col items-center justify-center text-center">
-                        <h1 className="text-base font-extrabold tracking-wide uppercase font-thermal-a">
+                        <h1 className="text-lg font-black tracking-wide uppercase font-thermal-a">
                             {user?.shopName || "InvoSync Shop"}
                         </h1>
                         {shopAddress && (
-                            <p className="text-[11px] font-medium leading-tight font-thermal-b mt-0.5 max-w-[280px]">
+                            <p className="text-xs font-bold leading-tight font-thermal-b mt-0.5 max-w-[280px]">
                                 {shopAddress}
                             </p>
                         )}
                         {shopPhone && (
-                            <p className="text-[11px] font-medium font-thermal-b mt-0.5">
+                            <p className="text-xs font-bold font-thermal-b mt-0.5">
                                 Mob: {shopPhone}
                             </p>
                         )}
-                        <div className="mt-1 px-3 py-0.5 border border-black text-[10px] font-bold uppercase tracking-widest inline-block">
+                        <div className="mt-1 px-3 py-0.5 border-2 border-black text-[11px] font-black uppercase tracking-widest inline-block">
                             {isDebit ? "Cash Out Voucher" : "Payment Receipt"}
                         </div>
                     </header>
 
-                    <div className="border-b border-dashed border-black my-2 w-full" />
+                    <div className="border-b-2 border-dashed border-black my-2 w-full" />
 
                     {/* Metadata Grid */}
-                    <div className="text-[11px] font-thermal-b space-y-0.5">
+                    <div className="text-xs font-thermal-b space-y-0.5 font-bold">
                         <div className="flex justify-between">
                             <span>
-                                <span className="font-bold">Receipt: </span>
+                                <span className="font-black">Receipt: </span>
                                 {transactionData.id
                                     ? `T-${transactionData.id}`
                                     : transactionData._id?.slice(-8).toUpperCase()}
                             </span>
                             <span>
-                                <span className="font-bold">Date: </span>
+                                <span className="font-black">Date: </span>
                                 {transactionData.createdAt
                                     ? calculateDate(new Date(transactionData.createdAt))
                                     : calculateDate(new Date())}
@@ -310,13 +324,13 @@ const TransactionPrint = ({
                         </div>
                         <div className="flex justify-between">
                             <span className="truncate max-w-[160px]">
-                                <span className="font-bold">Party: </span>
-                                <span className="capitalize">
+                                <span className="font-black">Party: </span>
+                                <span className="capitalize font-bold">
                                     {transactionData.name || "N/A"}
                                 </span>
                             </span>
                             <span>
-                                <span className="font-bold">Time: </span>
+                                <span className="font-black">Time: </span>
                                 {transactionData.createdAt
                                     ? calculateTime(new Date(transactionData.createdAt))
                                     : calculateTime(new Date())}
@@ -324,51 +338,51 @@ const TransactionPrint = ({
                         </div>
                         <div className="flex justify-between">
                             <span>
-                                <span className="font-bold">Type: </span>
+                                <span className="font-black">Type: </span>
                                 {isDebit ? "Cash Out" : "Payment In"}
                             </span>
                             <span className="truncate max-w-[140px]">
-                                <span className="font-bold">By: </span>
-                                <span className="capitalize">{creatorName}</span>
+                                <span className="font-black">By: </span>
+                                <span className="capitalize font-bold">{creatorName}</span>
                             </span>
                         </div>
                     </div>
 
-                    <div className="border-b border-dashed border-black my-2 w-full" />
+                    <div className="border-b-2 border-dashed border-black my-2 w-full" />
 
                     {/* Transaction Details */}
-                    <main className="w-full text-xs font-thermal-a space-y-1.5">
+                    <main className="w-full text-xs font-thermal-a space-y-1.5 font-bold">
                         {transactionData.purpose && (
-                            <div className="flex justify-between font-thermal-b text-[11px]">
+                            <div className="flex justify-between font-thermal-b text-xs font-bold">
                                 <span>Purpose:</span>
-                                <span className="capitalize font-semibold">
+                                <span className="capitalize font-black">
                                     {transactionData.purpose}
                                 </span>
                             </div>
                         )}
 
                         {transactionData.paymentMode && (
-                            <div className="flex justify-between font-thermal-b text-[11px]">
+                            <div className="flex justify-between font-thermal-b text-xs font-bold">
                                 <span>Payment Mode:</span>
-                                <span className="uppercase font-semibold">
+                                <span className="uppercase font-black">
                                     {transactionData.paymentMode}
                                 </span>
                             </div>
                         )}
 
                         {/* Highlighted Amount Box */}
-                        <div className="border-2 border-dashed border-black py-2 px-3 my-2 text-center bg-gray-50">
-                            <span className="text-[10px] uppercase font-bold tracking-wider block font-thermal-b">
+                        <div className="border-2 border-black py-2 px-3 my-2 text-center bg-gray-50">
+                            <span className="text-[11px] uppercase font-black tracking-wider block font-thermal-b">
                                 Amount {isDebit ? "Paid" : "Received"}
                             </span>
-                            <span className="text-lg font-black font-thermal-a block mt-0.5">
+                            <span className="text-xl font-black font-thermal-a block mt-0.5">
                                 ₹{formatNum(amount)}
                             </span>
                         </div>
 
                         {/* Breakdown sequence in Indian format */}
-                        <div className="w-full text-xs font-thermal-a space-y-1 pt-1">
-                            <div className="flex justify-between font-thermal-b text-[11px]">
+                        <div className="w-full text-xs font-thermal-a space-y-1 pt-1 font-bold">
+                            <div className="flex justify-between font-thermal-b text-xs font-bold">
                                 <span>
                                     {transactionData.previousOutstanding !== undefined
                                         ? "Previous Balance:"
@@ -376,12 +390,12 @@ const TransactionPrint = ({
                                 </span>
                                 <span>₹{formatNum(transactionData.previousOutstanding ?? amount)}</span>
                             </div>
-                            <div className="flex justify-between font-thermal-b text-[11px]">
+                            <div className="flex justify-between font-thermal-b text-xs font-bold">
                                 <span>Payment {isDebit ? "Paid:" : "Received:"}</span>
                                 <span>-₹{formatNum(amount)}</span>
                             </div>
-                            <div className="border-b border-dashed border-black my-1 w-full" />
-                            <div className="flex justify-between font-bold text-xs">
+                            <div className="border-b-2 border-dashed border-black my-1 w-full" />
+                            <div className="flex justify-between font-black text-sm">
                                 <span>
                                     {transactionData.previousOutstanding !== undefined
                                         ? (transactionData.newOutstanding ?? 0) > 0
@@ -399,16 +413,16 @@ const TransactionPrint = ({
 
                         {/* Signature Line & Footer */}
                         <div className="pt-6 pb-1">
-                            <div className="border-b border-black w-36 ml-auto" />
-                            <p className="text-right text-[10px] font-thermal-b mt-0.5">
+                            <div className="border-b-2 border-black w-36 ml-auto" />
+                            <p className="text-right text-[11px] font-thermal-b mt-0.5 font-bold">
                                 Authorized Signature
                             </p>
                         </div>
 
                         <div className="border-b border-dashed border-black mt-2 mb-2 w-full" />
-                        <footer className="text-center text-[10px] font-thermal-b space-y-0.5 pb-1">
-                            <p className="font-bold">Thank you for your business!</p>
-                            <p className="opacity-80">Powered by InvoSync</p>
+                        <footer className="text-center text-[11px] font-thermal-b space-y-0.5 pb-1 font-bold">
+                            <p className="font-black">Thank you for your business!</p>
+                            <p>Powered by InvoSync</p>
                         </footer>
                     </main>
                 </div>

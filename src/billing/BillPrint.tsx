@@ -398,41 +398,55 @@ const BillPrint = ({
                       margin: 0 auto !important;
                       padding: 1mm 0 !important;
                       color: #000 !important;
+                      font-weight: 700 !important;
+                      -webkit-text-stroke: 0.25px #000 !important;
+                    }
+                    .thermal-receipt * {
+                      color: #000 !important;
+                      font-weight: 700 !important;
+                    }
+                    .thermal-receipt .font-bold,
+                    .thermal-receipt .font-extrabold,
+                    .thermal-receipt .font-black,
+                    .thermal-receipt th,
+                    .thermal-receipt strong {
+                      font-weight: 900 !important;
+                      -webkit-text-stroke: 0.4px #000 !important;
                     }
                   }
                 `}</style>
 
                 {/* Shop Header */}
                 <header className="flex flex-col items-center justify-center text-center">
-                  <h1 className="text-base font-extrabold tracking-wide uppercase font-thermal-a">
+                  <h1 className="text-lg font-black tracking-wide uppercase font-thermal-a">
                     {shopName}
                   </h1>
                   {shopAddress && (
-                    <p className="text-[11px] font-medium leading-tight font-thermal-b mt-0.5 max-w-[280px]">
+                    <p className="text-xs font-bold leading-tight font-thermal-b mt-0.5 max-w-[280px]">
                       {shopAddress}
                     </p>
                   )}
                   {shopPhone && (
-                    <p className="text-[11px] font-medium font-thermal-b mt-0.5">
+                    <p className="text-xs font-bold font-thermal-b mt-0.5">
                       Mob: {shopPhone}
                     </p>
                   )}
-                  <div className="mt-1 px-3 py-0.5 border border-black text-[10px] font-bold uppercase tracking-widest inline-block">
+                  <div className="mt-1 px-3 py-0.5 border-2 border-black text-[11px] font-black uppercase tracking-widest inline-block">
                     Retail Invoice
                   </div>
                 </header>
 
-                <div className="border-b border-dashed border-black my-2 w-full" />
+                <div className="border-b-2 border-dashed border-black my-2 w-full" />
 
                 {/* Metadata Grid */}
-                <div className="text-[11px] font-thermal-b space-y-0.5">
+                <div className="text-xs font-thermal-b space-y-0.5 font-bold">
                   <div className="flex justify-between">
                     <span>
-                      <span className="font-bold">Inv: </span>
+                      <span className="font-black">Inv: </span>
                       {currentBill.id ? `B-${currentBill.id}` : "N/A"}
                     </span>
                     <span>
-                      <span className="font-bold">Date: </span>
+                      <span className="font-black">Date: </span>
                       {currentBill.createdAt
                         ? calculateDate(new Date(currentBill.createdAt))
                         : calculateDate(new Date())}
@@ -440,13 +454,13 @@ const BillPrint = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="truncate max-w-[160px]">
-                      <span className="font-bold">Cust: </span>
-                      <span className="capitalize">
+                      <span className="font-black">Cust: </span>
+                      <span className="capitalize font-bold">
                         {currentBill?.customer?.name || "Walk-in"}
                       </span>
                     </span>
                     <span>
-                      <span className="font-bold">Time: </span>
+                      <span className="font-black">Time: </span>
                       {currentBill.createdAt
                         ? calculateTime(new Date(currentBill.createdAt))
                         : calculateTime(new Date())}
@@ -454,17 +468,17 @@ const BillPrint = ({
                   </div>
                   <div className="flex justify-between">
                     <span>
-                      <span className="font-bold">Mob: </span>
+                      <span className="font-black">Mob: </span>
                       {currentBill?.customer?.phone || "N/A"}
                     </span>
                     <span>
-                      <span className="font-bold">Items: </span>
+                      <span className="font-black">Items: </span>
                       {currentBill?.purchased?.length || 0}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>
-                      <span className="font-bold">Mode: </span>
+                      <span className="font-black">Mode: </span>
                       {paymentValue > 0
                         ? paymentValue >= totalBeforePayment
                           ? "PAID"
@@ -474,17 +488,17 @@ const BillPrint = ({
                   </div>
                 </div>
 
-                <div className="border-b border-dashed border-black my-2 w-full" />
+                <div className="border-b-2 border-dashed border-black my-2 w-full" />
 
                 {/* 4-Column Items Table */}
                 <main className="w-full">
                   <table className="w-full text-xs font-thermal-a border-collapse">
                     <thead>
-                      <tr className="border-b border-dashed border-black text-[11px] font-bold">
-                        <th className="text-left pb-1 font-bold w-[42%]">ITEM</th>
-                        <th className="text-center pb-1 font-bold w-[18%]">QTY</th>
-                        <th className="text-right pb-1 font-bold w-[18%]">RATE</th>
-                        <th className="text-right pb-1 font-bold w-[22%]">TOTAL</th>
+                      <tr className="border-b-2 border-dashed border-black text-xs font-black">
+                        <th className="text-left pb-1 font-black w-[42%]">ITEM</th>
+                        <th className="text-center pb-1 font-black w-[18%]">QTY</th>
+                        <th className="text-right pb-1 font-black w-[18%]">RATE</th>
+                        <th className="text-right pb-1 font-black w-[22%]">TOTAL</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -500,29 +514,29 @@ const BillPrint = ({
                           return (
                             <tr
                               key={product.id || idx}
-                              className="border-b border-dotted border-gray-300"
+                              className="border-b border-dashed border-black"
                             >
                               <td className="py-1 pr-1 align-top text-left">
-                                <div className="leading-tight capitalize font-semibold break-words">
+                                <div className="leading-tight capitalize font-bold break-words">
                                   {product.name}
                                 </div>
                                 {product.discount > 0 && (
-                                  <div className="text-[10px] font-normal text-black font-thermal-b">
+                                  <div className="text-[11px] font-bold text-black font-thermal-b">
                                     (Disc: -₹{formatNum(product.discount)})
                                   </div>
                                 )}
                               </td>
-                              <td className="py-1 text-center align-top whitespace-nowrap font-thermal-b">
+                              <td className="py-1 text-center align-top whitespace-nowrap font-thermal-b font-bold">
                                 {product.measuring === "kg"
                                   ? calculateMeasuring(totalQty)
                                   : totalQty % 1 !== 0
                                   ? totalQty.toFixed(3)
                                   : totalQty}
                               </td>
-                              <td className="py-1 text-right align-top whitespace-nowrap font-thermal-b">
+                              <td className="py-1 text-right align-top whitespace-nowrap font-thermal-b font-bold">
                                 {formatNum(price)}
                               </td>
-                              <td className="py-1 text-right align-top font-bold whitespace-nowrap">
+                              <td className="py-1 text-right align-top font-black whitespace-nowrap">
                                 {Math.ceil(rowTotal || 0)}
                               </td>
                             </tr>
@@ -531,29 +545,29 @@ const BillPrint = ({
                     </tbody>
                   </table>
 
-                  <div className="border-b border-dashed border-black mt-2 mb-1.5 w-full" />
+                  <div className="border-b-2 border-dashed border-black mt-2 mb-1.5 w-full" />
 
                   {/* Summary Block */}
-                  <div className="w-full text-xs font-thermal-a space-y-1">
+                  <div className="w-full text-xs font-thermal-a space-y-1 font-bold">
 
-                    <div className="flex justify-between">
+                    <div className="flex justify-between font-bold">
                       <span>Subtotal:</span>
                       <span>₹{formatNum(billTotal)}</span>
                     </div>
 
                     {discount > 0 && (
-                      <div className="flex justify-between font-thermal-b">
+                      <div className="flex justify-between font-thermal-b font-bold">
                         <span>Discount:</span>
                         <span>-₹{formatNum(discount)}</span>
                       </div>
                     )}
 
                     {customerOutstanding !== 0 && (
-                      <div className="flex justify-between font-thermal-b">
+                      <div className="flex justify-between font-thermal-b font-bold">
                         <span>
                           {customerOutstanding >= 0 ? "Prev Balance:" : "Prev Credit:"}
                         </span>
-                        <span className="font-bold">
+                        <span className="font-black">
                           {customerOutstanding >= 0 ? "+" : "-"}₹{formatNum(Math.abs(customerOutstanding))}
                         </span>
                       </div>
@@ -570,12 +584,12 @@ const BillPrint = ({
 
                         <div className="border-b border-dashed border-black my-1 w-full" />
 
-                        <div className="flex justify-between font-thermal-b">
+                        <div className="flex justify-between font-thermal-b font-bold">
                           <span>Payment Received:</span>
                           <span>-₹{formatNum(paymentValue)}</span>
                         </div>
 
-                        <div className="flex justify-between font-bold text-xs pt-0.5">
+                        <div className="flex justify-between font-black text-sm pt-0.5">
                           <span>
                             {finalOutstanding > 0
                               ? "Final Outstanding:"
@@ -587,7 +601,7 @@ const BillPrint = ({
                         </div>
                       </>
                     ) : (
-                      <div className="flex justify-between text-sm font-black py-0.5">
+                      <div className="flex justify-between text-base font-black py-0.5">
                         <span>
                           {totalBeforePayment > 0
                             ? "TOTAL OUTSTANDING:"
@@ -602,16 +616,16 @@ const BillPrint = ({
 
                   {/* You Saved Banner */}
                   {calculateSave(currentBill.purchased) > 0 && (
-                    <div className="mt-3 border border-dashed border-black py-1 px-2 text-center text-xs font-bold font-thermal-a">
+                    <div className="mt-3 border-2 border-dashed border-black py-1 px-2 text-center text-xs font-black font-thermal-a">
                       *** YOU SAVED: ₹{formatNum(calculateSave(currentBill.purchased))} ***
                     </div>
                   )}
 
                   {/* Receipt Footer */}
                   <div className="border-b border-dashed border-black mt-3 mb-2 w-full" />
-                  <footer className="text-center text-[10px] font-thermal-b space-y-0.5 pb-1">
-                    <p className="font-bold">Thank you for your visit!</p>
-                    <p className="opacity-80">Powered by InvoSync</p>
+                  <footer className="text-center text-[11px] font-thermal-b space-y-0.5 pb-1 font-bold">
+                    <p className="font-black">Thank you for your visit!</p>
+                    <p>Powered by InvoSync</p>
                   </footer>
                 </main>
               </div>

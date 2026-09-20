@@ -281,93 +281,107 @@ const ReturnBillPrint = ({
                 margin: 0 auto !important;
                 padding: 1mm 0 !important;
                 color: #000 !important;
+                font-weight: 700 !important;
+                -webkit-text-stroke: 0.25px #000 !important;
+              }
+              .thermal-receipt * {
+                color: #000 !important;
+                font-weight: 700 !important;
+              }
+              .thermal-receipt .font-bold,
+              .thermal-receipt .font-extrabold,
+              .thermal-receipt .font-black,
+              .thermal-receipt th,
+              .thermal-receipt strong {
+                font-weight: 900 !important;
+                -webkit-text-stroke: 0.4px #000 !important;
               }
             }
           `}</style>
 
           {/* Shop Header */}
           <header className="flex flex-col items-center justify-center text-center">
-            <h1 className="text-base font-extrabold tracking-wide uppercase font-thermal-a">
+            <h1 className="text-lg font-black tracking-wide uppercase font-thermal-a">
               {shopName || "InvoSync Shop"}
             </h1>
             {shopAddress && (
-              <p className="text-[11px] font-medium leading-tight font-thermal-b mt-0.5 max-w-[280px]">
+              <p className="text-xs font-bold leading-tight font-thermal-b mt-0.5 max-w-[280px]">
                 {shopAddress}
               </p>
             )}
             {shopPhone && (
-              <p className="text-[11px] font-medium font-thermal-b mt-0.5">
+              <p className="text-xs font-bold font-thermal-b mt-0.5">
                 Mob: {shopPhone}
               </p>
             )}
-            <div className="mt-1 px-3 py-0.5 border border-black text-[10px] font-bold uppercase tracking-widest inline-block">
+            <div className="mt-1 px-3 py-0.5 border-2 border-black text-[11px] font-black uppercase tracking-widest inline-block">
               Return Receipt
             </div>
           </header>
 
-          <div className="border-b border-dashed border-black my-2 w-full" />
+          <div className="border-b-2 border-dashed border-black my-2 w-full" />
 
           {/* Metadata Grid */}
-          <div className="text-[11px] font-thermal-b space-y-0.5">
+          <div className="text-xs font-thermal-b space-y-0.5 font-bold">
             <div className="flex justify-between">
               <span>
-                <span className="font-bold">Ret ID: </span>
+                <span className="font-black">Ret ID: </span>
                 {returnBill.id
                   ? `R-${returnBill.id}`
                   : returnBill._id?.slice(-8).toUpperCase()}
               </span>
               <span>
-                <span className="font-bold">Date: </span>
+                <span className="font-black">Date: </span>
                 {dayjs(returnBill.createdAt).format("DD/MM/YYYY")}
               </span>
             </div>
             <div className="flex justify-between">
               <span>
-                <span className="font-bold">Ref Inv: </span>
+                <span className="font-black">Ref Inv: </span>
                 {returnBill?.originalBill?.id
                   ? `B-${returnBill.originalBill.id}`
                   : returnBill?.originalBill?._id?.slice(-8).toUpperCase() || "N/A"}
               </span>
               <span>
-                <span className="font-bold">Time: </span>
+                <span className="font-black">Time: </span>
                 {dayjs(returnBill.createdAt).format("hh:mm A")}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="truncate max-w-[160px]">
-                <span className="font-bold">Cust: </span>
-                <span className="capitalize">
+                <span className="font-black">Cust: </span>
+                <span className="capitalize font-bold">
                   {returnBill?.customer?.name || "Walk-in Customer"}
                 </span>
               </span>
               <span>
-                <span className="font-bold">Mode: </span>
+                <span className="font-black">Mode: </span>
                 {paymentMode || "CASH"}
               </span>
             </div>
             <div className="flex justify-between">
               <span>
-                <span className="font-bold">Mob: </span>
+                <span className="font-black">Mob: </span>
                 {returnBill?.customer?.phone || "N/A"}
               </span>
               <span>
-                <span className="font-bold">Items: </span>
+                <span className="font-black">Items: </span>
                 {returnBill?.items?.length || 0}
               </span>
             </div>
           </div>
 
-          <div className="border-b border-dashed border-black my-2 w-full" />
+          <div className="border-b-2 border-dashed border-black my-2 w-full" />
 
           {/* 4-Column Return Items Table */}
           <main className="w-full">
             <table className="w-full text-xs font-thermal-a border-collapse">
               <thead>
-                <tr className="border-b border-dashed border-black text-[11px] font-bold">
-                  <th className="text-left pb-1 font-bold w-[42%]">ITEM</th>
-                  <th className="text-center pb-1 font-bold w-[18%]">QTY</th>
-                  <th className="text-right pb-1 font-bold w-[18%]">RATE</th>
-                  <th className="text-right pb-1 font-bold w-[22%]">REFUND</th>
+                <tr className="border-b-2 border-dashed border-black text-xs font-black">
+                  <th className="text-left pb-1 font-black w-[42%]">ITEM</th>
+                  <th className="text-center pb-1 font-black w-[18%]">QTY</th>
+                  <th className="text-right pb-1 font-black w-[18%]">RATE</th>
+                  <th className="text-right pb-1 font-black w-[22%]">REFUND</th>
                 </tr>
               </thead>
               <tbody>
@@ -375,20 +389,20 @@ const ReturnBillPrint = ({
                   return (
                     <tr
                       key={item._id || index}
-                      className="border-b border-dotted border-gray-300"
+                      className="border-b border-dashed border-black"
                     >
                       <td className="py-1 pr-1 align-top text-left">
-                        <div className="leading-tight capitalize font-semibold break-words">
+                        <div className="leading-tight capitalize font-bold break-words">
                           {item.product?.name || "Unknown Product"}
                         </div>
                       </td>
-                      <td className="py-1 text-center align-top whitespace-nowrap font-thermal-b">
+                      <td className="py-1 text-center align-top whitespace-nowrap font-thermal-b font-bold">
                         {item.quantityReturned}
                       </td>
-                      <td className="py-1 text-right align-top whitespace-nowrap font-thermal-b">
+                      <td className="py-1 text-right align-top whitespace-nowrap font-thermal-b font-bold">
                         {formatNum(item.returnPrice || 0)}
                       </td>
-                      <td className="py-1 text-right align-top font-bold whitespace-nowrap">
+                      <td className="py-1 text-right align-top font-black whitespace-nowrap">
                         {Math.ceil(item.returnTotal || 0)}
                       </td>
                     </tr>
@@ -397,24 +411,24 @@ const ReturnBillPrint = ({
               </tbody>
             </table>
 
-            <div className="border-b border-dashed border-black mt-2 mb-1.5 w-full" />
+            <div className="border-b-2 border-dashed border-black mt-2 mb-1.5 w-full" />
 
             {/* Summary Block */}
-              <div className="w-full text-xs font-thermal-a space-y-1">
+              <div className="w-full text-xs font-thermal-a space-y-1 font-bold">
 
-                <div className="flex justify-between">
+                <div className="flex justify-between font-bold">
                   <span>Return Subtotal:</span>
                   <span>₹{formatNum(productsTotal || returnBill.totalAmount)}</span>
                 </div>
 
                 {discount > 0 && (
-                  <div className="flex justify-between font-thermal-b">
+                  <div className="flex justify-between font-thermal-b font-bold">
                     <span>Revert Discount:</span>
                     <span>-₹{formatNum(discount)}</span>
                   </div>
                 )}
 
-                <div className="flex justify-between font-semibold">
+                <div className="flex justify-between font-black">
                   <span>Total Return:</span>
                   <span>₹{formatNum(returnBill.totalAmount || 0)}</span>
                 </div>
@@ -422,18 +436,18 @@ const ReturnBillPrint = ({
                 {paymentMode === "ADJUSTMENT" || previousOutstanding !== undefined ? (
                   <>
                     <div className="border-b border-dashed border-black my-1 w-full" />
-                    <div className="flex justify-between font-thermal-b text-[11px]">
+                    <div className="flex justify-between font-thermal-b font-bold text-xs">
                       <span>Previous Due:</span>
-                      <span>
+                      <span className="font-black">
                         {(previousOutstanding || 0) < 0 ? "-" : "+"}₹{formatNum(Math.abs(Number(previousOutstanding || 0)))}
                       </span>
                     </div>
-                    <div className="flex justify-between font-thermal-b text-[11px]">
+                    <div className="flex justify-between font-thermal-b font-bold text-xs">
                       <span>Less Return:</span>
                       <span>-₹{formatNum(returnBill.totalAmount || 0)}</span>
                     </div>
                     <div className="border-b-2 border-dashed border-black my-1 w-full" />
-                    <div className="flex justify-between font-bold text-xs">
+                    <div className="flex justify-between font-black text-sm">
                       <span>
                         {(newOutstanding ?? ((previousOutstanding || 0) - (returnBill.totalAmount || 0))) > 0
                           ? "Final Outstanding:"
@@ -449,12 +463,12 @@ const ReturnBillPrint = ({
                 ) : (
                   <>
                     <div className="border-b border-dashed border-black my-1 w-full" />
-                    <div className="flex justify-between font-thermal-b text-[11px]">
+                    <div className="flex justify-between font-thermal-b font-bold text-xs">
                       <span>Refund Paid ({paymentMode}):</span>
                       <span>-₹{formatNum(returnBill.totalAmount || 0)}</span>
                     </div>
                     <div className="border-b-2 border-dashed border-black my-1 w-full" />
-                    <div className="flex justify-between font-bold text-xs">
+                    <div className="flex justify-between font-black text-sm">
                       <span>Final Balance:</span>
                       <span>₹0</span>
                     </div>
@@ -464,9 +478,9 @@ const ReturnBillPrint = ({
 
             {/* Receipt Footer */}
             <div className="border-b border-dashed border-black mt-3 mb-2 w-full" />
-            <footer className="text-center text-[10px] font-thermal-b space-y-0.5 pb-1">
-              <p className="font-bold italic">Returns subject to store policy.</p>
-              <p className="opacity-80">Powered by InvoSync</p>
+            <footer className="text-center text-[11px] font-thermal-b space-y-0.5 pb-1 font-bold">
+              <p className="font-black italic">Returns subject to store policy.</p>
+              <p>Powered by InvoSync</p>
             </footer>
           </main>
         </div>
