@@ -6,7 +6,9 @@ export interface ITransaction {
   date: string;
   previousOutstanding?: number;
   newOutstanding?: number;
-  customer: string; // ObjectId as string
+  customer?: string | any; // ObjectId as string or populated object
+  supplier?: string | any; // ObjectId as string or populated object
+  supplierPurchaseId?: string | any;
   approved: boolean;
   approvedBy: string; // ObjectId as string
   name: string;
@@ -23,7 +25,7 @@ export interface ITransaction {
 type TransactionStore = {
   transactionId: number;
   setTransactionId: (transactionId: number) => void;
-  transactionApprovals: ITransaction[]
+  transactionApprovals: ITransaction[];
   setTransactionApproval: (approvals: ITransaction[]) => void;
   transactions: ITransaction[];
   loading: boolean;
@@ -39,7 +41,8 @@ type TransactionStore = {
 const useTransactionStore = create<TransactionStore>((set) => ({
   transactionId: 0,
   transactionApprovals: [],
-  setTransactionApproval: (approvals: ITransaction[]) => set({ transactionApprovals: approvals }),
+  setTransactionApproval: (approvals: ITransaction[]) =>
+    set({ transactionApprovals: approvals }),
   setTransactionId: (transactionId) => set({ transactionId }),
   transactions: [],
   loading: false,
@@ -47,13 +50,37 @@ const useTransactionStore = create<TransactionStore>((set) => ({
   setTransactions: (transactions) => set({ transactions }),
   addTransaction: (transaction) => {
     set((state) => {
-      // If paymentIn is false (internal expense) or already approved, it goes straight to the main ledger
+      // If paymentIn is false (internal expense/supplier payment) or already approved, it goes straight to the main ledger
       if (transaction.paymentIn === false || transaction.approved === true) {
+        const exists = state.transactions.some(
+          (t) => t._id === transaction._id || (t.id && transaction.id && t.id === transaction.id)
+        );
+        if (exists) {
+          return {
+            transactions: state.transactions.map((t) =>
+              t._id === transaction._id || (t.id && transaction.id && t.id === transaction.id)
+                ? transaction
+                : t
+            ),
+          };
+        }
         return {
-          transactions: [...state.transactions, transaction],
+          transactions: [transaction, ...state.transactions],
         };
       }
       // Customer payments needing approval go to the approvals queue
+      const exists = state.transactionApprovals.some(
+        (t) => t._id === transaction._id || (t.id && transaction.id && t.id === transaction.id)
+      );
+      if (exists) {
+        return {
+          transactionApprovals: state.transactionApprovals.map((t) =>
+            t._id === transaction._id || (t.id && transaction.id && t.id === transaction.id)
+              ? transaction
+              : t
+          ),
+        };
+      }
       return {
         transactionApprovals: [transaction, ...state.transactionApprovals],
       };
@@ -61,20 +88,28 @@ const useTransactionStore = create<TransactionStore>((set) => ({
   },
   approveTransaction: (transaction: ITransaction) => {
     set((state) => {
-      const exists = state.transactionApprovals.some((t) => t._id === transaction._id);
+      const exists = state.transactionApprovals.some(
+        (t) => t._id === transaction._id,
+      );
       if (!exists) return state;
       return {
-        transactionApprovals: state.transactionApprovals.filter((t) => t._id !== transaction._id),
+        transactionApprovals: state.transactionApprovals.filter(
+          (t) => t._id !== transaction._id,
+        ),
         transactions: [transaction, ...state.transactions],
       };
     });
   },
   rejectTransaction: (transaction: ITransaction) => {
     set((state) => {
-      const exists = state.transactionApprovals.some((t) => t._id === transaction._id);
+      const exists = state.transactionApprovals.some(
+        (t) => t._id === transaction._id,
+      );
       if (!exists) return state;
       return {
-        transactionApprovals: state.transactionApprovals.filter((t) => t._id !== transaction._id),
+        transactionApprovals: state.transactionApprovals.filter(
+          (t) => t._id !== transaction._id,
+        ),
       };
     });
   },

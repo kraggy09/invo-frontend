@@ -4,8 +4,9 @@ export interface ICustomer {
   _id: string;
   name: string;
   outstanding: number;
-  phone: number;
-  __v: number;
+  phone: number | string;
+  address?: string;
+  __v?: number;
 }
 
 interface CustomerStore {
@@ -62,8 +63,11 @@ const useCustomerStore = create<CustomerStore>((set, get) => ({
 
   updateCustomer: (updatedCustomer) =>
     set((state) => {
-      const newCustomers = state.customers.map((c) => (c._id === updatedCustomer._id ? updatedCustomer : c)).sort((a, b) =>
-        a.name.localeCompare(b.name)
+      const targetId = updatedCustomer._id || (updatedCustomer as any).id;
+      const newCustomers = state.customers.map((c) =>
+        c._id === targetId ? { ...c, ...updatedCustomer } : c
+      ).sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "")
       );
       return { customers: newCustomers };
     }),

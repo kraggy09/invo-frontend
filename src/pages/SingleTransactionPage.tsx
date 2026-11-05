@@ -75,7 +75,7 @@ const SingleTransactionPage = () => {
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 font-black text-gray-400 hover:text-indigo-600 transition-all p-0 h-auto uppercase tracking-widest text-[10px]"
           >
-            Terminal Root / Previous
+            Back
           </Button>
           <div className="flex items-center gap-4 sm:gap-6">
             <Button
@@ -87,7 +87,7 @@ const SingleTransactionPage = () => {
               Print Receipt
             </Button>
             <div className="text-right hidden sm:block">
-              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block">Ledger Insight</span>
+              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block">Transaction Details</span>
               <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest text-right">
                 ID: {transaction?.id ? `T-${transaction.id}` : transaction?._id?.slice(-8).toUpperCase()}
               </span>
@@ -105,18 +105,18 @@ const SingleTransactionPage = () => {
                 <div className="relative z-10">
                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500 rounded-full mb-4 border border-indigo-400/30">
                     <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    <span className="text-[8px] font-black uppercase tracking-widest">Authorized Entry</span>
+                    <span className="text-[8px] font-black uppercase tracking-widest">Payment Entry</span>
                   </div>
-                  <h1 className="text-3xl font-black tracking-tighter leading-tight">Ledger Record</h1>
+                  <h1 className="text-3xl font-black tracking-tighter leading-tight">Transaction Details</h1>
                   <p className="text-[10px] font-black text-indigo-100/50 uppercase tracking-widest mt-1">
-                    Synced: {dayjs(transaction.createdAt).format("DD MMM YYYY · hh:mm A")}
+                    Date: {dayjs(transaction.createdAt).format("DD MMM YYYY · hh:mm A")}
                   </p>
                 </div>
                 <div className={`relative z-10 px-6 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest border backdrop-blur-md ${!isPaymentIn
                   ? "bg-red-500/20 border-red-500/30 text-red-100"
                   : "bg-green-500/20 border-green-500/30 text-green-100"
                   }`}>
-                  {!isPaymentIn ? "Debit Adjustment" : "Credit Addition"}
+                  {!isPaymentIn ? "Payment Out" : "Payment In"}
                 </div>
 
                 <div className="absolute top-0 right-0 p-20 opacity-5 group-hover:scale-110 transition-transform duration-1000 rotate-12">
@@ -126,36 +126,36 @@ const SingleTransactionPage = () => {
 
               <div className="p-8 sm:p-10 grid grid-cols-1 sm:grid-cols-2 gap-8 border-b border-gray-50">
                 <div>
-                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-2">Registry Entity</span>
-                  <p className="text-base font-black text-gray-800 tracking-tight capitalize">{transaction.name || "General Revenue Hub"}</p>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-2">Customer / Entity</span>
+                  <p className="text-base font-black text-gray-800 tracking-tight capitalize">{transaction.name || "General"}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-2">Intent Objective</span>
-                  <p className="text-base font-bold text-gray-500 capitalize">{transaction.purpose || "Manual Synchronization"}</p>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-2">Purpose</span>
+                  <p className="text-base font-bold text-gray-500 capitalize">{transaction.purpose || "Manual Entry"}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-2">Authorized Operator</span>
-                  <p className="text-base font-black text-indigo-600 tracking-tight">{transaction.approvedBy?.name || "Terminal Admin"}</p>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-2">Approved By</span>
+                  <p className="text-base font-black text-indigo-600 tracking-tight">{transaction.approvedBy?.name || "Admin"}</p>
                 </div>
                 <div className="sm:text-right">
-                  <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest block mb-2">System Hash</span>
+                  <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest block mb-2">Transaction ID</span>
                   <p className="text-[10px] font-mono font-bold text-gray-300 break-all">{transaction._id}</p>
                 </div>
               </div>
 
               <div className="p-8 sm:p-10 bg-gray-50/30 grid grid-cols-1 sm:grid-cols-3 gap-8">
                 <div>
-                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-1">Baseline</span>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest block mb-1">Previous Balance</span>
                   <p className="text-xl font-black text-gray-400 tracking-tighter">₹{Number(transaction.previousOutstanding || 0).toLocaleString()}</p>
                 </div>
                 <div className="sm:text-center">
-                  <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest block mb-1">Delta Flow</span>
+                  <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest block mb-1">Amount</span>
                   <p className={`text-xl font-black tracking-tighter ${!isPaymentIn ? "text-red-500" : "text-green-600"}`}>
                     {isPaymentIn ? "-" : "+"} ₹{Number(transaction.amount || transaction.payment || 0).toLocaleString()}
                   </p>
                 </div>
                 <div className="sm:text-right">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Finalized Ledger</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">New Balance</span>
                   <p className="text-2xl font-black text-gray-800 tracking-tighter">₹{Number(transaction.newOutstanding || 0).toLocaleString()}</p>
                 </div>
               </div>
@@ -166,7 +166,7 @@ const SingleTransactionPage = () => {
               }`}>
               <div>
                 <span className={`text-[10px] font-black uppercase tracking-[0.2em] block mb-2 ${!isPaymentIn ? "text-red-400" : "text-green-400"}`}>
-                  Registry {!isPaymentIn ? "Debit" : "Credit"}
+                  {!isPaymentIn ? "Payment Out" : "Payment In"}
                 </span>
                 <h2 className={`text-5xl font-black tracking-tighter leading-none ${!isPaymentIn ? "text-red-600" : "text-green-600"}`}>
                   ₹{Number(transaction.amount || transaction.payment || 0).toLocaleString()}
@@ -182,7 +182,7 @@ const SingleTransactionPage = () => {
             <div className="w-20 h-20 rounded-[32px] bg-red-50 text-red-500 flex items-center justify-center mb-6">
               <DollarOutlined style={{ fontSize: 32 }} />
             </div>
-            <p className="text-sm font-black text-gray-300 uppercase tracking-widest">Ledger Entry Synchronization Failed</p>
+            <p className="text-sm font-black text-gray-300 uppercase tracking-widest">Transaction Not Found</p>
           </div>
         )}
       </div>

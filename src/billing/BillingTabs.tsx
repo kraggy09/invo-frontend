@@ -1,5 +1,4 @@
-import { Tabs, Button, Dropdown, MenuProps, App, Popconfirm } from "antd";
-// import { modal } from "../utils/antdStatic"; // We will use useApp() directly for maximum reliability
+import { Button, Dropdown, MenuProps, App, Popconfirm } from "antd";
 import {
   PlusOutlined,
   CloseOutlined,
@@ -8,7 +7,6 @@ import {
   ShopOutlined,
   ThunderboltOutlined,
   WarningOutlined,
-  QuestionCircleOutlined,
 } from "@ant-design/icons";
 import { useEffect } from "react";
 import "./billingTabs.css";
@@ -17,22 +15,21 @@ import useTabsStore from "../store/tabs.store";
 import { useAddTab } from "../hooks/useAddTab";
 import useUserStore from "../store/user.store";
 
-const BillingTabs = () => {
+interface BillingTabsProps {
+  onSelectTab?: () => void;
+  onClose?: () => void;
+}
+
+const BillingTabs = ({ onSelectTab, onClose }: BillingTabsProps = {}) => {
   const { modal } = App.useApp();
   const {
     bills,
-    initialBills,
-    addBill,
     currentBillingId,
     setCurrentBillingId,
     removeBill,
   } = useCurrentBillStore();
   const {
     tabs,
-    activeKey,
-    setTabs,
-    addTab: addTabStore,
-    setActiveKey,
     updateFiveMinutesStatus,
     removeTabAndBill,
   } = useTabsStore();
@@ -47,7 +44,6 @@ const BillingTabs = () => {
     return () => clearInterval(inter);
   }, [bills, updateFiveMinutesStatus]);
 
-  // const addTab = useAddTab(); - defined above
   const pricingMode = useUserStore(
     (state) => state.user?.shopSettings?.pricingMode,
   );
@@ -62,7 +58,10 @@ const BillingTabs = () => {
           key: "RETAIL",
           label: "Retail Bill",
           icon: <ShoppingCartOutlined className="text-blue-500" />,
-          onClick: () => addTab("RETAIL"),
+          onClick: () => {
+            addTab("RETAIL");
+            onSelectTab?.();
+          },
         },
       ]
     : [
@@ -70,19 +69,28 @@ const BillingTabs = () => {
           key: "RETAIL",
           label: "Retail Bill",
           icon: <ShoppingCartOutlined className="text-blue-500" />,
-          onClick: () => addTab("RETAIL"),
+          onClick: () => {
+            addTab("RETAIL");
+            onSelectTab?.();
+          },
         },
         {
           key: "WHOLESALE",
           label: "Wholesale Bill",
           icon: <ShopOutlined className="text-green-500" />,
-          onClick: () => addTab("WHOLESALE"),
+          onClick: () => {
+            addTab("WHOLESALE");
+            onSelectTab?.();
+          },
         },
         {
           key: "SUPERWHOLESALE",
           label: "Super Wholesale Bill",
           icon: <ThunderboltOutlined className="text-purple-500" />,
-          onClick: () => addTab("SUPERWHOLESALE"),
+          onClick: () => {
+            addTab("SUPERWHOLESALE");
+            onSelectTab?.();
+          },
         },
       ];
 
@@ -119,35 +127,48 @@ const BillingTabs = () => {
           animation: inner-pulse 1.5s infinite ease-in-out;
         }
       `}</style>
-      <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+      <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-black text-gray-800 tracking-tight">
-            Active Invoices
+            Active Bills
           </h2>
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">
-            Terminal Sessions
+            Open Bills ({tabs.length})
           </p>
         </div>
-        {isRetailOnly ? (
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => addTab("RETAIL")}
-            className="w-10 h-10 rounded-xl bg-indigo-600 border-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100"
-          />
-        ) : (
-          <Dropdown
-            menu={{ items: menuItems }}
-            placement="bottomRight"
-            trigger={["click"]}
-          >
+        <div className="flex items-center gap-2">
+          {isRetailOnly ? (
             <Button
               type="primary"
               icon={<PlusOutlined />}
+              onClick={() => {
+                addTab("RETAIL");
+                onSelectTab?.();
+              }}
               className="w-10 h-10 rounded-xl bg-indigo-600 border-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100"
             />
-          </Dropdown>
-        )}
+          ) : (
+            <Dropdown
+              menu={{ items: menuItems }}
+              placement="bottomRight"
+              trigger={["click"]}
+            >
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                className="w-10 h-10 rounded-xl bg-indigo-600 border-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100"
+              />
+            </Dropdown>
+          )}
+          {onClose && (
+            <Button
+              type="text"
+              icon={<CloseOutlined />}
+              onClick={onClose}
+              className="w-10 h-10 rounded-xl lg:hidden flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            />
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
@@ -161,7 +182,10 @@ const BillingTabs = () => {
           tabs.map((tab) => (
             <div
               key={tab.key}
-              onClick={() => setCurrentBillingId(parseInt(tab.key, 10))}
+              onClick={() => {
+                setCurrentBillingId(parseInt(tab.key, 10));
+                onSelectTab?.();
+              }}
               className={`group relative p-4 rounded-2xl border-2 transition-all cursor-pointer ${tab.fiveMinutes ? "stale-blink" : ""} ${
                 currentBillingId.toString() === tab.key
                   ? "bg-white border-indigo-600 text-indigo-600 shadow-md scale-[1.02]"
@@ -176,7 +200,7 @@ const BillingTabs = () => {
                       : "text-gray-300"
                   }`}
                 >
-                  Invoice #{tab.key.slice(-4).toUpperCase()}
+                  Bill #{tab.key.slice(-4).toUpperCase()}
                 </span>
                 {(() => {
                   const bill = bills.find(
@@ -193,7 +217,7 @@ const BillingTabs = () => {
                         e.stopPropagation();
                         if (!hasItems) onConfirmDelete(tab.key);
                       }}
-                      className={`opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center rounded-xl w-9 h-9 hover:bg-red-50 hover:text-red-600 ${
+                      className={`opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all flex items-center justify-center rounded-xl w-9 h-9 hover:bg-red-50 hover:text-red-600 ${
                         currentBillingId.toString() === tab.key
                           ? "text-indigo-600"
                           : "text-gray-400"
@@ -203,8 +227,8 @@ const BillingTabs = () => {
 
                   return hasItems ? (
                     <Popconfirm
-                      title="Close Active Invoice?"
-                      description={`This invoice has ${bill?.purchased.length} items. All progress will be lost.`}
+                      title="Close This Bill?"
+                      description={`This bill has ${bill?.purchased.length} items. Are you sure you want to discard it?`}
                       onConfirm={() => onConfirmDelete(tab.key)}
                       onCancel={(e) => e?.stopPropagation()}
                       okText="Yes, Close"
@@ -232,7 +256,7 @@ const BillingTabs = () => {
                 <span
                   className={`font-black text-sm tracking-tight ${currentBillingId.toString() === tab.key ? "text-indigo-900" : "text-gray-600"}`}
                 >
-                  Session {tab.label}
+                  Bill {tab.label}
                 </span>
                 {bills.find((b) => b.id === tab.key)?.billType && (
                   <span
@@ -262,10 +286,10 @@ const BillingTabs = () => {
       <div className="p-4 border-t border-gray-100 bg-gray-50/50">
         <div className="flex items-center justify-between px-2">
           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-            System Load
+            Status
           </span>
           <span className="text-[10px] font-black text-indigo-500 uppercase font-bold">
-            Synchronized
+            Ready
           </span>
         </div>
       </div>

@@ -22,7 +22,9 @@ import {
   UnlockOutlined,
   SafetyCertificateOutlined,
   SmileOutlined,
-  PlusOutlined
+  PlusOutlined,
+  RollbackOutlined,
+  ShopOutlined
 } from "@ant-design/icons";
 import useUserStore from "../store/user.store";
 import { message } from "../utils/antdStatic";
@@ -171,7 +173,7 @@ const DashboardPage = () => {
               Control <span className="text-indigo-600">Center</span>
             </h1>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
-              {dayjs().format("dddd, MMMM D")} • {isAuthorized ? (isUnlocked ? "Analytical Mode" : "Locked Terminal") : "Standard Mode"}
+              {dayjs().format("dddd, MMMM D")} • {isAuthorized ? (isUnlocked ? "Admin View" : "Protected View") : "Staff"}
             </p>
           </div>
 
@@ -200,7 +202,7 @@ const DashboardPage = () => {
                   ? "bg-red-50 text-red-600 border-red-100 hover:bg-red-600 hover:text-white"
                   : "bg-white text-indigo-600 border-gray-100 hover:border-indigo-600 shadow-sm"
                   }`}
-                title={isUnlocked ? "Secure Terminal" : "Unlock Terminal"}
+                title={isUnlocked ? "Lock Admin View" : "Unlock Admin View"}
               >
                 {isUnlocked ? <LockOutlined className="text-lg" /> : <UnlockOutlined className="text-lg" />}
               </button>
@@ -254,7 +256,7 @@ const DashboardPage = () => {
                             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black ${getIncrease(stat.value, stat.prev) >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                               }`}>
                               {getIncrease(stat.value, stat.prev) >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-                              {Math.abs(getIncrease(stat.value, stat.prev)).toFixed(1)}% Yield
+                              {Math.abs(getIncrease(stat.value, stat.prev)).toFixed(1)}% Growth
                             </div>
                           )}
                         </div>
@@ -418,22 +420,22 @@ const DashboardPage = () => {
                   <div className="w-24 h-24 bg-indigo-50 rounded-3xl flex items-center justify-center text-indigo-600 text-4xl mb-8 animate-pulse shadow-lg shadow-indigo-50">
                     <SafetyCertificateOutlined />
                   </div>
-                  <h2 className="text-3xl font-black text-gray-800 tracking-tighter mb-4 uppercase">Analytics Encrypted</h2>
+                  <h2 className="text-3xl font-black text-gray-800 tracking-tighter mb-4 uppercase">Admin PIN Required</h2>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-12 max-w-md mx-auto leading-relaxed">
-                    Please enter your PIN to access the analytics dashboard
+                    Please enter your PIN to view sales and profit totals
                   </p>
 
                   <div className="w-full max-w-xs space-y-6">
                     {!user?.pin ? (
                       <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-center">
-                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-tight">Terminal Locked</p>
-                        <p className="text-[9px] font-bold text-red-400 mt-1">Please ask your admin to assign you a PIN</p>
+                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-tight">PIN Not Set</p>
+                        <p className="text-[9px] font-bold text-red-400 mt-1">Please set a PIN on your account or ask the admin</p>
                       </div>
                     ) : (
                       <>
                         <div className="relative">
                           <AntInput.Password
-                            placeholder="SECURITY KEY"
+                            placeholder="ENTER PIN"
                             className="h-16 rounded-2xl border-gray-100 bg-gray-50/50 font-black tracking-[0.5em] text-center text-xl hover:bg-white focus:bg-white transition-all duration-300"
                             value={pin}
                             onChange={(e) => setPin(e.target.value)}
@@ -444,7 +446,7 @@ const DashboardPage = () => {
                           onClick={() => handlePinSubmit(pin)}
                           className="w-full h-16 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all duration-500"
                         >
-                          Verify Credentials
+                          Unlock
                         </button>
                       </>
                     )}
@@ -458,12 +460,12 @@ const DashboardPage = () => {
                 <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-green-600 text-3xl mb-8">
                   <SmileOutlined />
                 </div>
-                <h2 className="text-2xl font-black text-gray-800 tracking-tighter mb-4 uppercase">Operational Mode Active</h2>
+                <h2 className="text-2xl font-black text-gray-800 tracking-tighter mb-4 uppercase">Staff Dashboard</h2>
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8 max-w-sm mx-auto leading-relaxed">
-                  Terminal access is restricted to operational duties. Inventory and Quick Management features are available in the sidebar.
+                  Billing, Products, and Customer management are available from the navigation menu.
                 </p>
                 <div className="p-1 px-4 bg-green-50 text-green-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-green-100">
-                  Standard Access Cluster
+                  Staff Access
                 </div>
               </div>
             )}
@@ -479,16 +481,25 @@ const DashboardPage = () => {
             {/* Quick Access Matrix */}
             <div className="bg-white p-10 rounded-[40px] shadow-sm border border-gray-100">
               <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.2em] mb-8">Quick Access</h3>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
                 {[
-                  { to: "/new-bill", icon: <DollarOutlined />, label: "New Billing", color: "text-indigo-600", bg: "hover:bg-indigo-50/50" },
-                  { to: "/products", icon: <ShoppingOutlined />, label: "Inventory", color: "text-green-600", bg: "hover:bg-green-50/50" },
+                  { to: "/new-bill", icon: <DollarOutlined />, label: "New Bill", color: "text-indigo-600", bg: "hover:bg-indigo-50/50", fullWidth: true },
+                  { to: "/returns", icon: <RollbackOutlined />, label: "Return Bill", color: "text-rose-600", bg: "hover:bg-rose-50/50" },
+                  { to: "/suppliers", icon: <ShopOutlined />, label: "Suppliers", color: "text-amber-600", bg: "hover:bg-amber-50/50" },
                   { to: "/customers", icon: <UserOutlined />, label: "Customers", color: "text-purple-600", bg: "hover:bg-purple-50/50" },
-                  { to: "/daily-report", icon: <FileTextOutlined />, label: "Daily Reports", color: "text-orange-600", bg: "hover:bg-orange-50/50" }
+                  { to: "/daily-report", icon: <FileTextOutlined />, label: "Daily Report", color: "text-orange-600", bg: "hover:bg-orange-50/50" }
                 ].map((act, i) => (
-                  <Link key={i} to={act.to} className={`group p-8 rounded-[32px] bg-gray-50/50 ${act.bg} shadow-none hover:shadow-2xl hover:shadow-gray-200/50 transition-all duration-500 border border-gray-50/50 text-center`}>
-                    <div className={`text-3xl mb-4 ${act.color} transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>{act.icon}</div>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest group-hover:text-gray-800 transition-colors uppercase">{act.label}</p>
+                  <Link
+                    key={i}
+                    to={act.to}
+                    className={`group ${act.fullWidth ? "col-span-2 p-5 flex items-center justify-center gap-3.5 bg-indigo-50/60 hover:bg-indigo-100/60 border-indigo-100/80" : "p-6 flex flex-col items-center justify-center bg-gray-50/50 border-gray-50/50"} ${act.bg} rounded-[28px] shadow-none hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-500 border text-center`}
+                  >
+                    <div className={`text-2xl ${act.fullWidth ? "" : "mb-3"} ${act.color} transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
+                      {act.icon}
+                    </div>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${act.fullWidth ? "text-indigo-700" : "text-gray-400 group-hover:text-gray-800"} transition-colors`}>
+                      {act.label}
+                    </p>
                   </Link>
                 ))}
               </div>

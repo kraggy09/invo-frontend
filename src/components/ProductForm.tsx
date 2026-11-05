@@ -6,9 +6,14 @@ import {
   InputNumber,
   Button,
   Select,
+  Radio,
+  Modal,
 } from "antd";
-import { ArrowLeftOutlined, ShoppingOutlined, PlusOutlined, EditOutlined, CloseOutlined, BarcodeOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, ShoppingOutlined, PlusOutlined, EditOutlined, CloseOutlined, BarcodeOutlined, ShopOutlined } from "@ant-design/icons";
 import useUserStore from "../store/user.store";
+import useSupplierStore from "../store/supplier.store";
+import apiCaller from "../utils/apiCaller";
+import { formatIndianNumber } from "../utils";
 
 export type ProductFormValues = {
   name: string;
@@ -24,6 +29,9 @@ export type ProductFormValues = {
   box: number | string;
   minQuantity: number | string;
   category: string | null;
+  supplierId?: string | null;
+  paymentMode?: "CASH" | "CREDIT";
+  cashPaid?: number;
 };
 
 interface ProductFormProps {
@@ -48,6 +56,8 @@ const defaultValues: ProductFormValues = {
   box: 0,
   minQuantity: 1,
   category: null,
+  supplierId: null,
+  paymentMode: "CASH",
 };
 
 const ProductForm = ({
@@ -61,6 +71,44 @@ const ProductForm = ({
   const navigate = useNavigate();
   const [barcodes, setBarcodes] = useState<string[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
+
+  const { suppliers } = useSupplierStore();
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [newSupplierForm] = Form.useForm();
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
+
+  const watchedStock = Form.useWatch("stock", form);
+  const watchedCostPrice = Form.useWatch("costPrice", form);
+  const watchedSupplierId = Form.useWatch("supplierId", form);
+
+  const totalInwardValue = (Number(watchedStock) || 0) * (Number(watchedCostPrice) || 0);
+
+  useEffect(() => {
+    if (suppliers.length === 0) {
+      apiCaller.get("/suppliers").then((res) => {
+        if (res.data?.success && res.data?.data?.suppliers) {
+          useSupplierStore.getState().setSuppliers(res.data.data.suppliers);
+        }
+      }).catch(console.error);
+    }
+  }, [suppliers.length]);
+
+  const handleCreateSupplier = async (values: any) => {
+    setCreatingSupplier(true);
+    try {
+      const res = await apiCaller.post("/suppliers", values);
+      if (res.data?.success && res.data?.data?.supplier) {
+        useSupplierStore.getState().addSupplier(res.data.data.supplier);
+        form.setFieldValue("supplierId", res.data.data.supplier._id);
+        setShowSupplierModal(false);
+        newSupplierForm.resetFields();
+      }
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setCreatingSupplier(false);
+    }
+  };
 
   const pricingMode = useUserStore(
     (state) => state.user?.shopSettings?.pricingMode
@@ -89,6 +137,8 @@ const ProductForm = ({
       box: isRetailOnly ? 0 : Number(values.box) || 0,
       stock: Number(values.stock) || 0,
       minQuantity: Number(values.minQuantity) || 1,
+      supplierId: values.supplierId || null,
+      paymentMode: values.paymentMode || "CASH",
     };
     onSubmit(finalValues);
   };
@@ -152,7 +202,7 @@ const ProductForm = ({
               {mode === "edit" ? "Edit Product" : "Create Product"}
             </h1>
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5">
-              {mode === "edit" ? "Catalog Record Modification" : "New Catalog Registration"}
+              {mode === "edit" ? "Edit product details" : "Add new product details"}
             </p>
           </div>
         </div>
@@ -168,7 +218,7 @@ const ProductForm = ({
             <div className="relative z-10">
               <p className="text-[10px] font-black text-indigo-100 uppercase tracking-widest mb-1">Inventory Management</p>
               <h2 className="text-xl font-black tracking-tight leading-none">
-                {mode === "edit" ? "Modify Registry Entry" : "Register New Asset"}
+                {mode === "edit" ? "Edit Product" : "Add New Product"}
               </h2>
             </div>
           </div>
@@ -187,7 +237,7 @@ const ProductForm = ({
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
-                <h3 className="text-[11px] font-black text-gray-800 uppercase tracking-[0.15em]">Identification</h3>
+                <h3 className="text-[11px] font-black text-gray-800 uppercase tracking-[0.15em]">Product Details</h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                 <Form.Item
@@ -394,6 +444,87 @@ const ProductForm = ({
               </div>
             </div>
 
+            {mode === "create" && (
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black">
+                      <ShopOutlined />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-black text-gray-800 tracking-wider uppercase">
+                        Supplier & Acquisition (Optional)
+                      </h2>
+                      <p className="text-[10px] font-bold text-gray-400 m-0">
+                        Link initial stock acquisition to a supplier & record cash/credit payment
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="dashed"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    onClick={() => setShowSupplierModal(true)}
+                    className="rounded-xl text-xs font-bold text-emerald-600 border-emerald-300"
+                  >
+                    Quick Add Supplier
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <Form.Item
+                    label={<span className={labelCls}>Supplier / Vendor</span>}
+                    name="supplierId"
+                  >
+                    <Select
+                      showSearch
+                      allowClear
+                      placeholder="Select a supplier"
+                      optionFilterProp="label"
+                      className="product-select"
+                      options={suppliers.map((s) => ({
+                        value: s._id,
+                        label: `${s.name} (${s.phone}) - Udhaar: ₹${formatIndianNumber(s.outstanding || 0)}`,
+                      }))}
+                    />
+                  </Form.Item>
+
+                  {watchedSupplierId && totalInwardValue > 0 && (
+                    <Form.Item
+                      label={<span className={labelCls}>Payment Mode</span>}
+                      name="paymentMode"
+                      initialValue="CASH"
+                    >
+                      <Radio.Group buttonStyle="solid" className="w-full flex h-[52px] items-center">
+                        <Radio.Button value="CASH" className="flex-1 text-center font-bold h-full flex items-center justify-center rounded-l-xl">
+                          Cash (Paid now)
+                        </Radio.Button>
+                        <Radio.Button value="CREDIT" className="flex-1 text-center font-bold h-full flex items-center justify-center rounded-r-xl">
+                          Credit (Udhaar)
+                        </Radio.Button>
+                      </Radio.Group>
+                    </Form.Item>
+                  )}
+                </div>
+
+                {watchedSupplierId && totalInwardValue > 0 && (
+                  <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-black text-emerald-800 uppercase tracking-wider">
+                        Initial Stock Inward Value
+                      </div>
+                      <div className="text-[11px] font-medium text-emerald-600">
+                        {Number(watchedStock)} items × ₹{Number(watchedCostPrice)} cost price
+                      </div>
+                    </div>
+                    <div className="text-xl font-black text-emerald-700 font-mono">
+                      ₹{formatIndianNumber(totalInwardValue)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Submit */}
             <Form.Item className="pt-2 mb-0">
               <Button
@@ -403,7 +534,7 @@ const ProductForm = ({
                 icon={mode === "edit" ? <EditOutlined /> : <PlusOutlined />}
                 className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-xs font-black tracking-[0.15em] shadow-xl shadow-indigo-100 transition-all hover:translate-y-[-2px] active:scale-95 uppercase flex items-center justify-center gap-2"
               >
-                {mode === "edit" ? "Update Registry Entry" : "Commit to Registry"}
+                {mode === "edit" ? "Update Product" : "Save Product"}
               </Button>
             </Form.Item>
           </Form>
@@ -478,6 +609,73 @@ const ProductForm = ({
           line-height: 48px !important;
         }
       `}</style>
+
+      {/* Quick Add Supplier Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-3 py-2">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+              <ShopOutlined />
+            </div>
+            <div>
+              <div className="text-base font-black text-gray-800">Register New Supplier</div>
+              <div className="text-[10px] font-bold text-gray-400">Add vendor to catalog instantly</div>
+            </div>
+          </div>
+        }
+        open={showSupplierModal}
+        onCancel={() => setShowSupplierModal(false)}
+        footer={null}
+        destroyOnClose
+        centered
+      >
+        <Form
+          form={newSupplierForm}
+          layout="vertical"
+          onFinish={handleCreateSupplier}
+          className="pt-2"
+        >
+          <Form.Item
+            label={<span className="text-xs font-black text-gray-600 uppercase">Supplier Name</span>}
+            name="name"
+            rules={[{ required: true, message: "Supplier name is required" }]}
+          >
+            <Input placeholder="e.g. Ramesh Trading Co." className="h-11 rounded-xl font-bold" />
+          </Form.Item>
+
+          <Form.Item
+            label={<span className="text-xs font-black text-gray-600 uppercase">Phone Number</span>}
+            name="phone"
+            rules={[
+              { required: true, message: "Phone number is required" },
+              { pattern: /^[0-9]{10}$/, message: "Enter a valid 10-digit phone number" },
+            ]}
+          >
+            <Input placeholder="e.g. 9876543210" maxLength={10} className="h-11 rounded-xl font-bold" />
+          </Form.Item>
+
+          <Form.Item
+            label={<span className="text-xs font-black text-gray-600 uppercase">Address (Optional)</span>}
+            name="address"
+          >
+            <Input.TextArea placeholder="Shop / Market address" rows={2} className="rounded-xl font-medium" />
+          </Form.Item>
+
+          <div className="flex justify-end gap-3 pt-3">
+            <Button onClick={() => setShowSupplierModal(false)} className="rounded-xl font-bold">
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={creatingSupplier}
+              className="bg-indigo-600 hover:bg-indigo-700 rounded-xl font-bold"
+            >
+              Save Supplier
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </main>
   );
 };

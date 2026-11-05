@@ -40,6 +40,7 @@ interface InventoryRequestStore {
   afterStockUpdated: (
     requestsMap: Map<string, { stockAtUpdate: number; newStock: number }>
   ) => void;
+  addOrUpdateRequests: (newRequests: any[]) => void;
   reset: () => void;
 }
 
@@ -67,6 +68,23 @@ export const useInventoryRequestStore = create<InventoryRequestStore>(
       });
       set({ requests: updatedRequests });
       console.log("Stock updated for requests:", updatedRequests);
+    },
+    addOrUpdateRequests: (newRequests) => {
+      const { requests } = get();
+      const requestsMap = new Map(requests.map((r) => [r._id, r]));
+      newRequests.forEach((req) => {
+        if (requestsMap.has(req._id)) {
+          requestsMap.set(req._id, { ...requestsMap.get(req._id), ...req });
+        } else {
+          requestsMap.set(req._id, req);
+        }
+      });
+      const updated = Array.from(requestsMap.values()).sort((a: any, b: any) => {
+        const timeA = new Date(a.createdAt || a.date).getTime();
+        const timeB = new Date(b.createdAt || b.date).getTime();
+        return timeB - timeA;
+      });
+      set({ requests: updated });
     },
     setError: (error) => set({ error }),
     reset: () => set({ requests: [], loading: false, error: null }),

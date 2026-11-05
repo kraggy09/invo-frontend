@@ -33,7 +33,11 @@ import {
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 dayjs.extend(isBetween);
-import useBillStore, { BillCustomer, BillCreatedBy, Bill } from "../store/bill.store";
+import useBillStore, {
+  BillCustomer,
+  BillCreatedBy,
+  Bill,
+} from "../store/bill.store";
 import useTransactionStore from "../store/transaction.store";
 import useReturnBillStore from "../store/returnBill.store";
 import { useNavigate } from "react-router-dom";
@@ -42,7 +46,6 @@ import apiCaller from "../utils/apiCaller";
 import useUserStore from "../store/user.store";
 
 const { RangePicker } = DatePicker;
-
 
 const DailyReportPage = () => {
   const [activeTab, setActiveTab] = useState("bills");
@@ -69,7 +72,7 @@ const DailyReportPage = () => {
     transactions: { current: 1, total: 0, pageSize: 15 },
     payments: { current: 1, total: 0, pageSize: 15 },
     returnBills: { current: 1, total: 0, pageSize: 15 },
-    inventoryRequests: { current: 1, total: 0, pageSize: 15 }
+    inventoryRequests: { current: 1, total: 0, pageSize: 15 },
   });
 
   const [showAdmin, setShowAdmin] = useState(false);
@@ -99,12 +102,14 @@ const DailyReportPage = () => {
   const { user } = useUserStore();
   const billsFromStore = useBillStore((state) => state.bills);
   const transactionsFromStore = useTransactionStore(
-    (state) => state.transactions
+    (state) => state.transactions,
   );
   const { requests: inventoryRequestsFromStore } = useInventoryRequestStore();
   const returnBillsFromStore = useReturnBillStore((state) => state.returnBills);
 
-  const canSeeFinancials = user?.roles?.some((role) => ["ADMIN", "SUPER_ADMIN", "CREATOR"].includes(role));
+  const canSeeFinancials = user?.roles?.some((role) =>
+    ["ADMIN", "SUPER_ADMIN", "CREATOR"].includes(role),
+  );
 
   // Use fetched report data if in historical mode, otherwise use live store
   const isToday =
@@ -118,7 +123,9 @@ const DailyReportPage = () => {
   const returnBills = !isToday ? reportData.returnBills : returnBillsFromStore;
   const inventoryRequests = !isToday
     ? reportData.inventoryRequests
-    : inventoryRequestsFromStore;
+    : inventoryRequestsFromStore.length > 0
+      ? inventoryRequestsFromStore
+      : reportData.inventoryRequests;
 
   const getOutstanding = (b: any) => b.total - (b.payment || 0);
 
@@ -129,24 +136,29 @@ const DailyReportPage = () => {
     return "Pending";
   };
 
-  const pureMappedBills = bills
-    .map((bill: any) => {
-      const dateVal = bill.createdAt || bill.date;
-      return {
-        key: bill._id || bill.id,
-        date: dateVal ? dayjs(dateVal).format("DD/MM/YYYY") : "",
-        time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
-        billId: bill.id || bill._id,
-        billTotal: bill.productsTotal ?? bill.items?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) ?? 0,
-        outstanding: getOutstanding(bill),
-        payment: bill.payment || 0,
-        total: bill.total,
-        customer: bill.customer, // keep the full object
-        createdBy: bill.createdBy, // keep the full object
-        status: bill.status || getStatus(bill),
-        rawData: bill,
-      };
-    });
+  const pureMappedBills = bills.map((bill: any) => {
+    const dateVal = bill.createdAt || bill.date;
+    return {
+      key: bill._id || bill.id,
+      date: dateVal ? dayjs(dateVal).format("DD/MM/YYYY") : "",
+      time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
+      billId: bill.id || bill._id,
+      billTotal:
+        bill.productsTotal ??
+        bill.items?.reduce(
+          (sum: number, item: any) => sum + (item.total || 0),
+          0,
+        ) ??
+        0,
+      outstanding: getOutstanding(bill),
+      payment: bill.payment || 0,
+      total: bill.total,
+      customer: bill.customer, // keep the full object
+      createdBy: bill.createdBy, // keep the full object
+      status: bill.status || getStatus(bill),
+      rawData: bill,
+    };
+  });
 
   const mappedReturnBills = returnBills.map((rb: any) => {
     const dateVal = rb.createdAt || rb.date;
@@ -155,42 +167,46 @@ const DailyReportPage = () => {
       date: dateVal ? dayjs(dateVal).format("DD/MM/YYYY") : "",
       time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
       billId: `R-${rb.id || rb._id}`, // Distinct prefix
-      billTotal: -rb.productsTotal, // Negative to stand out
-      outstanding: rb.previousOutstanding - rb.productsTotal,
-      payment: rb.paymentMode === "CASH" ? -rb.totalAmount : 0,
-      total: rb.previousOutstanding - rb.productsTotal,
+      billTotal: -(rb.productsTotal || rb.totalAmount || 0), // Negative to stand out
+      outstanding: (rb.previousOutstanding || 0) - (rb.productsTotal || rb.totalAmount || 0),
+      payment: rb.paymentMode === "CASH" ? -(rb.totalAmount || 0) : 0,
+      total: (rb.previousOutstanding || 0) - (rb.productsTotal || rb.totalAmount || 0),
       customer: rb.customer,
       createdBy: rb.createdBy,
-      status: "Returned",
-      rawData: rb,
-      isReturn: true
+      status: rb.status || "Returned",
+      rawData: { ...rb, status: rb.status },
+      isReturn: true,
     };
   });
 
-  const mappedBills = [...pureMappedBills, ...(isToday ? mappedReturnBills : [])].sort((a, b) => {
+  const mappedBills = [
+    ...pureMappedBills,
+    ...(isToday ? mappedReturnBills : []),
+  ].sort((a, b) => {
     const timeA = new Date(a.rawData.createdAt || a.rawData.date).getTime();
     const timeB = new Date(b.rawData.createdAt || b.rawData.date).getTime();
     return timeB - timeA;
   });
 
-  const mappedTransactions = transactions
-    .map((t: any) => ({
-      key: t._id,
-      date: t.createdAt ? dayjs(t.createdAt).format("DD/MM/YYYY") : "",
-      time: t.createdAt ? dayjs(t.createdAt).format("hh:mm:ss A") : "",
-      transId: t.id || t._id,
-      purpose: t.purpose || "",
-      name: t.name || "",
-      previousOutstanding: t.previousOutstanding || 0,
-      payment: t.amount || t.payment || 0,
-      newOutstanding: t.newOutstanding || 0,
-      paymentIn: t.paymentIn ?? (!t.taken),
-      approved: t.approved,
-      approvedAt: t.approvedAt,
-      rejectedAt: t.rejectedAt,
-    }))
+  const mappedTransactions = transactions.map((t: any) => ({
+    key: t._id,
+    date: t.createdAt ? dayjs(t.createdAt).format("DD/MM/YYYY") : "",
+    time: t.createdAt ? dayjs(t.createdAt).format("hh:mm:ss A") : "",
+    transId: t.id || t._id,
+    purpose: t.purpose || "",
+    name: t.name || "",
+    previousOutstanding: t.previousOutstanding || 0,
+    payment: t.amount || t.payment || 0,
+    newOutstanding: t.newOutstanding || 0,
+    paymentIn: t.paymentIn ?? !t.taken,
+    approved: t.approved,
+    approvedAt: t.approvedAt,
+    rejectedAt: t.rejectedAt,
+  }));
 
-  const transactionsToUseForPayments = !isToday ? reportData.payments : transactionsFromStore;
+  const transactionsToUseForPayments = !isToday
+    ? reportData.payments
+    : transactionsFromStore;
 
   const mappedPayments = transactionsToUseForPayments
     .map((t: any) => ({
@@ -203,7 +219,7 @@ const DailyReportPage = () => {
       previousOutstanding: t.previousOutstanding || 0,
       payment: t.amount || t.payment || 0,
       newOutstanding: t.newOutstanding || 0,
-      paymentIn: t.paymentIn ?? (!t.taken),
+      paymentIn: t.paymentIn ?? !t.taken,
       approved: t.approved,
     }))
     .reverse();
@@ -218,9 +234,17 @@ const DailyReportPage = () => {
         time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
         dateTime: dayjs(dateVal).format("DD/MM/YYYY HH:mm"),
         productName: request.product?.name ?? "Deleted Product",
-        createdBy: request.createdBy.name,
-        stockChange: `${!request.approved ? request.oldStock : request.stockAtUpdate
-          } → ${request.newStock}`,
+        createdBy:
+          request.createdBy?.name ||
+          request.createdBy?.username ||
+          (typeof request.createdBy === "string"
+            ? request.createdBy
+            : "System"),
+        stockChange: `${
+          !request.approved
+            ? request.oldStock
+            : (request.stockAtUpdate ?? request.oldStock)
+        } → ${request.newStock}`,
         quantity:
           request.quantity > 0 ? `+${request.quantity}` : request.quantity,
         status: request.approved
@@ -242,14 +266,16 @@ const DailyReportPage = () => {
 
   // Filtered data
   const filteredBills = mappedBills.filter((bill: any) => {
-
     if (
       billSearch &&
       !(
         (bill.customer?.name &&
-          bill.customer.name.toLowerCase().includes(billSearch.toLowerCase())) ||
+          bill.customer.name
+            .toLowerCase()
+            .includes(billSearch.toLowerCase())) ||
         (bill.billId && bill.billId.toString().includes(billSearch)) ||
-        (bill.customer?.phone && bill.customer.phone.toString().includes(billSearch))
+        (bill.customer?.phone &&
+          bill.customer.phone.toString().includes(billSearch))
       )
     )
       return false;
@@ -329,10 +355,13 @@ const DailyReportPage = () => {
     }
     if (transactions) {
       for (const t of transactions) {
-        if (t.paymentIn === false) {
-          totalPaymentOut += t.amount ?? t.payment ?? 0;
-        } else {
+        if (
+          t.paymentIn === true &&
+          (t.paymentMode === "CASH" || t.paymentMode === "ONLINE")
+        ) {
           totalPaymentIn += t.amount ?? t.payment ?? 0;
+        } else if (t.paymentIn === false) {
+          totalPaymentOut += t.amount ?? t.payment ?? 0;
         }
       }
     }
@@ -362,7 +391,10 @@ const DailyReportPage = () => {
 
       if (maxHour !== -1) {
         const start = dayjs().hour(maxHour).minute(0).format("hh A");
-        const end = dayjs().hour(maxHour + 1).minute(0).format("hh A");
+        const end = dayjs()
+          .hour(maxHour + 1)
+          .minute(0)
+          .format("hh A");
         peakHour = `${start} - ${end}`;
       }
     }
@@ -401,13 +433,76 @@ const DailyReportPage = () => {
       const startDate = dateRange[0].startOf("day").toISOString();
       const endDate = dateRange[1].endOf("day").toISOString();
 
-      const [summaryRes, billsRes, transactionsRes, paymentsRes, returnBillsRes, inventoryRequestsRes] = await Promise.all([
+      const [
+        summaryRes,
+        billsRes,
+        transactionsRes,
+        paymentsRes,
+        returnBillsRes,
+        inventoryRequestsRes,
+      ] = await Promise.all([
         apiCaller.get("/bills/summary", { params: { startDate, endDate } }),
-        apiCaller.get("/bills", { params: { startDate, endDate, page: 1, limit: 15, search: billSearch || undefined, minAmount: billAmountRange[0] > 0 ? billAmountRange[0] : undefined, maxAmount: billAmountRange[1] < Infinity ? billAmountRange[1] : undefined } }),
-        apiCaller.get("/transactions", { params: { startDate, endDate, page: 1, limit: 15, paymentIn: true, search: transactionSearch || undefined, minAmount: transactionAmountRange[0] > 0 ? transactionAmountRange[0] : undefined, maxAmount: transactionAmountRange[1] < Infinity ? transactionAmountRange[1] : undefined } }),
-        apiCaller.get("/transactions", { params: { startDate, endDate, page: 1, limit: 15, paymentIn: false, search: transactionSearch || undefined, minAmount: transactionAmountRange[0] > 0 ? transactionAmountRange[0] : undefined, maxAmount: transactionAmountRange[1] < Infinity ? transactionAmountRange[1] : undefined } }),
-        apiCaller.get("/return-bills", { params: { startDate, endDate, page: 1, limit: 15 } }),
-        apiCaller.get("/stocks/requests/all", { params: { startDate, endDate, page: 1, limit: 15, search: requestSearch || undefined, status: requestFilterType !== "all" ? requestFilterType : undefined } })
+        apiCaller.get("/bills", {
+          params: {
+            startDate,
+            endDate,
+            page: 1,
+            limit: 15,
+            search: billSearch || undefined,
+            minAmount: billAmountRange[0] > 0 ? billAmountRange[0] : undefined,
+            maxAmount:
+              billAmountRange[1] < Infinity ? billAmountRange[1] : undefined,
+          },
+        }),
+        apiCaller.get("/transactions", {
+          params: {
+            startDate,
+            endDate,
+            page: 1,
+            limit: 15,
+            paymentIn: true,
+            search: transactionSearch || undefined,
+            minAmount:
+              transactionAmountRange[0] > 0
+                ? transactionAmountRange[0]
+                : undefined,
+            maxAmount:
+              transactionAmountRange[1] < Infinity
+                ? transactionAmountRange[1]
+                : undefined,
+          },
+        }),
+        apiCaller.get("/transactions", {
+          params: {
+            startDate,
+            endDate,
+            page: 1,
+            limit: 15,
+            paymentIn: false,
+            search: transactionSearch || undefined,
+            minAmount:
+              transactionAmountRange[0] > 0
+                ? transactionAmountRange[0]
+                : undefined,
+            maxAmount:
+              transactionAmountRange[1] < Infinity
+                ? transactionAmountRange[1]
+                : undefined,
+          },
+        }),
+        apiCaller.get("/return-bills", {
+          params: { startDate, endDate, page: 1, limit: 15 },
+        }),
+        apiCaller.get("/stocks/requests/all", {
+          params: {
+            startDate,
+            endDate,
+            page: 1,
+            limit: 15,
+            search: requestSearch || undefined,
+            status: requestFilterType !== "all" ? requestFilterType : undefined,
+          },
+        }),
       ]);
 
       const billsData = billsRes.data.data;
@@ -424,12 +519,24 @@ const DailyReportPage = () => {
         inventoryRequests: reqsData.requests || [],
       });
 
+      if (isToday && reqsData.requests && reqsData.requests.length > 0) {
+        useInventoryRequestStore.getState().setRequests(reqsData.requests);
+      }
+
       setPagination({
         bills: { current: 1, total: billsData.total || 0, pageSize: 15 },
         transactions: { current: 1, total: transData.total || 0, pageSize: 15 },
         payments: { current: 1, total: paysData.total || 0, pageSize: 15 },
-        returnBills: { current: 1, total: returnsData.total || 0, pageSize: 15 },
-        inventoryRequests: { current: 1, total: reqsData.total || 0, pageSize: 15 },
+        returnBills: {
+          current: 1,
+          total: returnsData.total || 0,
+          pageSize: 15,
+        },
+        inventoryRequests: {
+          current: 1,
+          total: reqsData.total || 0,
+          pageSize: 15,
+        },
       });
 
       const summaryData = summaryRes.data.data;
@@ -438,9 +545,15 @@ const DailyReportPage = () => {
         totalPaymentIn: Number(summaryData.totalPaymentIn.toFixed(1)),
         totalPaymentOut: Number(summaryData.totalPaymentOut.toFixed(1)),
         totalBillAmount: Number(summaryData.totalBillAmount.toFixed(1)),
-        marginPercent: summaryData.totalBillAmount > 0
-          ? Number(((summaryData.profit / summaryData.totalBillAmount) * 100).toFixed(1))
-          : 0,
+        marginPercent:
+          summaryData.totalBillAmount > 0
+            ? Number(
+                (
+                  (summaryData.profit / summaryData.totalBillAmount) *
+                  100
+                ).toFixed(1),
+              )
+            : 0,
         peakHour: summaryData.peakHour,
       });
 
@@ -460,14 +573,21 @@ const DailyReportPage = () => {
     try {
       const res = await apiCaller.get("/bills", {
         params: {
-          startDate, endDate, page, limit: 15,
+          startDate,
+          endDate,
+          page,
+          limit: 15,
           search: billSearch || undefined,
           minAmount: billAmountRange[0] > 0 ? billAmountRange[0] : undefined,
-          maxAmount: billAmountRange[1] < Infinity ? billAmountRange[1] : undefined
-        }
+          maxAmount:
+            billAmountRange[1] < Infinity ? billAmountRange[1] : undefined,
+        },
       });
-      setReportData(prev => ({ ...prev, bills: res.data.data.bills }));
-      setPagination(prev => ({ ...prev, bills: { ...prev.bills, current: page, total: res.data.data.total } }));
+      setReportData((prev) => ({ ...prev, bills: res.data.data.bills }));
+      setPagination((prev) => ({
+        ...prev,
+        bills: { ...prev.bills, current: page, total: res.data.data.total },
+      }));
     } catch (err) {
       message.error("Failed to load bills");
     } finally {
@@ -482,14 +602,34 @@ const DailyReportPage = () => {
     try {
       const res = await apiCaller.get("/transactions", {
         params: {
-          startDate, endDate, page, limit: 15, paymentIn: true,
+          startDate,
+          endDate,
+          page,
+          limit: 15,
+          paymentIn: true,
           search: transactionSearch || undefined,
-          minAmount: transactionAmountRange[0] > 0 ? transactionAmountRange[0] : undefined,
-          maxAmount: transactionAmountRange[1] < Infinity ? transactionAmountRange[1] : undefined
-        }
+          minAmount:
+            transactionAmountRange[0] > 0
+              ? transactionAmountRange[0]
+              : undefined,
+          maxAmount:
+            transactionAmountRange[1] < Infinity
+              ? transactionAmountRange[1]
+              : undefined,
+        },
       });
-      setReportData(prev => ({ ...prev, transactions: res.data.data.transactions }));
-      setPagination(prev => ({ ...prev, transactions: { ...prev.transactions, current: page, total: res.data.data.total } }));
+      setReportData((prev) => ({
+        ...prev,
+        transactions: res.data.data.transactions,
+      }));
+      setPagination((prev) => ({
+        ...prev,
+        transactions: {
+          ...prev.transactions,
+          current: page,
+          total: res.data.data.total,
+        },
+      }));
     } catch (err) {
       message.error("Failed to load transactions");
     } finally {
@@ -504,14 +644,34 @@ const DailyReportPage = () => {
     try {
       const res = await apiCaller.get("/transactions", {
         params: {
-          startDate, endDate, page, limit: 15, paymentIn: false,
+          startDate,
+          endDate,
+          page,
+          limit: 15,
+          paymentIn: false,
           search: transactionSearch || undefined,
-          minAmount: transactionAmountRange[0] > 0 ? transactionAmountRange[0] : undefined,
-          maxAmount: transactionAmountRange[1] < Infinity ? transactionAmountRange[1] : undefined
-        }
+          minAmount:
+            transactionAmountRange[0] > 0
+              ? transactionAmountRange[0]
+              : undefined,
+          maxAmount:
+            transactionAmountRange[1] < Infinity
+              ? transactionAmountRange[1]
+              : undefined,
+        },
       });
-      setReportData(prev => ({ ...prev, payments: res.data.data.transactions }));
-      setPagination(prev => ({ ...prev, payments: { ...prev.payments, current: page, total: res.data.data.total } }));
+      setReportData((prev) => ({
+        ...prev,
+        payments: res.data.data.transactions,
+      }));
+      setPagination((prev) => ({
+        ...prev,
+        payments: {
+          ...prev.payments,
+          current: page,
+          total: res.data.data.total,
+        },
+      }));
     } catch (err) {
       message.error("Failed to load payments");
     } finally {
@@ -524,9 +684,21 @@ const DailyReportPage = () => {
     const endDate = dateRange[1]?.endOf("day").toISOString();
     setLoading(true);
     try {
-      const res = await apiCaller.get("/return-bills", { params: { startDate, endDate, page, limit: 15 } });
-      setReportData(prev => ({ ...prev, returnBills: res.data.data.returnBills }));
-      setPagination(prev => ({ ...prev, returnBills: { ...prev.returnBills, current: page, total: res.data.data.total } }));
+      const res = await apiCaller.get("/return-bills", {
+        params: { startDate, endDate, page, limit: 15 },
+      });
+      setReportData((prev) => ({
+        ...prev,
+        returnBills: res.data.data.returnBills,
+      }));
+      setPagination((prev) => ({
+        ...prev,
+        returnBills: {
+          ...prev.returnBills,
+          current: page,
+          total: res.data.data.total,
+        },
+      }));
     } catch (err) {
       message.error("Failed to load return bills");
     } finally {
@@ -541,13 +713,26 @@ const DailyReportPage = () => {
     try {
       const res = await apiCaller.get("/stocks/requests/all", {
         params: {
-          startDate, endDate, page, limit: 15,
+          startDate,
+          endDate,
+          page,
+          limit: 15,
           search: requestSearch || undefined,
-          status: requestFilterType !== "all" ? requestFilterType : undefined
-        }
+          status: requestFilterType !== "all" ? requestFilterType : undefined,
+        },
       });
-      setReportData(prev => ({ ...prev, inventoryRequests: res.data.data.requests }));
-      setPagination(prev => ({ ...prev, inventoryRequests: { ...prev.inventoryRequests, current: page, total: res.data.data.total } }));
+      setReportData((prev) => ({
+        ...prev,
+        inventoryRequests: res.data.data.requests,
+      }));
+      setPagination((prev) => ({
+        ...prev,
+        inventoryRequests: {
+          ...prev.inventoryRequests,
+          current: page,
+          total: res.data.data.total,
+        },
+      }));
     } catch (err) {
       message.error("Failed to load requests");
     } finally {
@@ -570,7 +755,13 @@ const DailyReportPage = () => {
       if (activeTab === "payments") handlePaymentPageChange(1);
     }, 500);
     return () => clearTimeout(handler);
-  }, [transactionSearch, transactionAmountRange, transactionFilterType, isToday, activeTab]);
+  }, [
+    transactionSearch,
+    transactionAmountRange,
+    transactionFilterType,
+    isToday,
+    activeTab,
+  ]);
 
   useEffect(() => {
     if (isToday) return;
@@ -592,59 +783,130 @@ const DailyReportPage = () => {
 
   const billColumns = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
+          Date
+        </span>
+      ),
       dataIndex: "date",
       key: "date",
-      render: (text: string, record: any) => (
-        <div className="flex flex-col">
-          <span className="font-bold text-gray-800">{text}</span>
-          <span className="text-[10px] font-bold text-gray-400">{record.time}</span>
-        </div>
-      ),
+      render: (text: string, record: any) => {
+        const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
+        return (
+          <div className="flex flex-col">
+            <span className={`font-bold ${isRejected ? "text-gray-400 line-through" : "text-gray-800"}`}>{text}</span>
+            <span className={`text-[10px] font-bold ${isRejected ? "text-gray-300 line-through" : "text-gray-400"}`}>
+              {record.time}
+            </span>
+          </div>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          ID
+        </span>
+      ),
       dataIndex: "billId",
       key: "billId",
-      render: (id: string) => <span className="font-mono font-black text-indigo-500 text-xs">#{id}</span>,
+      render: (id: string, record: any) => {
+        const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
+        const isPending = !isRejected && record.isReturn && (record.status === "PENDING" || record.rawData?.status === "PENDING");
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className={`font-mono font-black text-xs ${isRejected ? "text-gray-400 line-through" : "text-indigo-500"}`}>
+              #{id}
+            </span>
+            {isPending && (
+              <Tag color="orange" className="text-[8px] font-black uppercase tracking-widest rounded-full border-0 m-0 px-1.5 py-0">
+                Pending
+              </Tag>
+            )}
+            {isRejected && (
+              <Tooltip title={record.rawData?.rejectionReason ? `Reason: ${record.rawData.rejectionReason}` : "Rejected by admin"}>
+                <Tag color="red" className="text-[8px] font-black uppercase tracking-widest rounded-full border-0 m-0 px-1.5 py-0 cursor-help">
+                  Rejected
+                </Tag>
+              </Tooltip>
+            )}
+          </div>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Customer</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Customer
+        </span>
+      ),
       dataIndex: "customer",
       key: "customer",
-      render: (c: BillCustomer) => (
-        <div className="flex flex-col cursor-pointer group/customer" onClick={() => c?._id && navigate(`/customers/${c._id}`)}>
-          <span className="font-black text-gray-700 capitalize group-hover/customer:text-indigo-600 transition-colors">{c?.name || "—"}</span>
-          {c?.phone && <span className="text-[10px] font-bold text-gray-400 group-hover/customer:text-indigo-400 transition-colors">{c.phone}</span>}
-        </div>
-      ),
+      render: (c: BillCustomer, record: any) => {
+        const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
+        return (
+          <div
+            className="flex flex-col cursor-pointer group/customer"
+            onClick={() => c?._id && navigate(`/customers/${c._id}`)}
+          >
+            <span className={`font-black capitalize group-hover/customer:text-indigo-600 transition-colors ${isRejected ? "text-gray-400 line-through" : "text-gray-700"}`}>
+              {c?.name || "—"}
+            </span>
+            {c?.phone && (
+              <span className={`text-[10px] font-bold group-hover/customer:text-indigo-400 transition-colors ${isRejected ? "text-gray-300 line-through" : "text-gray-400"}`}>
+                {c.phone}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Products Total</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Products Total
+        </span>
+      ),
       dataIndex: "billTotal",
       key: "billTotal",
       align: "right" as const,
-      render: (t: number) => <span className="font-black text-gray-800">₹{Math.ceil(t)?.toLocaleString()}</span>,
+      render: (t: number, record: any) => {
+        const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
+        return (
+          <span className={`font-black ${isRejected ? "text-gray-400 line-through" : t < 0 ? "text-red-500" : "text-gray-800"}`}>
+            ₹{Math.ceil(t)?.toLocaleString()}
+          </span>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Total
+        </span>
+      ),
       dataIndex: "total",
       key: "total",
       align: "right" as const,
       render: (t: number, record: any) => {
+        const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
         const prevOutstanding = record.isReturn
           ? Math.round((t || 0) + Math.abs(record.billTotal || 0))
           : Math.round((t || 0) - (record.billTotal || 0));
         return (
           <div className="flex flex-col items-end">
-            <span className={`font-black ${record.isReturn ? "text-red-500" : "text-gray-800"}`}>₹{t?.toLocaleString()}</span>
+            <span
+              className={`font-black ${isRejected ? "text-gray-400 line-through" : record.isReturn ? "text-red-500" : "text-gray-800"}`}
+            >
+              ₹{t?.toLocaleString()}
+            </span>
             {prevOutstanding > 0 && (
-              <span className="text-[10px] font-bold text-orange-400 mt-0.5">
+              <span className={`text-[10px] font-bold mt-0.5 ${isRejected ? "text-gray-400 line-through" : "text-orange-400"}`}>
                 +₹{prevOutstanding.toLocaleString()} Prv
               </span>
             )}
             {prevOutstanding < 0 && (
-              <span className="text-[10px] font-bold text-green-500 mt-0.5">
+              <span className={`text-[10px] font-bold mt-0.5 ${isRejected ? "text-gray-400 line-through" : "text-green-500"}`}>
                 -₹{Math.abs(prevOutstanding).toLocaleString()} Adv
               </span>
             )}
@@ -653,33 +915,66 @@ const DailyReportPage = () => {
       },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Payment</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Payment
+        </span>
+      ),
       dataIndex: "payment",
       key: "payment",
       align: "right" as const,
-      render: (p: number) => <span className="font-black text-green-600">₹{p.toLocaleString()}</span>,
+      render: (p: number, record: any) => {
+        const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
+        return (
+          <span className={`font-black ${isRejected ? "text-gray-400 line-through" : p < 0 ? "text-red-500" : "text-green-600"}`}>
+            ₹{p.toLocaleString()}
+          </span>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Outstanding</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Outstanding
+        </span>
+      ),
       dataIndex: "outstanding",
       key: "outstanding",
       align: "right" as const,
-      render: (o: number) => (
-        <span className={`font-black ${o > 0 ? "text-orange-500" : "text-gray-300"}`}>
-          ₹{o.toLocaleString()}
+      render: (o: number, record: any) => {
+        const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
+        return (
+          <span
+            className={`font-black ${isRejected ? "text-gray-400 line-through" : o > 0 ? "text-orange-500" : "text-gray-300"}`}
+          >
+            ₹{o.toLocaleString()}
+          </span>
+        );
+      },
+    },
+    {
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Created By
         </span>
       ),
-    },
-    {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Created By</span>,
       dataIndex: "createdBy",
       key: "createdBy",
-      render: (u: BillCreatedBy) => (
-        <span className="text-xs font-bold text-gray-500 capitalize">{u?.name || "System"}</span>
-      ),
+      render: (u: BillCreatedBy, record: any) => {
+        const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
+        return (
+          <span className={`text-xs font-bold capitalize ${isRejected ? "text-gray-400 line-through" : "text-gray-500"}`}>
+            {u?.name || "System"}
+          </span>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">View</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+          View
+        </span>
+      ),
       key: "view",
       align: "center" as const,
       render: (_: any, record: any) => (
@@ -688,9 +983,13 @@ const DailyReportPage = () => {
           icon={<EyeOutlined />}
           onClick={() => {
             if (record.isReturn) {
-              navigate(`/return-bills/${record.rawData._id}`, { state: { from: "daily-report" } });
+              navigate(`/return-bills/${record.rawData._id}`, {
+                state: { from: "daily-report" },
+              });
             } else {
-              navigate(`/bills/${record.key}`, { state: { from: "daily-report" } });
+              navigate(`/bills/${record.key}`, {
+                state: { from: "daily-report" },
+              });
             }
           }}
           className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
@@ -701,47 +1000,85 @@ const DailyReportPage = () => {
 
   const transactionColumns = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Timestamp</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
+          Timestamp
+        </span>
+      ),
       dataIndex: "date",
       key: "date",
       render: (text: string, record: any) => (
         <div className="flex flex-col">
           <span className="font-bold text-gray-800">{text}</span>
-          <span className="text-[10px] font-bold text-gray-400">{record.time}</span>
+          <span className="text-[10px] font-bold text-gray-400">
+            {record.time}
+          </span>
         </div>
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          ID
+        </span>
+      ),
       dataIndex: "transId",
       key: "transId",
-      render: (id: string) => <span className="font-mono font-black text-indigo-500 text-xs text-center">#{id}</span>,
+      render: (id: string) => (
+        <span className="font-mono font-black text-indigo-500 text-xs text-center">
+          #{id}
+        </span>
+      ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Intent</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Intent
+        </span>
+      ),
       dataIndex: "purpose",
       key: "purpose",
-      render: (text: string) => <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-gray-50 rounded-lg text-gray-500 border border-gray-100">{text}</span>,
+      render: (text: string) => (
+        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-gray-50 rounded-lg text-gray-500 border border-gray-100">
+          {text}
+        </span>
+      ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Party</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Party
+        </span>
+      ),
       dataIndex: "name",
       key: "name",
-      render: (name: string) => <span className="font-black text-gray-700 capitalize">{name}</span>,
+      render: (name: string) => (
+        <span className="font-black text-gray-700 capitalize">{name}</span>
+      ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Amount</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Amount
+        </span>
+      ),
       dataIndex: "payment",
       key: "payment",
       align: "right" as const,
       render: (val: number, record: any) => (
-        <span className={`font-black ${record.paymentIn === false ? "text-red-500" : "text-green-600"}`}>
+        <span
+          className={`font-black ${record.paymentIn === false ? "text-red-500" : "text-green-600"}`}
+        >
           {record.paymentIn === false ? "-" : "+"} ₹{val.toLocaleString()}
         </span>
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
+          Status
+        </span>
+      ),
       key: "status",
       align: "center" as const,
       render: (_: any, record: any) => {
@@ -754,7 +1091,8 @@ const DailyReportPage = () => {
           status = "Approved";
           color = "success";
           icon = <CheckCircleOutlined />;
-          if (record.approvedAt) time = dayjs(record.approvedAt).format("DD/MM/YY hh:mm A");
+          if (record.approvedAt)
+            time = dayjs(record.approvedAt).format("DD/MM/YY hh:mm A");
         } else if (record.rejectedAt) {
           status = "Rejected";
           color = "error";
@@ -764,23 +1102,39 @@ const DailyReportPage = () => {
 
         return (
           <div className="flex flex-col items-center">
-            <Tag color={color} icon={icon} className="m-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border-0">
+            <Tag
+              color={color}
+              icon={icon}
+              className="m-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border-0"
+            >
               {status}
             </Tag>
-            {time && <span className="text-[9px] font-bold text-gray-400 mt-1">{time}</span>}
+            {time && (
+              <span className="text-[9px] font-bold text-gray-400 mt-1">
+                {time}
+              </span>
+            )}
           </div>
         );
-      }
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Inspect</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+          Inspect
+        </span>
+      ),
       key: "view",
       align: "center" as const,
       render: (_: any, record: any) => (
         <Button
           type="text"
           icon={<EyeOutlined />}
-          onClick={() => navigate(`/transactions/${record.key}`, { state: { from: "daily-report" } })}
+          onClick={() =>
+            navigate(`/transactions/${record.key}`, {
+              state: { from: "daily-report" },
+            })
+          }
           className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
         />
       ),
@@ -789,48 +1143,82 @@ const DailyReportPage = () => {
 
   const paymentColumns = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
+          Date
+        </span>
+      ),
       dataIndex: "date",
       key: "date",
       render: (text: string, record: any) => (
         <div className="flex flex-col">
           <span className="font-bold text-gray-800">{text}</span>
-          <span className="text-[10px] font-bold text-gray-400">{record.time}</span>
+          <span className="text-[10px] font-bold text-gray-400">
+            {record.time}
+          </span>
         </div>
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          ID
+        </span>
+      ),
       dataIndex: "transId",
       key: "transId",
-      render: (id: string) => <span className="font-mono font-black text-indigo-500 text-xs text-center">#{id}</span>,
+      render: (id: string) => (
+        <span className="font-mono font-black text-indigo-500 text-xs text-center">
+          #{id}
+        </span>
+      ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Party Name</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Party Name
+        </span>
+      ),
       dataIndex: "name",
       key: "name",
-      render: (name: string) => <span className="font-black text-gray-700 capitalize">{name}</span>,
+      render: (name: string) => (
+        <span className="font-black text-gray-700 capitalize">{name}</span>
+      ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Payment</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Payment
+        </span>
+      ),
       dataIndex: "payment",
       key: "payment",
       align: "right" as const,
       render: (val: number, record: any) => (
-        <span className={`font-black ${record.paymentIn === false ? "text-red-500" : "text-green-600"}`}>
+        <span
+          className={`font-black ${record.paymentIn === false ? "text-red-500" : "text-green-600"}`}
+        >
           {record.paymentIn === false ? "-" : "+"} ₹{val.toLocaleString()}
         </span>
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Inspect</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+          Inspect
+        </span>
+      ),
       key: "view",
       align: "center" as const,
       render: (_: any, record: any) => (
         <Button
           type="text"
           icon={<EyeOutlined />}
-          onClick={() => navigate(`/transactions/${record.key}`, { state: { from: "daily-report" } })}
+          onClick={() =>
+            navigate(`/transactions/${record.key}`, {
+              state: { from: "daily-report" },
+            })
+          }
           className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
         />
       ),
@@ -840,19 +1228,33 @@ const DailyReportPage = () => {
   // Streamlined request columns - only essential data
   const requestColumns = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
+          Date
+        </span>
+      ),
       dataIndex: "date",
       key: "date",
       width: 120,
       render: (text: string, record: any) => (
         <div className="flex flex-col">
-          <span className={`font-bold ${record.rejected ? "text-gray-400 line-through" : "text-gray-800"}`}>{text}</span>
-          <span className="text-[10px] font-bold text-gray-400">{record.time}</span>
+          <span
+            className={`font-bold ${record.rejected ? "text-gray-400 line-through" : "text-gray-800"}`}
+          >
+            {text}
+          </span>
+          <span className="text-[10px] font-bold text-gray-400">
+            {record.time}
+          </span>
         </div>
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Product</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Product
+        </span>
+      ),
       dataIndex: "productName",
       key: "productName",
       width: 150,
@@ -865,7 +1267,11 @@ const DailyReportPage = () => {
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Operator</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Operator
+        </span>
+      ),
       dataIndex: "createdBy",
       key: "createdBy",
       width: 120,
@@ -878,7 +1284,11 @@ const DailyReportPage = () => {
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stock Change</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Stock Change
+        </span>
+      ),
       dataIndex: "stockChange",
       key: "stockChange",
       width: 140,
@@ -893,7 +1303,11 @@ const DailyReportPage = () => {
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Logic Intent</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Logic Intent
+        </span>
+      ),
       dataIndex: "purpose",
       key: "purpose",
       width: 150,
@@ -922,7 +1336,7 @@ const DailyReportPage = () => {
             style={{
               textDecoration: isRejected ? "line-through" : "none",
               color: isRejected ? "#cbd5e1" : undefined,
-              background: isRejected ? "#f1f5f9" : undefined
+              background: isRejected ? "#f1f5f9" : undefined,
             }}
           >
             {isRejected && (
@@ -934,7 +1348,11 @@ const DailyReportPage = () => {
       },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Qty</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Qty
+        </span>
+      ),
       dataIndex: "quantity",
       key: "quantity",
       width: 80,
@@ -948,7 +1366,11 @@ const DailyReportPage = () => {
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
+          Status
+        </span>
+      ),
       dataIndex: "status",
       key: "status",
       width: 120,
@@ -969,14 +1391,22 @@ const DailyReportPage = () => {
         }
 
         return (
-          <Tag color={color} icon={icon} className="m-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border-0">
+          <Tag
+            color={color}
+            icon={icon}
+            className="m-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border-0"
+          >
             {status}
           </Tag>
         );
       },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Inspect</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+          Inspect
+        </span>
+      ),
       key: "details",
       width: 80,
       align: "center" as const,
@@ -984,18 +1414,24 @@ const DailyReportPage = () => {
         <Tooltip
           title={
             <div className="p-2 space-y-1">
-              <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-100/10 pb-1 mb-1">Detailed Trace</div>
-              <div>
-                <strong className="text-gray-300">Request ID:</strong> #{record.key.slice(-8)}
+              <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-100/10 pb-1 mb-1">
+                Detailed Trace
               </div>
               <div>
-                <strong className="text-gray-300">Purpose:</strong> {record.rawData.purpose}
+                <strong className="text-gray-300">Request ID:</strong> #
+                {record.key.slice(-8)}
               </div>
               <div>
-                <strong className="text-gray-300">Old Stock:</strong> {record.rawData.oldStock}
+                <strong className="text-gray-300">Purpose:</strong>{" "}
+                {record.rawData.purpose}
               </div>
               <div>
-                <strong className="text-gray-300">New Stock:</strong> {record.rawData.newStock}
+                <strong className="text-gray-300">Old Stock:</strong>{" "}
+                {record.rawData.oldStock}
+              </div>
+              <div>
+                <strong className="text-gray-300">New Stock:</strong>{" "}
+                {record.rawData.newStock}
               </div>
               {record.rawData.approvedAt && (
                 <div>
@@ -1011,7 +1447,11 @@ const DailyReportPage = () => {
               )}
             </div>
           }
-          overlayInnerStyle={{ borderRadius: '16px', background: '#1e293b', border: '1px solid #334155' }}
+          overlayInnerStyle={{
+            borderRadius: "16px",
+            background: "#1e293b",
+            border: "1px solid #334155",
+          }}
         >
           <Button
             type="text"
@@ -1027,8 +1467,12 @@ const DailyReportPage = () => {
     <main className="min-h-screen bg-gray-50/50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-10">
-          <h1 className="text-3xl font-black text-gray-800 tracking-tighter leading-tight">Daily Report</h1>
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Summary of business</p>
+          <h1 className="text-3xl font-black text-gray-800 tracking-tighter leading-tight">
+            Daily Report
+          </h1>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">
+            Summary of business
+          </p>
         </div>
 
         {/* Performance Summary Matrix */}
@@ -1042,8 +1486,12 @@ const DailyReportPage = () => {
                   </div>
                   {!user?.pin ? (
                     <div className="flex-1 text-center py-2">
-                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-tight">Terminal Locked</p>
-                      <p className="text-[9px] font-bold text-red-400 mt-1">Ask admin to allow you a pin</p>
+                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-tight">
+                        Admin PIN Required
+                      </p>
+                      <p className="text-[9px] font-bold text-red-400 mt-1">
+                        Ask admin to allow you a pin
+                      </p>
                     </div>
                   ) : (
                     <>
@@ -1075,7 +1523,7 @@ const DailyReportPage = () => {
                     onClick={() => setShowAdmin(false)}
                     className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] hover:text-red-500 transition-all flex items-center gap-2"
                   >
-                    HIDE FINANCIALS / LOCK LAYER
+                    HIDE FINANCIALS
                   </Button>
                 </div>
 
@@ -1085,7 +1533,7 @@ const DailyReportPage = () => {
                       label: "Profit",
                       val: `₹${summary.profit.toLocaleString()}`,
                       icon: <DollarOutlined />,
-                      sub: `${summary.marginPercent}% yield`,
+                      sub: `${summary.marginPercent}% margin`,
                       color: "bg-green-600 shadow-green-100",
                       bg: "bg-green-50/30",
                     },
@@ -1093,7 +1541,7 @@ const DailyReportPage = () => {
                       label: "Payment Recieved",
                       val: `₹${summary.totalPaymentIn.toLocaleString()}`,
                       icon: <ArrowDownOutlined />,
-                      sub: "Inward Liquidity",
+                      sub: "Received",
                       color: "bg-indigo-600 shadow-indigo-100",
                       bg: "bg-indigo-50/30",
                     },
@@ -1101,12 +1549,12 @@ const DailyReportPage = () => {
                       label: "Payment Sent",
                       val: `₹${summary.totalPaymentOut.toLocaleString()}`,
                       icon: <ArrowUpOutlined />,
-                      sub: "Outward Flow",
+                      sub: "Paid",
                       color: "bg-orange-600 shadow-orange-100",
                       bg: "bg-orange-50/30",
                     },
                     {
-                      label: "Gross Billed",
+                      label: "Total Sales",
                       val: `₹${summary.totalBillAmount.toLocaleString()}`,
                       icon: <FileTextOutlined />,
                       sub: "Total Sales",
@@ -1127,9 +1575,11 @@ const DailyReportPage = () => {
                       className={`p-8 rounded-[32px] shadow-sm border border-gray-100/50 relative overflow-hidden group hover:border-gray-200 hover:shadow-md transition-all duration-500 ${m.bg}`}
                     >
                       <div
-                        className={`w-12 h-12 rounded-2xl ${m.color.split(" ")[0]
-                          } text-white flex items-center justify-center mb-6 shadow-xl ${m.color.split(" ")[1]
-                          } group-hover:scale-110 transition-transform duration-500`}
+                        className={`w-12 h-12 rounded-2xl ${
+                          m.color.split(" ")[0]
+                        } text-white flex items-center justify-center mb-6 shadow-xl ${
+                          m.color.split(" ")[1]
+                        } group-hover:scale-110 transition-transform duration-500`}
                       >
                         {m.icon}
                       </div>
@@ -1161,7 +1611,9 @@ const DailyReportPage = () => {
         {activeTab === "bills" && (
           <div className="bg-white rounded-[32px] shadow-sm p-6 sm:p-8 mb-8 flex flex-col lg:flex-row gap-6 lg:items-end border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Registry Search</label>
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
+                Search Bills
+              </label>
               <Input.Search
                 placeholder="Find customer or bill ID"
                 value={billSearch}
@@ -1172,31 +1624,49 @@ const DailyReportPage = () => {
             </div>
 
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Value Range (₹)</label>
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
+                Amount Range (₹)
+              </label>
               <div className="flex gap-2">
                 <InputNumber
                   min={0}
-                  value={billAmountRange[0] === 0 ? undefined : billAmountRange[0]}
-                  onChange={(v) => setBillAmountRange([v || 0, billAmountRange[1]])}
+                  value={
+                    billAmountRange[0] === 0 ? undefined : billAmountRange[0]
+                  }
+                  onChange={(v) =>
+                    setBillAmountRange([v || 0, billAmountRange[1]])
+                  }
                   placeholder="Min"
                   className="h-12 rounded-xl flex-1"
                 />
                 <InputNumber
                   min={0}
-                  value={billAmountRange[1] === Infinity ? undefined : billAmountRange[1]}
-                  onChange={(v) => setBillAmountRange([billAmountRange[0], v || Infinity])}
+                  value={
+                    billAmountRange[1] === Infinity
+                      ? undefined
+                      : billAmountRange[1]
+                  }
+                  onChange={(v) =>
+                    setBillAmountRange([billAmountRange[0], v || Infinity])
+                  }
                   placeholder="Max"
                   className="h-12 rounded-xl flex-1"
                 />
               </div>
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Report Span</label>
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
+                Date Range
+              </label>
               <div className="flex gap-2">
                 <RangePicker
                   className="h-12 flex-1 rounded-xl border-gray-100"
                   value={dateRange}
-                  onChange={(range) => setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
+                  onChange={(range) =>
+                    setDateRange(
+                      range as [dayjs.Dayjs | null, dayjs.Dayjs | null],
+                    )
+                  }
                   allowClear={false}
                 />
                 <Button
@@ -1216,7 +1686,9 @@ const DailyReportPage = () => {
         {activeTab === "transactions" && (
           <div className="bg-white rounded-[32px] shadow-sm p-6 sm:p-8 mb-8 flex flex-col lg:flex-row gap-6 lg:items-end border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Ledger Search</label>
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
+                Search Transactions
+              </label>
               <Input.Search
                 placeholder="Find name or transaction id"
                 value={transactionSearch}
@@ -1240,31 +1712,57 @@ const DailyReportPage = () => {
               />
             </div> */}
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Capital Bounds (₹)</label>
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
+                Amount Range (₹)
+              </label>
               <div className="flex gap-2">
                 <InputNumber
                   min={0}
-                  value={transactionAmountRange[0] === 0 ? undefined : transactionAmountRange[0]}
-                  onChange={(v) => setTransactionAmountRange([v || 0, transactionAmountRange[1]])}
+                  value={
+                    transactionAmountRange[0] === 0
+                      ? undefined
+                      : transactionAmountRange[0]
+                  }
+                  onChange={(v) =>
+                    setTransactionAmountRange([
+                      v || 0,
+                      transactionAmountRange[1],
+                    ])
+                  }
                   placeholder="Min"
                   className="h-12 rounded-xl flex-1"
                 />
                 <InputNumber
                   min={0}
-                  value={transactionAmountRange[1] === Infinity ? undefined : transactionAmountRange[1]}
-                  onChange={(v) => setTransactionAmountRange([transactionAmountRange[0], v || Infinity])}
+                  value={
+                    transactionAmountRange[1] === Infinity
+                      ? undefined
+                      : transactionAmountRange[1]
+                  }
+                  onChange={(v) =>
+                    setTransactionAmountRange([
+                      transactionAmountRange[0],
+                      v || Infinity,
+                    ])
+                  }
                   placeholder="Max"
                   className="h-12 rounded-xl flex-1"
                 />
               </div>
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Report Span</label>
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
+                Date Range
+              </label>
               <div className="flex gap-2">
                 <RangePicker
                   className="h-12 flex-1 rounded-xl border-gray-100"
                   value={dateRange}
-                  onChange={(range) => setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
+                  onChange={(range) =>
+                    setDateRange(
+                      range as [dayjs.Dayjs | null, dayjs.Dayjs | null],
+                    )
+                  }
                   allowClear={false}
                 />
                 <Button
@@ -1273,7 +1771,7 @@ const DailyReportPage = () => {
                   loading={loading}
                   className="h-12 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
                 >
-                  Fetch
+                  Get Report
                 </Button>
               </div>
             </div>
@@ -1284,9 +1782,11 @@ const DailyReportPage = () => {
         {activeTab === "requests" && (
           <div className="bg-white rounded-[32px] shadow-sm p-6 sm:p-8 mb-8 flex flex-col lg:flex-row gap-6 lg:items-end border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Asset Logic Search</label>
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
+                Search Requests
+              </label>
               <Input.Search
-                placeholder="Product or operator name"
+                placeholder="Product or user name"
                 value={requestSearch}
                 onChange={(e) => setRequestSearch(e.target.value)}
                 className="h-12 rounded-xl"
@@ -1294,13 +1794,15 @@ const DailyReportPage = () => {
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Validation State</label>
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
+                Status
+              </label>
               <Select
                 value={requestFilterType}
                 onChange={setRequestFilterType}
                 className="h-12 w-full premium-select"
                 options={[
-                  { value: "all", label: "All Validation States" },
+                  { value: "all", label: "All Statuses" },
                   { value: "Approved", label: "Approved" },
                   { value: "Rejected", label: "Rejected" },
                   { value: "Pending", label: "Pending" },
@@ -1308,12 +1810,18 @@ const DailyReportPage = () => {
               />
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">Report Span</label>
+              <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
+                Date Range
+              </label>
               <div className="flex gap-2">
                 <RangePicker
                   className="h-12 flex-1 rounded-xl border-gray-100"
                   value={dateRange}
-                  onChange={(range) => setDateRange(range as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
+                  onChange={(range) =>
+                    setDateRange(
+                      range as [dayjs.Dayjs | null, dayjs.Dayjs | null],
+                    )
+                  }
                   allowClear={false}
                 />
                 <Button
@@ -1322,7 +1830,7 @@ const DailyReportPage = () => {
                   loading={loading}
                   className="h-12 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
                 >
-                  Fetch
+                  Get Report
                 </Button>
               </div>
             </div>
@@ -1340,7 +1848,7 @@ const DailyReportPage = () => {
                 { key: "returns", label: "Returns" },
                 { key: "transactions", label: "Transaction " },
                 { key: "payment", label: "Payments" },
-                { key: "requests", label: "Inventory History" }
+                { key: "requests", label: "Inventory History" },
               ]}
             />
           </div>
@@ -1349,34 +1857,52 @@ const DailyReportPage = () => {
             {activeTab === "returns" && (
               <Table
                 columns={billColumns}
-                dataSource={!isToday ? reportData.returnBills.map((rb: any) => {
-                  const dateVal = rb.createdAt || rb.date;
-                  return {
-                    key: `return_${rb.id || rb._id}`,
-                    date: dateVal ? dayjs(dateVal).format("DD/MM/YYYY") : "",
-                    time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
-                    billId: `R-${rb.id || rb._id}`,
-                    billTotal: -rb.productsTotal,
-                    outstanding: rb.previousOutstanding - rb.productsTotal,
-                    payment: rb.paymentMode === "CASH" ? -rb.totalAmount : 0,
-                    total: rb.previousOutstanding - rb.productsTotal,
-                    customer: rb.customer,
-                    createdBy: rb.createdBy,
-                    status: "Returned",
-                    rawData: rb,
-                    isReturn: true
-                  };
-                }) : mappedReturnBills}
+                dataSource={
+                  !isToday
+                    ? reportData.returnBills.map((rb: any) => {
+                        const dateVal = rb.createdAt || rb.date;
+                        return {
+                          key: `return_${rb.id || rb._id}`,
+                          date: dateVal
+                            ? dayjs(dateVal).format("DD/MM/YYYY")
+                            : "",
+                          time: dateVal ? dayjs(dateVal).format("hh:mm A") : "",
+                          billId: `R-${rb.id || rb._id}`,
+                          billTotal: -(rb.productsTotal || rb.totalAmount || 0),
+                          outstanding:
+                            (rb.previousOutstanding || 0) - (rb.productsTotal || rb.totalAmount || 0),
+                          payment:
+                            rb.paymentMode === "CASH" ? -(rb.totalAmount || 0) : 0,
+                          total: (rb.previousOutstanding || 0) - (rb.productsTotal || rb.totalAmount || 0),
+                          customer: rb.customer,
+                          createdBy: rb.createdBy,
+                          status: rb.status || "Returned",
+                          rawData: { ...rb, status: rb.status },
+                          isReturn: true,
+                        };
+                      })
+                    : mappedReturnBills
+                }
                 loading={loading}
                 rowKey="billId"
                 scroll={{ x: 1000 }}
                 className="modern-table no-border-table"
-                pagination={!isToday ? {
-                  current: pagination.returnBills.current,
-                  total: pagination.returnBills.total,
-                  pageSize: pagination.returnBills.pageSize,
-                  onChange: handleReturnPageChange
-                } : { pageSize: 12, showSizeChanger: false }}
+                rowClassName={(record: any) => {
+                  const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
+                  return `group cursor-pointer hover:bg-indigo-50/30 transition-all duration-300 ${
+                    isRejected ? "rejected-return-row line-through text-gray-400 bg-red-50/20 hover:bg-red-50/40 opacity-60" : ""
+                  }`;
+                }}
+                pagination={
+                  !isToday
+                    ? {
+                        current: pagination.returnBills.current,
+                        total: pagination.returnBills.total,
+                        pageSize: pagination.returnBills.pageSize,
+                        onChange: handleReturnPageChange,
+                      }
+                    : { pageSize: 12, showSizeChanger: false }
+                }
               />
             )}
             {activeTab === "bills" && (
@@ -1387,12 +1913,22 @@ const DailyReportPage = () => {
                 rowKey="billId"
                 scroll={{ x: 1000 }}
                 className="modern-table no-border-table"
-                pagination={!isToday ? {
-                  current: pagination.bills.current,
-                  total: pagination.bills.total,
-                  pageSize: pagination.bills.pageSize,
-                  onChange: handleBillPageChange
-                } : { pageSize: 12, showSizeChanger: false }}
+                rowClassName={(record: any) => {
+                  const isRejected = record.isReturn && (record.status === "REJECTED" || record.rawData?.status === "REJECTED");
+                  return `group cursor-pointer hover:bg-indigo-50/30 transition-all duration-300 ${
+                    isRejected ? "rejected-return-row line-through text-gray-400 bg-red-50/20 hover:bg-red-50/40 opacity-60" : ""
+                  }`;
+                }}
+                pagination={
+                  !isToday
+                    ? {
+                        current: pagination.bills.current,
+                        total: pagination.bills.total,
+                        pageSize: pagination.bills.pageSize,
+                        onChange: handleBillPageChange,
+                      }
+                    : { pageSize: 12, showSizeChanger: false }
+                }
               />
             )}
             {activeTab === "transactions" && (
@@ -1403,28 +1939,42 @@ const DailyReportPage = () => {
                 rowKey="transId"
                 scroll={{ x: 1000 }}
                 className="modern-table no-border-table"
-                pagination={!isToday ? {
-                  current: pagination.transactions.current,
-                  total: pagination.transactions.total,
-                  pageSize: pagination.transactions.pageSize,
-                  onChange: handleTransactionPageChange
-                } : { pageSize: 12, showSizeChanger: false }}
+                pagination={
+                  !isToday
+                    ? {
+                        current: pagination.transactions.current,
+                        total: pagination.transactions.total,
+                        pageSize: pagination.transactions.pageSize,
+                        onChange: handleTransactionPageChange,
+                      }
+                    : { pageSize: 12, showSizeChanger: false }
+                }
               />
             )}
             {activeTab === "payment" && (
               <Table
                 columns={paymentColumns}
-                dataSource={isToday ? mappedTransactions?.filter((t: any) => t.paymentIn === false) : mappedPayments}
+                dataSource={
+                  isToday
+                    ? mappedTransactions?.filter(
+                        (t: any) => t.paymentIn === false,
+                      )
+                    : mappedPayments
+                }
                 loading={loading}
                 rowKey="transId"
                 scroll={{ x: 1000 }}
                 className="modern-table no-border-table"
-                pagination={!isToday ? {
-                  current: pagination.payments.current,
-                  total: pagination.payments.total,
-                  pageSize: pagination.payments.pageSize,
-                  onChange: handlePaymentPageChange
-                } : { pageSize: 12, showSizeChanger: false }}
+                pagination={
+                  !isToday
+                    ? {
+                        current: pagination.payments.current,
+                        total: pagination.payments.total,
+                        pageSize: pagination.payments.pageSize,
+                        onChange: handlePaymentPageChange,
+                      }
+                    : { pageSize: 12, showSizeChanger: false }
+                }
               />
             )}
             {activeTab === "requests" && (
@@ -1435,18 +1985,23 @@ const DailyReportPage = () => {
                 rowKey="key"
                 scroll={{ x: 1000 }}
                 className="modern-table no-border-table"
-                rowClassName={(record) => (record.rejected ? "opacity-60 grayscale" : "")}
-                pagination={!isToday ? {
-                  current: pagination.inventoryRequests.current,
-                  total: pagination.inventoryRequests.total,
-                  pageSize: pagination.inventoryRequests.pageSize,
-                  onChange: handleRequestPageChange
-                } : { pageSize: 15, showSizeChanger: false }}
+                rowClassName={(record) =>
+                  record.rejected ? "opacity-60 grayscale" : ""
+                }
+                pagination={
+                  !isToday
+                    ? {
+                        current: pagination.inventoryRequests.current,
+                        total: pagination.inventoryRequests.total,
+                        pageSize: pagination.inventoryRequests.pageSize,
+                        onChange: handleRequestPageChange,
+                      }
+                    : { pageSize: 15, showSizeChanger: false }
+                }
               />
             )}
           </div>
         </div>
-
       </div>
       <style>{`
         .premium-tabs .ant-tabs-nav { margin: 0 !important; }
@@ -1485,6 +2040,19 @@ const DailyReportPage = () => {
           padding: 1.25rem 1rem !important;
         }
         .no-border-table .ant-table-row:hover > td { background: #fdfdfd !important; }
+        .rejected-return-row td {
+          text-decoration: line-through !important;
+          color: #9ca3af !important;
+        }
+        .rejected-return-row td span:not(.ant-tag) {
+          text-decoration: line-through !important;
+        }
+        .rejected-return-row td .ant-tag {
+          text-decoration: none !important;
+        }
+        .rejected-return-row td button {
+          text-decoration: none !important;
+        }
       `}</style>
     </main>
   );

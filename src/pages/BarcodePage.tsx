@@ -148,14 +148,14 @@ const BarcodePage = () => {
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
             <div className="w-full lg:max-w-2xl">
               <div className="mb-8">
-                <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Barcode Terminal</h1>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Industrial Label Printing Interface</p>
+                <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Print Barcodes</h1>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Generate and print barcode labels</p>
               </div>
               <div className="relative group">
                 <SearchWithSuggestions
                   data={products}
                   onSelect={handleProductSelect}
-                  placeholder="Scan or Search Product Registry..."
+                  placeholder="Scan barcode or search product..."
                   searchKeys={["name", "barcode"]}
                   displayKeys={["name"]}
                   primaryKey="name"
@@ -202,12 +202,12 @@ const BarcodePage = () => {
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-gray-800 tracking-tight">Print Layout Preview</h2>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Wysiwyg Output Rendering</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Label Print Preview</p>
                 </div>
               </div>
               {barcodeGrid.length > 0 && (
                 <div className="px-6 py-2 bg-indigo-50 border border-indigo-100 rounded-full">
-                  <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{barcodeGrid.length} Units Manifested</span>
+                  <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{barcodeGrid.length} Labels Ready</span>
                 </div>
               )}
             </div>
@@ -222,7 +222,7 @@ const BarcodePage = () => {
                     <div className="w-20 h-20 bg-white rounded-[24px] flex items-center justify-center mb-6 shadow-sm grayscale opacity-30">
                       <BarcodeOutlined className="text-4xl text-gray-400" />
                     </div>
-                    <p className="text-xs font-black text-gray-300 uppercase tracking-[0.3em]">Manifest empty: Waiting for input</p>
+                    <p className="text-xs font-black text-gray-300 uppercase tracking-[0.3em]">No products added: Search or scan a product above</p>
                   </div>
                 ) : (
                   barcodeGrid.map((item) => (

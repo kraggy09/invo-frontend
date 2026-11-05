@@ -1,4 +1,4 @@
-import { Card, Tag } from "antd";
+import { Tag } from "antd";
 import {
   ShoppingCartOutlined,
   UserOutlined,
@@ -52,18 +52,56 @@ const BillingHeader = () => {
   };
 
   return (
-    <div className="w-full mb-6 bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100">
-      <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-6">
-        {/* Terminals & ID Info */}
-        <div className="flex flex-row xl:flex-col gap-4 xl:gap-2 shrink-0 border-b xl:border-b-0 xl:border-r border-gray-100 pb-4 xl:pb-0 xl:pr-6">
-          <div className="flex-1 xl:flex-none">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Bill ID</span>
+    <div className="w-full mb-3 sm:mb-6 bg-white rounded-2xl shadow-sm p-3 sm:p-5 lg:p-6 border border-gray-100">
+      {/* Mobile Top Info Strip (< xl) */}
+      <div className="xl:hidden flex items-center justify-between pb-3 mb-3 border-b border-gray-100 gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 rounded-lg text-indigo-700 font-black text-xs border border-indigo-100">
+            <FileTextOutlined className="text-[10px]" /> B-{billingId + 1}
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 rounded-lg text-gray-600 font-bold text-xs border border-gray-100">
+            T-{transactionId + 1}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-black text-gray-600 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
+            {currentBill?.purchased?.length || 0}{" "}
+            {currentBill?.purchased?.length === 1 ? "Item" : "Items"}
+          </span>
+          <Tag
+            color={
+              currentBill?.billType === "SUPERWHOLESALE"
+                ? "purple"
+                : currentBill?.billType === "WHOLESALE"
+                  ? "green"
+                  : "indigo"
+            }
+            className="rounded-full px-2.5 border-0 font-black text-[10px] uppercase m-0 py-0.5"
+          >
+            {currentBill?.billType === "SUPERWHOLESALE"
+              ? "Super Wholesale"
+              : currentBill?.billType === "WHOLESALE"
+                ? "Wholesale"
+                : "Retail"}
+          </Tag>
+        </div>
+      </div>
+
+      <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-4 xl:gap-6">
+        {/* Desktop Terminals & ID Info (hidden on mobile, shown on xl) */}
+        <div className="hidden xl:flex flex-col gap-2 shrink-0 border-r border-gray-100 pr-6">
+          <div>
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+              Bill No
+            </span>
             <span className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 rounded-lg text-indigo-700 font-black text-sm border border-indigo-100">
               <FileTextOutlined className="text-[10px]" /> B-{billingId + 1}
             </span>
           </div>
-          <div className="flex-1 xl:flex-none">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Transaction ID</span>
+          <div>
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+              Transaction No
+            </span>
             <span className="inline-flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-lg text-gray-600 font-bold text-sm border border-gray-100">
               T-{transactionId + 1}
             </span>
@@ -71,7 +109,7 @@ const BillingHeader = () => {
         </div>
 
         {/* Search Matrix */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
           <div className="group">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-2">
               <UserOutlined className="text-indigo-400" /> Customer
@@ -90,7 +128,7 @@ const BillingHeader = () => {
           </div>
           <div className="group">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-2">
-              <ShoppingCartOutlined className="text-green-400" /> Inventory Catalog
+              <ShoppingCartOutlined className="text-green-400" /> Select Item / Product
             </label>
             <SearchWithSuggestions
               data={products}
@@ -105,14 +143,31 @@ const BillingHeader = () => {
           </div>
         </div>
 
-        {/* Quick Summary */}
-        <div className="flex xl:flex-col sm:flex-row items-center xl:items-end justify-between xl:justify-center gap-4 border-t xl:border-t-0 xl:border-l border-gray-100 pt-4 xl:pt-0 xl:pl-6 shrink-0">
+        {/* Desktop Quick Summary (hidden on mobile, shown on xl) */}
+        <div className="hidden xl:flex flex-col items-end justify-center gap-4 border-l border-gray-100 pl-6 shrink-0">
           <div className="text-right">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-0.5">Cart Items</span>
-            <span className="text-xl font-black text-indigo-600">{currentBill?.purchased?.length || 0}</span>
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-0.5">
+              Items in Bill
+            </span>
+            <span className="text-xl font-black text-indigo-600">
+              {currentBill?.purchased?.length || 0}
+            </span>
           </div>
-          <Tag color={currentBill?.billType === "SUPERWHOLESALE" ? "purple" : currentBill?.billType === "WHOLESALE" ? "green" : "indigo"} className="rounded-full px-4 border-0 font-black text-[10px] uppercase m-0 py-1">
-            {currentBill?.billType === "SUPERWHOLESALE" ? "Super Wholesale" : currentBill?.billType === "WHOLESALE" ? "Wholesale" : "Retail Standard"}
+          <Tag
+            color={
+              currentBill?.billType === "SUPERWHOLESALE"
+                ? "purple"
+                : currentBill?.billType === "WHOLESALE"
+                  ? "green"
+                  : "indigo"
+            }
+            className="rounded-full px-4 border-0 font-black text-[10px] uppercase m-0 py-1"
+          >
+            {currentBill?.billType === "SUPERWHOLESALE"
+              ? "Super Wholesale"
+              : currentBill?.billType === "WHOLESALE"
+                ? "Wholesale"
+                : "Retail"}
           </Tag>
         </div>
       </div>

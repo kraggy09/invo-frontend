@@ -100,8 +100,8 @@ const JourneyLogsPage = () => {
         <div style={{ padding: "24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
                 <div>
-                    <Title level={2}>Journey Logs</Title>
-                    <Text type="secondary">App-wide activity history</Text>
+                    <Title level={2}>Activity History</Title>
+                    <Text type="secondary">History of bills, payments, and stock changes</Text>
                 </div>
                 <RangePicker
                     value={dateRange as any}

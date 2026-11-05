@@ -148,11 +148,11 @@ const CategoryPage = () => {
           setCategories([...categories, created]);
         }
       }
-      message.success("Registry partition updated");
+      message.success("Category saved successfully");
       setModalOpen(false);
       setSelected(null);
     } catch (err: any) {
-      message.error(err?.response?.data?.message || err?.response?.data?.msg || "Registry write operation failed");
+      message.error(err?.response?.data?.message || err?.response?.data?.msg || "Failed to save category");
     } finally {
       setLoading(false);
     }
@@ -160,12 +160,12 @@ const CategoryPage = () => {
 
   const handleDelete = (cat: Category) => {
     confirm({
-      title: `Decommission Category: ${cat.name}`,
+      title: `Delete Category: ${cat.name}`,
       icon: <ExclamationCircleOutlined className="text-red-500" />,
-      content: "All associated data will be archived. Confirm deletion?",
-      okText: "REJECT",
+      content: "Are you sure you want to delete this category?",
+      okText: "Delete",
       okType: "danger",
-      cancelText: "CANCEL",
+      cancelText: "Cancel",
       centered: true,
       okButtonProps: { className: "rounded-lg font-black" },
       cancelButtonProps: { className: "rounded-lg font-black" },
@@ -173,9 +173,9 @@ const CategoryPage = () => {
         try {
           await apiCaller.delete(`/categories/${cat._id}`);
           setCategories(categories.filter((c) => c._id !== cat._id));
-          message.success("Category archived from registry");
+          message.success("Category deleted successfully");
         } catch (err: any) {
-          message.error(err?.response?.data?.message || err?.response?.data?.msg || "Archive operation aborted");
+          message.error(err?.response?.data?.message || err?.response?.data?.msg || "Failed to delete category");
         }
       },
     });
@@ -197,8 +197,8 @@ const CategoryPage = () => {
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
           <div>
-            <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Taxonomy Management</h1>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Cross-Catalog Logical Partitions</p>
+            <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Categories</h1>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Manage product categories</p>
           </div>
           <Button
             type="primary"
@@ -209,7 +209,7 @@ const CategoryPage = () => {
             }}
             className="h-12 px-8 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-[10px] font-black tracking-widest shadow-xl shadow-indigo-100 uppercase w-full sm:w-auto"
           >
-            Create Partition
+            Add Category
           </Button>
         </div>
 
@@ -254,11 +254,11 @@ const CategoryPage = () => {
 
                 <div className="w-full space-y-3 bg-gray-50/50 p-5 rounded-2.5xl border border-gray-50">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Wholesale Partition</span>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Wholesale Rate</span>
                     <span className="text-xs font-black text-indigo-600">{cat.wholesale}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Super Wholesale Partition</span>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Super Wholesale Rate</span>
                     <span className="text-xs font-black text-indigo-600">{cat.superWholeSale}</span>
                   </div>
                 </div>

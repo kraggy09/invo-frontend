@@ -37,11 +37,11 @@ const NewCustomer = () => {
         idempotencyKey,
       });
 
-      message.success("Customer registry updated successfully");
+      message.success("Customer added successfully");
       setIdempotencyKey(generateUUID());
       navigate("/customers");
     } catch (error: any) {
-      message.error(error.response?.data?.message || "Registry initialization failed");
+      message.error(error.response?.data?.message || "Failed to add customer");
     } finally {
       setLoading(false);
     }
@@ -58,8 +58,8 @@ const NewCustomer = () => {
             className="w-10 h-10 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-400 hover:text-indigo-600"
           />
           <div>
-            <h1 className="text-xl font-black text-gray-800 tracking-tight leading-none">Create Customer</h1>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5">New Customer Registry</p>
+            <h1 className="text-xl font-black text-gray-800 tracking-tight leading-none">Add Customer</h1>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1.5">Add new customer details</p>
           </div>
         </div>
 
@@ -70,7 +70,7 @@ const NewCustomer = () => {
             </div>
             <div>
               <p className="text-[10px] font-black text-indigo-100 uppercase tracking-widest mb-1">Customer Management</p>
-              <h2 className="text-xl font-black tracking-tight leading-none">Register New Customer</h2>
+              <h2 className="text-xl font-black tracking-tight leading-none">Add New Customer</h2>
             </div>
           </div>
           <div className="px-4 pt-4"> <Form
@@ -82,11 +82,11 @@ const NewCustomer = () => {
             className="p-8"
           >
             <Form.Item
-              label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1"> Name</span>}
+              label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Customer Name</span>}
               name="name"
               rules={[
-                { required: true, message: "Identification required." },
-                { min: 2, max: 32, message: "2-32 characters permitted." },
+                { required: true, message: "Please enter customer name." },
+                { min: 2, max: 32, message: "Name must be between 2 and 32 characters." },
               ]}
             >
               <Input
@@ -97,13 +97,13 @@ const NewCustomer = () => {
             </Form.Item>
 
             <Form.Item
-              label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Primary Contact</span>}
+              label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Phone Number</span>}
               name="phone"
               rules={[
-                { required: true, message: "Valid mobile required." },
+                { required: true, message: "Please enter phone number." },
                 {
                   pattern: /^[0-9]{10}$/,
-                  message: "Standard 10-digit UID expected.",
+                  message: "Please enter a valid 10-digit phone number.",
                 },
               ]}
             >
@@ -116,13 +116,13 @@ const NewCustomer = () => {
             </Form.Item>
 
             <Form.Item
-              label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Opening Arrears (₹)</span>}
+              label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Opening Balance / Previous Due (₹)</span>}
               name="outstanding"
               rules={[
-                { required: true, message: "Financial status required." },
+                { required: true, message: "Please enter opening balance (or 0)." },
                 {
                   pattern: /^[0-9]+$/,
-                  message: "Numerical parity required.",
+                  message: "Please enter numbers only.",
                 },
               ]}
             >
@@ -142,7 +142,7 @@ const NewCustomer = () => {
                 icon={<PlusOutlined />}
                 className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-base font-black tracking-tight shadow-xl shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                COMMIT TO REGISTRY
+                SAVE CUSTOMER
               </Button>
             </Form.Item>
           </Form></div>

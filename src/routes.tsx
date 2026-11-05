@@ -25,6 +25,10 @@ import ReturnBillPage from "./pages/ReturnBillPage";
 import SingleReturnBillPage from "./pages/SingleReturnBillPage";
 import MemberManagementPage from "./pages/MemberManagementPage";
 import NotificationPage from "./pages/NotificationPage";
+import SupplierPage from "./pages/SupplierPage";
+import SupplierDetailPage from "./pages/SupplierDetailPage";
+import SupplierPurchasePage from "./pages/SupplierPurchasePage";
+import StockReconciliationPage from "./pages/StockReconciliationPage";
 
 const AppRoutes = () => {
   const location = useLocation();
@@ -125,10 +129,17 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/products/reconcile"
+          element={
+            <ProtectedRoute allowedRoles={["SUPER_ADMIN", "CREATOR", "ADMIN"]}>
+              <StockReconciliationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/products/:id"
           element={
             <ProtectedRoute allowedRoles={["SUPER_ADMIN", "CREATOR", "ADMIN"]}>
-
               <EditProductPage />
             </ProtectedRoute>
           }
@@ -142,10 +153,58 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/products/updateStock/:id"
+          element={
+            <ProtectedRoute>
+              <UpdateStock />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suppliers"
+          element={
+            <ProtectedRoute>
+              <SupplierPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suppliers/:id"
+          element={
+            <ProtectedRoute>
+              <SupplierDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/supplier-purchases"
+          element={
+            <ProtectedRoute>
+              <SupplierPurchasePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/supplier-purchases/new"
+          element={
+            <ProtectedRoute>
+              <UpdateStock />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/newCustomer"
           element={
             <ProtectedRoute>
               <NewCustomer />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/approvals"
+          element={
+            <ProtectedRoute>
+              <TransactionPage />
             </ProtectedRoute>
           }
         />

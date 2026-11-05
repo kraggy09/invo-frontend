@@ -37,6 +37,8 @@ const NewProductPage = () => {
         box: Number(values.box),
         minQuantity: Number(values.minQuantity),
         category: values.category,
+        supplierId: values.supplierId || undefined,
+        paymentMode: values.paymentMode || "CASH",
         idempotencyKey,
       });
       message.success("Product created successfully");

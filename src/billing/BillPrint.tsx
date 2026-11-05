@@ -140,7 +140,7 @@ const BillPrint = ({
     >
       <div
         className={`bg-white p-6 rounded-lg shadow-lg ${
-          isA4 ? "w-[800px] max-h-[90vh] overflow-y-auto" : "w-[450px]"
+          isA4 ? "w-[800px] max-h-[90vh] overflow-y-auto" : "w-full sm:w-[450px] max-w-[95vw] max-h-[90vh] overflow-y-auto"
         }`}
       >
         <div className="flex justify-between items-center mb-4">

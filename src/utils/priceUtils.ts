@@ -1,13 +1,21 @@
 import useCategoriesStore from "../store/categories.store";
 import useUserStore from "../store/user.store";
-import { Product } from "../store/currentBill.store";
 
 export type PriceType = "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL";
 
+export interface PriceCalculableProduct {
+  retailPrice: number;
+  wholesalePrice?: number;
+  superWholesalePrice?: number;
+  category?: string | any;
+  piece?: number;
+  [key: string]: any;
+}
+
 export const calculatePriceTag = (
-  product: Product,
-  val: number,
-  billType: PriceType
+  product: PriceCalculableProduct,
+  val?: number,
+  billType?: PriceType,
 ): { type: PriceType; price: number } => {
   const pricingMode = useUserStore.getState().user?.shopSettings?.pricingMode;
   if (
@@ -16,6 +24,20 @@ export const calculatePriceTag = (
     (pricingMode as string)?.toUpperCase() === "RETAIL"
   ) {
     return { type: "RETAIL", price: product.retailPrice };
+  }
+
+  if (billType === "WHOLESALE") {
+    return {
+      type: "WHOLESALE",
+      price: product.wholesalePrice || product.retailPrice,
+    };
+  }
+
+  if (billType === "SUPERWHOLESALE") {
+    return {
+      type: "SUPERWHOLESALE",
+      price: product.superWholesalePrice || product.retailPrice,
+    };
   }
 
   if (
@@ -28,35 +50,39 @@ export const calculatePriceTag = (
 
   const { categories } = useCategoriesStore.getState();
   const safeCategories = Array.isArray(categories) ? categories : [];
+  const categoryName =
+    typeof product.category === "object" && product.category !== null
+      ? (product.category as any).name
+      : product.category;
+
   const categoryInfo = safeCategories.find(
-    (cat) => cat && cat.name === product.category
+    (cat) =>
+      cat &&
+      (cat.name === categoryName ||
+        cat.name?.toLowerCase() === categoryName?.toString().toLowerCase() ||
+        cat._id === categoryName),
   );
 
   if (!categoryInfo) {
     return { type: "RETAIL", price: product.retailPrice };
   }
 
-  const { wholesale, superWholeSale } = categoryInfo;
+  const superWholeSale = Number(categoryInfo.superWholeSale);
+  const wholesale = Number(categoryInfo.wholesale);
 
-  console.log("Reached here");
+  const units = val != null ? val : product.piece || 0;
 
-  if (val) {
-    console.log("Hey i have got the value", val);
-
-    if (val >= superWholeSale) {
-      return { type: "SUPERWHOLESALE", price: product.superWholesalePrice };
-    } else if (val < superWholeSale && val >= wholesale) {
-      return { type: "WHOLESALE", price: product.wholesalePrice };
-    } else {
-      return { type: "RETAIL", price: product.retailPrice };
-    }
+  if (!isNaN(superWholeSale) && units >= superWholeSale) {
+    return {
+      type: "SUPERWHOLESALE",
+      price: product.superWholesalePrice || product.retailPrice,
+    };
+  } else if (!isNaN(wholesale) && units >= wholesale) {
+    return {
+      type: "WHOLESALE",
+      price: product.wholesalePrice || product.retailPrice,
+    };
   } else {
-    if (product.piece >= superWholeSale) {
-      return { type: "SUPERWHOLESALE", price: product.superWholesalePrice };
-    } else if (product.piece < superWholeSale && product.piece >= wholesale) {
-      return { type: "WHOLESALE", price: product.wholesalePrice };
-    } else {
-      return { type: "RETAIL", price: product.retailPrice };
-    }
+    return { type: "RETAIL", price: product.retailPrice };
   }
 };

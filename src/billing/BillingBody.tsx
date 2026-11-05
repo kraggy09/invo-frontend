@@ -1,9 +1,17 @@
-import { Table, Button, Radio, Select, Input, InputRef, Checkbox, InputNumber } from "antd";
+import {
+  Table,
+  Button,
+  Radio,
+  Select,
+  Input,
+  InputRef,
+  InputNumber,
+} from "antd";
 import {
   DeleteOutlined,
-  PlusOutlined,
   CalculatorOutlined,
   SoundOutlined,
+  ShoppingCartOutlined,
 } from "@ant-design/icons";
 import useCurrentBillStore, {
   PurchasedProduct,
@@ -44,13 +52,28 @@ const BillingBody = () => {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [tableHeight, setTableHeight] = useState(400);
   const [delayMs, setDelayMs] = useState(2000); // Default 2 seconds
-  const [paymentMode, setPaymentMode] = useState("CASH");
+  const [paymentMode] = useState("CASH");
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [printBillData, setPrintBillData] = useState(null);
 
   // Triple right-click shortcut refs
   const rightClickCount = useRef(0);
   const rightClickTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const currentBill = useMemo(() => {
+    return bills.find((bill) => bill.id === currentBillingId.toString());
+  }, [bills, currentBillingId]);
+
+  const handleSetFullPayment = () => {
+    if (currentBill) {
+      const totalToPay = Math.ceil(
+        currentBill.total +
+          (currentBill?.customer?.outstanding || 0) -
+          currentBill.discount,
+      );
+      setPaymentAmount(totalToPay.toString());
+    }
+  };
 
   const handlePaymentRightClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent native right-click menu
@@ -61,10 +84,7 @@ const BillingBody = () => {
     }
 
     if (rightClickCount.current >= 2) {
-      if (currentBill) {
-        const totalToPay = Math.ceil(currentBill.total + (currentBill?.customer?.outstanding || 0) - currentBill.discount);
-        setPaymentAmount(totalToPay.toString());
-      }
+      handleSetFullPayment();
       rightClickCount.current = 0;
     } else {
       rightClickTimer.current = setTimeout(() => {
@@ -72,14 +92,18 @@ const BillingBody = () => {
       }, 1000);
     }
   };
-  const [isDirectPrint, setIsDirectPrint] = useState(true);
 
-  const pricingMode = useUserStore((state) => state.user?.shopSettings?.pricingMode);
+  const [isDirectPrint] = useState(true);
+
+  const pricingMode = useUserStore(
+    (state) => state.user?.shopSettings?.pricingMode,
+  );
   const isRetailOnly =
     pricingMode === "RETAIL_ONLY" ||
     (pricingMode as string)?.toUpperCase() === "RETAIL_ONLY" ||
     (pricingMode as string)?.toUpperCase() === "RETAIL";
-  const printType = useUserStore((state) => state.user?.shopSettings?.printType) || "THERMAL";
+  const printType =
+    useUserStore((state) => state.user?.shopSettings?.printType) || "THERMAL";
 
   const pageStyle =
     printType === "A4"
@@ -110,13 +134,9 @@ const BillingBody = () => {
       currentBillingId.toString(),
       bills,
       removeBill,
-      setCurrentBillingId
+      setCurrentBillingId,
     );
   };
-
-  const currentBill = useMemo(() => {
-    return bills.find((bill) => bill.id === currentBillingId.toString());
-  }, [bills, currentBillingId]);
 
   const dataSource = [...(currentBill?.purchased || [])].reverse();
 
@@ -152,11 +172,10 @@ const BillingBody = () => {
 
   const handlePriceChange = (
     record: PurchasedProduct,
-    priceType: "RETAIL" | "WHOLESALE" | "SUPERWHOLESALE"
+    priceType: "RETAIL" | "WHOLESALE" | "SUPERWHOLESALE",
   ) => {
     updateProductPrice(record.id, currentBillingId, priceType);
   };
-
 
   const handleCalculatorClick = (record: PurchasedProduct) => {
     setSelectedProduct(record);
@@ -167,6 +186,35 @@ const BillingBody = () => {
   };
 
   const { user } = useUserStore((state) => state);
+
+  const handleSpeakProducts = async () => {
+    if (!currentBill || !currentBill.purchased.length) return;
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const voices = synth.getVoices();
+    const indianVoice =
+      voices.find(
+        (v) =>
+          v.lang === "en-IN" || v.name.toLowerCase().includes("india"),
+      ) || voices.find((v) => v.lang.startsWith("en"));
+    const products = currentBill.purchased;
+    let idx = 0;
+    function speakNext() {
+      if (idx >= products.length) return;
+      const product = products[idx];
+      const text = `${product.name}, quantity: ${product.piece + product.packet * product.packetQuantity + product.box * product.boxQuantity}`;
+      const utter = new window.SpeechSynthesisUtterance(text);
+      if (indianVoice) utter.voice = indianVoice;
+      utter.rate = 0.8;
+      utter.onend = () =>
+        setTimeout(() => {
+          idx++;
+          speakNext();
+        }, delayMs);
+      synth.speak(utter);
+    }
+    speakNext();
+  };
 
   const handleCreateBill = async () => {
     if (showPrint) return; // Prevent double submission
@@ -181,13 +229,17 @@ const BillingBody = () => {
         return;
       }
       if (currentBill.purchased.length === 0) {
-        toast.error("Bhai ek product to add kro kam se km");
+        toast.error("Please add at least one item to the bill");
         return;
       }
       for (const product of currentBill.purchased) {
-        if (product.piece === 0 && product.packet * product.packetQuantity === 0 && product.box * product.boxQuantity === 0) {
+        if (
+          product.piece === 0 &&
+          product.packet * product.packetQuantity === 0 &&
+          product.box * product.boxQuantity === 0
+        ) {
           toast.error(
-            `Please enter a quantity for the product ${product.name}`
+            `Please enter a quantity for the product ${product.name}`,
           );
           throw new Error("Quantity cannot be zero.");
         }
@@ -208,7 +260,7 @@ const BillingBody = () => {
         billId: billingId,
         transactionId: transactionId,
         payment: paymentValue,
-        paymentMode: paymentMode, // <-- use state here
+        paymentMode: paymentMode,
         createdBy: user?._id,
         products: currentBill.purchased,
         idempotencyKey: currentBill.idempotencyKey,
@@ -216,7 +268,6 @@ const BillingBody = () => {
       if (response.data && response.data.success) {
         setPaymentAmount(""); // Reset after successful billing
         const billData = response.data.data.bill;
-        console.log(billData, "this is the bill data");
         setPrintBillData(billData); // <-- store for printing
         toast.success("Bill created successfully!");
         setShowPrint(true); // Open print modal only after success
@@ -225,10 +276,6 @@ const BillingBody = () => {
           setTimeout(() => {
             handlePrint();
           }, 300);
-        } else {
-          setTimeout(() => {
-            // setShowPrint(false);
-          }, 2000);
         }
       } else {
         toast.error(response.data?.message || "Failed to create bill.");
@@ -241,7 +288,6 @@ const BillingBody = () => {
       } else {
         toast.error("Failed to create bill. Please try again.");
       }
-      console.log(e, "this is the error");
     } finally {
       setIsCreating(false);
     }
@@ -249,14 +295,22 @@ const BillingBody = () => {
 
   const columns: ColumnType<PurchasedProduct>[] = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Item</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
+          Item
+        </span>
+      ),
       dataIndex: "name",
       key: "name",
       render: (name: string, record: PurchasedProduct) => (
         <div className="flex items-center gap-2 group">
           <div className="flex flex-col">
-            <span className="font-black text-gray-800 capitalize leading-tight">{name}</span>
-            <span className="text-[10px] font-bold text-gray-400">Stock: {record.stock} {record.measuring}</span>
+            <span className="font-black text-gray-800 capitalize leading-tight">
+              {name}
+            </span>
+            <span className="text-[10px] font-bold text-gray-400">
+              Stock: {record.stock} {record.measuring}
+            </span>
           </div>
           {record.measuring === "kg" && (
             <Button
@@ -271,12 +325,18 @@ const BillingBody = () => {
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Price (₹)</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+          Price (₹)
+        </span>
+      ),
       dataIndex: "price",
       key: "price",
       width: 80,
       align: "center",
-      render: (price: number) => <span className="font-black text-gray-700">{price}</span>,
+      render: (price: number) => (
+        <span className="font-black text-gray-700">{price}</span>
+      ),
     },
     ...(!isRetailOnly
       ? [
@@ -311,7 +371,11 @@ const BillingBody = () => {
         ]
       : []),
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">PCS</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+          PCS
+        </span>
+      ),
       dataIndex: "piece",
       key: "piece",
       align: "center",
@@ -334,7 +398,11 @@ const BillingBody = () => {
     ...(!isRetailOnly
       ? [
           {
-            title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">PKT</span>,
+            title: (
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+                PKT
+              </span>
+            ),
             dataIndex: "packet",
             key: "packet",
             align: "center" as const,
@@ -345,16 +413,24 @@ const BillingBody = () => {
                 className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50 w-full"
                 value={record.packet}
                 onChange={(val) => {
-                  updateProductQuantities(record.id, currentBillingId.toString(), {
-                    packet: val ?? 0,
-                  });
+                  updateProductQuantities(
+                    record.id,
+                    currentBillingId.toString(),
+                    {
+                      packet: val ?? 0,
+                    },
+                  );
                 }}
                 controls={false}
               />
             ),
           },
           {
-            title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">BOX</span>,
+            title: (
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+                BOX
+              </span>
+            ),
             dataIndex: "box",
             key: "box",
             align: "center" as const,
@@ -365,9 +441,13 @@ const BillingBody = () => {
                 className="text-center font-black h-8 rounded-lg border-gray-100 bg-gray-50/50 w-full"
                 value={record.box}
                 onChange={(val) => {
-                  updateProductQuantities(record.id, currentBillingId.toString(), {
-                    box: val ?? 0,
-                  });
+                  updateProductQuantities(
+                    record.id,
+                    currentBillingId.toString(),
+                    {
+                      box: val ?? 0,
+                    },
+                  );
                 }}
                 controls={false}
               />
@@ -376,7 +456,11 @@ const BillingBody = () => {
         ]
       : []),
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">Disc.</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+          Disc.
+        </span>
+      ),
       dataIndex: "discount",
       key: "discount",
       align: "center",
@@ -396,7 +480,11 @@ const BillingBody = () => {
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right block pr-4">Total</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right block pr-4">
+          Total
+        </span>
+      ),
       dataIndex: "total",
       key: "total",
       align: "right",
@@ -424,9 +512,12 @@ const BillingBody = () => {
   ];
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
-      {/* Table Section - High Density Scroll */}
-      <div ref={tableContainerRef} className="flex-1 overflow-hidden flex flex-col">
+    <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl lg:rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+      {/* Desktop Table Section (hidden on mobile, visible on lg+) */}
+      <div
+        ref={tableContainerRef}
+        className="hidden lg:flex flex-1 overflow-hidden flex-col"
+      >
         <Table
           bordered
           pagination={false}
@@ -439,13 +530,183 @@ const BillingBody = () => {
         />
       </div>
 
-      {/* Optimized Summary Footer - Compressed for Efficiency */}
-      <div className="bg-gray-50/50 p-4 sm:px-8 sm:py-6 border-t border-gray-100">
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-center">
+      {/* Mobile Item List Section (visible on mobile, hidden on lg+) */}
+      <div className="lg:hidden flex-1 overflow-y-auto p-2.5 sm:p-4 space-y-2.5 min-h-[180px]">
+        {dataSource.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <ShoppingCartOutlined className="text-3xl text-gray-300 mb-2 block" />
+            <p className="text-xs font-black uppercase tracking-wider text-gray-500">
+              No items in this bill
+            </p>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Search and add items using the search bar above
+            </p>
+          </div>
+        ) : (
+          dataSource.map((product) => (
+            <div
+              key={product.id}
+              className="bg-gray-50/70 rounded-2xl p-3 border border-gray-100 flex flex-col gap-2.5 transition-all shadow-2xs"
+            >
+              {/* Product Header: Name, Unit Price & Delete */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-black text-gray-800 text-sm capitalize leading-snug">
+                      {product.name}
+                    </span>
+                    {product.measuring === "kg" && (
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<CalculatorOutlined className="text-indigo-600 text-xs" />}
+                        onClick={() => handleCalculatorClick(product)}
+                        className="p-0.5 h-6 w-6 flex items-center justify-center bg-indigo-50 hover:bg-indigo-100 rounded-md"
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 text-[10px] font-bold text-gray-400">
+                    <span>
+                      Stock: {product.stock} {product.measuring}
+                    </span>
+                    <span>•</span>
+                    <span className="text-gray-600">₹{product.price}/unit</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="font-black text-indigo-600 text-base">
+                    ₹{formatIndianNumber(product.total)}
+                  </span>
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined className="text-xs" />}
+                    onClick={() => handleRemove(product.id)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-red-500"
+                  />
+                </div>
+              </div>
+
+              {/* Price Type Selector (if Wholesale enabled) */}
+              {!isRetailOnly && (
+                <div className="flex items-center justify-between pt-1 border-t border-gray-200/60">
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                    Price Type
+                  </span>
+                  <Radio.Group
+                    size="small"
+                    value={product.type}
+                    onChange={(e) => handlePriceChange(product, e.target.value)}
+                    className="pos-type-selector scale-90 origin-right"
+                  >
+                    <Radio.Button value="RETAIL">RT</Radio.Button>
+                    <Radio.Button value="WHOLESALE">WS</Radio.Button>
+                    <Radio.Button value="SUPERWHOLESALE">SW</Radio.Button>
+                  </Radio.Group>
+                </div>
+              )}
+
+              {/* Quantities & Discount Grid */}
+              <div
+                className={`grid gap-2 pt-1 border-t border-gray-200/60 ${
+                  isRetailOnly
+                    ? "grid-cols-2"
+                    : "grid-cols-2 sm:grid-cols-4"
+                }`}
+              >
+                <div className="bg-white p-1.5 rounded-xl border border-gray-100">
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+                    PCS
+                  </span>
+                  <InputNumber
+                    size="small"
+                    className="w-full text-center font-black h-8 rounded-lg bg-gray-50 border-gray-100"
+                    value={product.piece}
+                    onChange={(val) =>
+                      updateProductQuantities(
+                        product.id,
+                        currentBillingId.toString(),
+                        { piece: val ?? 0 },
+                      )
+                    }
+                    controls={false}
+                  />
+                </div>
+                {!isRetailOnly && (
+                  <>
+                    <div className="bg-white p-1.5 rounded-xl border border-gray-100">
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+                        PKT
+                      </span>
+                      <InputNumber
+                        size="small"
+                        className="w-full text-center font-black h-8 rounded-lg bg-gray-50 border-gray-100"
+                        value={product.packet}
+                        onChange={(val) =>
+                          updateProductQuantities(
+                            product.id,
+                            currentBillingId.toString(),
+                            { packet: val ?? 0 },
+                          )
+                        }
+                        controls={false}
+                      />
+                    </div>
+                    <div className="bg-white p-1.5 rounded-xl border border-gray-100">
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+                        BOX
+                      </span>
+                      <InputNumber
+                        size="small"
+                        className="w-full text-center font-black h-8 rounded-lg bg-gray-50 border-gray-100"
+                        value={product.box}
+                        onChange={(val) =>
+                          updateProductQuantities(
+                            product.id,
+                            currentBillingId.toString(),
+                            { box: val ?? 0 },
+                          )
+                        }
+                        controls={false}
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="bg-white p-1.5 rounded-xl border border-gray-100">
+                  <span className="text-[9px] font-black text-red-400 uppercase tracking-widest block mb-1">
+                    Disc (₹)
+                  </span>
+                  <InputNumber
+                    size="small"
+                    className="w-full text-center font-black h-8 rounded-lg bg-red-50/30 text-red-600 border-red-100"
+                    value={product.discount}
+                    onChange={(val) =>
+                      updateProductQuantities(
+                        product.id,
+                        currentBillingId.toString(),
+                        { discount: val ?? 0 },
+                      )
+                    }
+                    controls={false}
+                  />
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Summary Footer */}
+      <div className="bg-gray-50/50 p-3 sm:px-8 sm:py-6 border-t border-gray-100">
+        {/* Desktop Footer (hidden < xl, visible xl+) */}
+        <div className="hidden xl:grid grid-cols-12 gap-6 items-center">
           {/* Quick Controls - 3 Cols */}
-          <div className="xl:col-span-3 flex items-center gap-4">
+          <div className="col-span-3 flex items-center gap-4">
             <div className="flex-1 min-w-[100px]">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 block">Vocal Latency</label>
+              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 block">
+                Voice Delay
+              </label>
               <Select
                 size="middle"
                 value={delayMs}
@@ -454,7 +715,7 @@ const BillingBody = () => {
                 options={[
                   { value: 2000, label: "2.0s" },
                   { value: 3000, label: "3.0s" },
-                  { value: 5000, label: "5.0s" }
+                  { value: 5000, label: "5.0s" },
                 ]}
               />
             </div>
@@ -463,58 +724,61 @@ const BillingBody = () => {
               size="middle"
               icon={<SoundOutlined className="text-xs" />}
               disabled={!currentBill || !currentBill.purchased.length}
-              onClick={async () => {
-                if (!currentBill || !currentBill.purchased.length) return;
-                const synth = window.speechSynthesis;
-                synth.cancel();
-                const voices = synth.getVoices();
-                const indianVoice = voices.find(v => v.lang === "en-IN" || v.name.toLowerCase().includes("india")) || voices.find(v => v.lang.startsWith("en"));
-                const products = currentBill.purchased;
-                let idx = 0;
-                function speakNext() {
-                  if (idx >= products.length) return;
-                  const product = products[idx];
-                  const text = `${product.name}, quantity: ${product.piece + product.packet * product.packetQuantity + product.box * product.boxQuantity}`;
-                  const utter = new window.SpeechSynthesisUtterance(text);
-                  if (indianVoice) utter.voice = indianVoice;
-                  utter.rate = 0.8;
-                  utter.onend = () => setTimeout(() => { idx++; speakNext(); }, delayMs);
-                  synth.speak(utter);
-                }
-                speakNext();
-              }}
+              onClick={handleSpeakProducts}
               className="h-10 px-4 rounded-xl bg-white border-gray-200 flex items-center justify-center font-black text-[9px] uppercase tracking-widest hover:border-indigo-400 hover:text-indigo-600 transition-all flex-none"
             >
-              Vocal
+              Speak
             </Button>
           </div>
 
           {/* Pricing Grid - 6 Cols */}
-          <div className="xl:col-span-6 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="col-span-6 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            <div className="grid grid-cols-4 gap-4">
               <div className="border-r border-gray-50 pr-2">
-                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Base</span>
-                <span className="text-sm font-black text-gray-800">₹{formatIndianNumber(currentBill?.total || 0)}</span>
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+                  Items Total
+                </span>
+                <span className="text-sm font-black text-gray-800">
+                  ₹{formatIndianNumber(currentBill?.total || 0)}
+                </span>
               </div>
               <div className="border-r border-gray-50 pr-2">
-                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Arrears</span>
-                <span className="text-sm font-black text-red-500">₹{formatIndianNumber(currentBill?.customer?.outstanding || 0)}</span>
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+                  Previous Due
+                </span>
+                <span className="text-sm font-black text-red-500">
+                  ₹{formatIndianNumber(currentBill?.customer?.outstanding || 0)}
+                </span>
               </div>
               <div className="border-r border-gray-50 pr-2">
-                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Disc.</span>
-                <span className="text-sm font-black text-green-500">-₹{formatIndianNumber(currentBill?.discount || 0)}</span>
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+                  Discount
+                </span>
+                <span className="text-sm font-black text-green-500">
+                  -₹{formatIndianNumber(currentBill?.discount || 0)}
+                </span>
               </div>
               <div className="pl-2">
-                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-1">Grand Total</span>
+                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-1">
+                  Net Total
+                </span>
                 <span className="text-xl font-black text-indigo-600 tracking-tighter">
-                  ₹{currentBill && formatIndianNumber(Math.ceil(currentBill.total + (currentBill?.customer?.outstanding || 0) - currentBill.discount))}
+                  ₹
+                  {currentBill &&
+                    formatIndianNumber(
+                      Math.ceil(
+                        currentBill.total +
+                          (currentBill?.customer?.outstanding || 0) -
+                          currentBill.discount,
+                      ),
+                    )}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Checkout Logic - 3 Cols */}
-          <div className="xl:col-span-3 flex flex-col gap-2">
+          <div className="col-span-3 flex flex-col gap-2">
             <div className="flex flex-row items-end gap-3">
               <div className="flex-1 group">
                 <div className="relative">
@@ -524,8 +788,10 @@ const BillingBody = () => {
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     size="large"
-                    placeholder="Payment"
-                    prefix={<span className="text-indigo-400 font-black mr-1">₹</span>}
+                    placeholder="Payment Amount"
+                    prefix={
+                      <span className="text-indigo-400 font-black mr-1">₹</span>
+                    }
                     className="h-12 rounded-xl text-lg font-black border-2 border-transparent bg-white shadow-sm transition-all group-hover:border-indigo-100 focus:border-indigo-600 pr-10"
                   />
                 </div>
@@ -536,18 +802,122 @@ const BillingBody = () => {
                 loading={isCreating}
                 className="h-12 px-6 bg-indigo-600 border-none text-[10px] font-black rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 uppercase tracking-widest flex-none"
               >
-                Finish
+                Save Bill
               </Button>
             </div>
-            {/* <div className="flex justify-end">
-              <Checkbox
-                checked={isDirectPrint}
-                onChange={(e) => setIsDirectPrint(e.target.checked)}
-                className="text-[10px] uppercase font-bold text-gray-500 tracking-wider"
-              >
-                Auto Print
-              </Checkbox>
-            </div> */}
+          </div>
+        </div>
+
+        {/* Mobile Summary & Checkout (< xl) */}
+        <div className="xl:hidden flex flex-col gap-3">
+          {/* Pricing Grid */}
+          <div className="bg-white rounded-2xl p-3 border border-gray-100 shadow-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="p-2 bg-gray-50/70 rounded-xl">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-0.5">
+                  Items Total
+                </span>
+                <span className="text-xs sm:text-sm font-black text-gray-800">
+                  ₹{formatIndianNumber(currentBill?.total || 0)}
+                </span>
+              </div>
+              <div className="p-2 bg-gray-50/70 rounded-xl">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-0.5">
+                  Prev Due
+                </span>
+                <span className="text-xs sm:text-sm font-black text-red-500">
+                  ₹{formatIndianNumber(currentBill?.customer?.outstanding || 0)}
+                </span>
+              </div>
+              <div className="p-2 bg-gray-50/70 rounded-xl">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-0.5">
+                  Discount
+                </span>
+                <span className="text-xs sm:text-sm font-black text-green-500">
+                  -₹{formatIndianNumber(currentBill?.discount || 0)}
+                </span>
+              </div>
+              <div className="p-2 bg-indigo-50/70 rounded-xl border border-indigo-100">
+                <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest block mb-0.5">
+                  Net Total
+                </span>
+                <span className="text-sm sm:text-base font-black text-indigo-700 tracking-tight">
+                  ₹
+                  {currentBill &&
+                    formatIndianNumber(
+                      Math.ceil(
+                        currentBill.total +
+                          (currentBill?.customer?.outstanding || 0) -
+                          currentBill.discount,
+                      ),
+                    )}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Checkout Controls */}
+          <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
+            <div className="flex-1 relative">
+              <Input
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                size="large"
+                placeholder="Payment Amount"
+                prefix={
+                  <span className="text-indigo-400 font-black mr-1">₹</span>
+                }
+                suffix={
+                  <Button
+                    size="small"
+                    type="text"
+                    onClick={handleSetFullPayment}
+                    className="text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 h-6 rounded-md uppercase"
+                  >
+                    Full
+                  </Button>
+                }
+                className="h-12 rounded-xl text-base font-black bg-white border border-gray-200 shadow-sm"
+              />
+            </div>
+            <Button
+              type="primary"
+              onClick={handleCreateBill}
+              loading={isCreating}
+              className="h-12 px-6 bg-indigo-600 border-none text-xs font-black rounded-xl hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 uppercase tracking-widest"
+            >
+              Save Bill
+            </Button>
+          </div>
+
+          {/* Voice Delay / Speak */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                Voice:
+              </span>
+              <Select
+                size="small"
+                value={delayMs}
+                className="w-20"
+                onChange={setDelayMs}
+                options={[
+                  { value: 2000, label: "2.0s" },
+                  { value: 3000, label: "3.0s" },
+                  { value: 5000, label: "5.0s" },
+                ]}
+              />
+            </div>
+            <Button
+              type="text"
+              size="small"
+              icon={<SoundOutlined className="text-xs" />}
+              disabled={!currentBill || !currentBill.purchased.length}
+              onClick={handleSpeakProducts}
+              className="font-black text-[10px] text-gray-500 hover:text-indigo-600 uppercase tracking-wider"
+            >
+              Speak Items
+            </Button>
           </div>
         </div>
       </div>

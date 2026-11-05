@@ -230,7 +230,7 @@ const MemberManagementPage = () => {
                 </div>
                 <div>
                     <Title level={2} className="!m-0 tracking-tighter">Member Management</Title>
-                    <Text type="secondary" className="text-xs uppercase font-bold tracking-widest">System Access Control & Personnel</Text>
+                    <Text type="secondary" className="text-xs uppercase font-bold tracking-widest">Manage staff accounts and permissions</Text>
                 </div>
             </div>
 
@@ -241,7 +241,7 @@ const MemberManagementPage = () => {
                         title={
                             <div className="flex items-center gap-2 py-2">
                                 <UserAddOutlined className="text-indigo-600" />
-                                <span className="text-sm font-black uppercase tracking-widest">Initialize New Member</span>
+                                <span className="text-sm font-black uppercase tracking-widest">Add New Member</span>
                             </div>
                         }
                     >
@@ -262,7 +262,7 @@ const MemberManagementPage = () => {
 
                             <Form.Item
                                 name="username"
-                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Identity UID</span>}
+                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Username</span>}
                                 rules={[{ required: true, message: "Username is required" }]}
                             >
                                 <Input prefix={<UserOutlined className="text-indigo-400" />} placeholder="johndoe" className="member-field" />
@@ -270,7 +270,7 @@ const MemberManagementPage = () => {
 
                             <Form.Item
                                 name="password"
-                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Access Key</span>}
+                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Password</span>}
                                 rules={[{ required: true, message: "Password is required" }]}
                             >
                                 <Input.Password prefix={<LockOutlined className="text-indigo-400" />} placeholder="••••••••" className="member-field" />
@@ -278,7 +278,7 @@ const MemberManagementPage = () => {
 
                             <Form.Item
                                 name="aclId"
-                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Privilege Cluster</span>}
+                                label={<span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Role</span>}
                                 rules={[{ required: true, message: "Role is required" }]}
                             >
                                 <Select placeholder="Select a role" loading={rolesLoading} className="member-select">
@@ -300,7 +300,7 @@ const MemberManagementPage = () => {
                                 block
                                 className="h-14 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl text-xs font-black tracking-widest uppercase shadow-lg shadow-indigo-100"
                             >
-                                Provision Account
+                                Add Member
                             </Button>
                         </Form>
                     </Card>
@@ -333,7 +333,7 @@ const MemberManagementPage = () => {
                 cancelButtonProps={{ className: "rounded-xl" }}
             >
                 <div className="py-4">
-                    <Text type="secondary" className="block mb-4 text-xs font-bold uppercase tracking-widest">Select Privilege Cluster</Text>
+                    <Text type="secondary" className="block mb-4 text-xs font-bold uppercase tracking-widest">Select Role</Text>
                     <Select
                         placeholder="Select a role"
                         style={{ width: '100%' }}

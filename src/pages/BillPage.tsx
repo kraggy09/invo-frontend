@@ -6,7 +6,9 @@ import {
   InputNumber,
   Button,
   Select,
-  Segmented
+  Segmented,
+  Tag,
+  Tooltip,
 } from "antd";
 import { message } from "../utils/antdStatic";
 import {
@@ -23,10 +25,18 @@ import isBetween from "dayjs/plugin/isBetween";
 dayjs.extend(isBetween);
 import apiCaller from "../utils/apiCaller";
 import { formatIndianNumber } from "../utils";
-import useBillStore, { Bill, BillCustomer, BillCreatedBy, BillItem } from "../store/bill.store";
+import useBillStore, {
+  Bill,
+  BillCustomer,
+  BillCreatedBy,
+  BillItem,
+} from "../store/bill.store";
 import { useNavigate } from "react-router-dom";
 import useUserStore from "../store/user.store";
 import useProductStore from "../store/product.store";
+import useReturnBillStore from "../store/returnBill.store";
+import { useSocket } from "../contexts/SocketContext";
+import { SocketEvents } from "../types/socket";
 import { ShoppingOutlined } from "@ant-design/icons";
 
 const { RangePicker } = DatePicker;
@@ -48,24 +58,44 @@ const BillPage = () => {
   // Local state
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [amountRange, setAmountRange] = useState<[number, number]>([0, Infinity]);
-  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([dayjs(), dayjs()]);
+  const [amountRange, setAmountRange] = useState<[number, number]>([
+    0,
+    Infinity,
+  ]);
+  const [dateRange, setDateRange] = useState<
+    [dayjs.Dayjs | null, dayjs.Dayjs | null]
+  >([dayjs(), dayjs()]);
   const [historicalBills, setHistoricalBills] = useState<Bill[] | null>(null);
   const [historicalSummary, setHistoricalSummary] = useState<any>(null);
-  const [pagination, setPagination] = useState({ current: 1, total: 0, pageSize: 20 });
+  const [pagination, setPagination] = useState({
+    current: 1,
+    total: 0,
+    pageSize: 20,
+  });
   const [showAdmin, setShowAdmin] = useState(false);
   const [pin, setPin] = useState("");
 
   const canSeeFinancials = user?.roles?.some((role) =>
-    ["ADMIN", "SUPER_ADMIN", "CREATOR"].includes(role)
+    ["ADMIN", "SUPER_ADMIN", "CREATOR"].includes(role),
   );
 
   const { products } = useProductStore();
-  const [searchMode, setSearchMode] = useState<"general" | "product">("general");
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [productHistoricalBills, setProductHistoricalBills] = useState<any[]>([]);
-  const [productHistoricalSummary, setProductHistoricalSummary] = useState<any>(null);
-  const [productPagination, setProductPagination] = useState({ current: 1, total: 0, pageSize: 20 });
+  const [searchMode, setSearchMode] = useState<"general" | "product">(
+    "general",
+  );
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    null,
+  );
+  const [productHistoricalBills, setProductHistoricalBills] = useState<any[]>(
+    [],
+  );
+  const [productHistoricalSummary, setProductHistoricalSummary] =
+    useState<any>(null);
+  const [productPagination, setProductPagination] = useState({
+    current: 1,
+    total: 0,
+    pageSize: 20,
+  });
 
   // If dateRange is today, use live store; otherwise use fetched data
   const isToday =
@@ -73,123 +103,230 @@ const BillPage = () => {
     dateRange[1]?.isSame(dayjs(), "day");
 
   const [historicalReturnBills, setHistoricalReturnBills] = useState<any[]>([]);
+  const { socket, isConnected } = useSocket();
+
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+    const handleReturnStatusUpdate = (data: any) => {
+      if (data?.returnBill) {
+        setHistoricalReturnBills((prev) =>
+          prev.map((rb) => {
+            const isMatch =
+              String(rb._id) === String(data.returnBill._id) ||
+              (rb.id !== undefined && data.returnBill.id !== undefined && String(rb.id) === String(data.returnBill.id));
+            return isMatch
+              ? {
+                  ...rb,
+                  ...data.returnBill,
+                  status: data.returnBill.status,
+                  rawData: { ...rb.rawData, ...data.returnBill, status: data.returnBill.status },
+                }
+              : rb;
+          }),
+        );
+      }
+    };
+
+    socket.on(SocketEvents.BILL.RETURN_REJECTED, handleReturnStatusUpdate);
+    socket.on(SocketEvents.BILL.RETURN_APPROVED, handleReturnStatusUpdate);
+    socket.on("RETURN_REJECTED", handleReturnStatusUpdate);
+    socket.on("RETURN_APPROVED", handleReturnStatusUpdate);
+
+    return () => {
+      socket.off(SocketEvents.BILL.RETURN_REJECTED, handleReturnStatusUpdate);
+      socket.off(SocketEvents.BILL.RETURN_APPROVED, handleReturnStatusUpdate);
+      socket.off("RETURN_REJECTED", handleReturnStatusUpdate);
+      socket.off("RETURN_APPROVED", handleReturnStatusUpdate);
+    };
+  }, [socket, isConnected]);
 
   const mappedBillsFromStore = useMemo(() => {
-    return billsFromStore.map(bill => ({
+    return billsFromStore.map((bill) => ({
       ...bill,
       key: bill._id,
       billId: bill.id,
-      billTotal: bill.productsTotal ?? bill.items?.reduce((sum, item) => sum + (item.total || 0), 0) ?? 0,
+      billTotal:
+        bill.productsTotal ??
+        bill.items?.reduce((sum, item) => sum + (item.total || 0), 0) ??
+        0,
       isReturn: false,
     }));
   }, [billsFromStore]);
 
-  const effectiveBills = useMemo(() => {
-    if (isToday) return mappedBillsFromStore;
+  const returnBillsFromStore = useReturnBillStore((state) => state.returnBills);
 
-    const bills = (historicalBills ?? []).map(bill => ({
+  const effectiveBills = useMemo(() => {
+    const mappedReturnsFromStore = (returnBillsFromStore || []).map((rb) => {
+      const dateVal = rb.createdAt || (rb as any).date;
+      return {
+        ...rb,
+        key: `return_${rb.id || rb._id}`,
+        billId: `R-${rb.id || rb._id}`,
+        billTotal: -(rb.productsTotal || rb.totalAmount || 0),
+        payment: rb.paymentMode === "CASH" ? -rb.totalAmount : 0,
+        total:
+          (rb.previousOutstanding || 0) -
+          (rb.productsTotal || rb.totalAmount || 0),
+        status: rb.status,
+        isReturn: true,
+        createdAt: dateVal,
+        rawData: { ...rb, status: rb.status },
+      };
+    });
+
+    if (isToday) {
+      return [...mappedBillsFromStore, ...mappedReturnsFromStore].sort(
+        (a, b) =>
+          new Date(b.createdAt || (b as any).date).getTime() -
+          new Date(a.createdAt || (a as any).date).getTime(),
+      );
+    }
+
+    const bills = (historicalBills ?? []).map((bill) => ({
       ...bill,
       key: bill._id,
       billId: bill.id,
-      billTotal: bill.productsTotal ?? bill.items?.reduce((sum, item) => sum + (item.total || 0), 0) ?? 0,
+      billTotal:
+        bill.productsTotal ??
+        bill.items?.reduce((sum, item) => sum + (item.total || 0), 0) ??
+        0,
       isReturn: false,
     }));
 
-    const returns = (historicalReturnBills ?? []).map(rb => {
+    const returns = (historicalReturnBills ?? []).map((rb) => {
       const dateVal = rb.createdAt || rb.date;
       return {
         ...rb,
         key: `return_${rb.id || rb._id}`,
         billId: `R-${rb.id || rb._id}`,
-        billTotal: -rb.productsTotal,
+        billTotal: -(rb.productsTotal || rb.totalAmount || 0),
         payment: rb.paymentMode === "CASH" ? -rb.totalAmount : 0,
-        total: rb.previousOutstanding - rb.productsTotal,
-        status: "Returned",
+        total:
+          (rb.previousOutstanding || 0) -
+          (rb.productsTotal || rb.totalAmount || 0),
+        status: rb.status,
         isReturn: true,
         createdAt: dateVal, // Use for sorting/display
+        rawData: { ...rb, status: rb.status },
       };
     });
 
-    return [...bills, ...returns].sort((a, b) =>
-      new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()
+    return [...bills, ...returns].sort(
+      (a, b) =>
+        new Date(b.createdAt || b.date).getTime() -
+        new Date(a.createdAt || a.date).getTime(),
     );
-  }, [isToday, mappedBillsFromStore, historicalBills, historicalReturnBills]);
+  }, [
+    isToday,
+    mappedBillsFromStore,
+    returnBillsFromStore,
+    historicalBills,
+    historicalReturnBills,
+  ]);
 
   // Fetch from API only when date range changes to non-today
-  const fetchHistoricalData = useCallback(async (page = 1) => {
-    if (!dateRange[0] || !dateRange[1]) return;
-    if (searchMode === "general" && isToday) return;
+  const fetchHistoricalData = useCallback(
+    async (page = 1) => {
+      if (!dateRange[0] || !dateRange[1]) return;
+      if (searchMode === "general" && isToday) return;
 
-    setLoading(true);
-    try {
-      const startDate = dateRange[0].startOf("day").toISOString();
-      const endDate = dateRange[1].endOf("day").toISOString();
+      setLoading(true);
+      try {
+        const startDate = dateRange[0].startOf("day").toISOString();
+        const endDate = dateRange[1].endOf("day").toISOString();
 
-      if (searchMode === "product") {
-        if (!selectedProductId) {
-          message.warning("Select a product to search");
-          setLoading(false);
-          return;
-        }
-        const product = products.find(p => p._id === selectedProductId);
-        if (!product) return;
+        if (searchMode === "product") {
+          if (!selectedProductId) {
+            message.warning("Select a product to search");
+            setLoading(false);
+            return;
+          }
+          const product = products.find((p) => p._id === selectedProductId);
+          if (!product) return;
 
-        const res = await apiCaller.post("/bills/search-by-product", {
-          product,
-          startDate,
-          endDate,
-          page,
-          limit: productPagination.pageSize
-        });
-
-        const bills = res.data.data?.bills || [];
-        setProductHistoricalBills(bills);
-        setProductPagination(prev => ({ ...prev, current: page, total: res.data.data?.total || 0 }));
-
-        setProductHistoricalSummary({
-          totalInstances: res.data.data?.summary?.totalInstances || 0,
-          totalQuantity: res.data.data?.summary?.totalQuantity || 0,
-          totalRevenue: res.data.data?.summary?.totalRevenue || 0,
-        });
-
-        message.success("Product history loaded");
-      } else {
-        const [billRes, returnRes] = await Promise.all([
-          apiCaller.get("/bills", { params: { startDate, endDate, page, limit: pagination.pageSize, search: search || undefined } }),
-          apiCaller.get("/return-bills", { params: { startDate, endDate, page, limit: pagination.pageSize } })
-        ]);
-
-        setHistoricalBills(billRes.data.data?.bills || []);
-        setHistoricalReturnBills(returnRes.data.data?.returnBills || []);
-
-        setPagination(prev => ({
-          ...prev,
-          current: page,
-          total: (billRes.data.data?.total || 0) + (returnRes.data.data?.total || 0)
-        }));
-
-        if (page === 1) {
-          const summaryRes = await apiCaller.get("/bills/summary", {
-            params: { startDate, endDate }
+          const res = await apiCaller.post("/bills/search-by-product", {
+            product,
+            startDate,
+            endDate,
+            page,
+            limit: productPagination.pageSize,
           });
-          setHistoricalSummary(summaryRes.data.data);
-        }
 
-        if (page === 1) message.success("Bills loaded for selected range");
+          const bills = res.data.data?.bills || [];
+          setProductHistoricalBills(bills);
+          setProductPagination((prev) => ({
+            ...prev,
+            current: page,
+            total: res.data.data?.total || 0,
+          }));
+
+          setProductHistoricalSummary({
+            totalInstances: res.data.data?.summary?.totalInstances || 0,
+            totalQuantity: res.data.data?.summary?.totalQuantity || 0,
+            totalRevenue: res.data.data?.summary?.totalRevenue || 0,
+          });
+
+          message.success("Product history loaded");
+        } else {
+          const [billRes, returnRes] = await Promise.all([
+            apiCaller.get("/bills", {
+              params: {
+                startDate,
+                endDate,
+                page,
+                limit: pagination.pageSize,
+                search: search || undefined,
+              },
+            }),
+            apiCaller.get("/return-bills", {
+              params: { startDate, endDate, page, limit: pagination.pageSize },
+            }),
+          ]);
+
+          setHistoricalBills(billRes.data.data?.bills || []);
+          setHistoricalReturnBills(returnRes.data.data?.returnBills || []);
+
+          setPagination((prev) => ({
+            ...prev,
+            current: page,
+            total:
+              (billRes.data.data?.total || 0) +
+              (returnRes.data.data?.total || 0),
+          }));
+
+          if (page === 1) {
+            const summaryRes = await apiCaller.get("/bills/summary", {
+              params: { startDate, endDate },
+            });
+            setHistoricalSummary(summaryRes.data.data);
+          }
+
+          if (page === 1) message.success("Bills loaded for selected range");
+        }
+      } catch (err) {
+        console.error("Fetch error:", err);
+        message.error("Failed to fetch historical data");
+        if (searchMode === "product") {
+          setProductHistoricalBills([]);
+        } else {
+          setHistoricalBills([]);
+          setHistoricalReturnBills([]);
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Fetch error:", err);
-      message.error("Failed to fetch historical data");
-      if (searchMode === "product") {
-        setProductHistoricalBills([]);
-      } else {
-        setHistoricalBills([]);
-        setHistoricalReturnBills([]);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [dateRange, isToday, pagination.pageSize, productPagination.pageSize, search, searchMode, selectedProductId, products]);
+    },
+    [
+      dateRange,
+      isToday,
+      pagination.pageSize,
+      productPagination.pageSize,
+      search,
+      searchMode,
+      selectedProductId,
+      products,
+    ],
+  );
 
   useEffect(() => {
     if (isToday && searchMode === "general") {
@@ -213,12 +350,14 @@ const BillPage = () => {
         (b: any) =>
           b.customer?.name?.toLowerCase().includes(q) ||
           b.billId?.toString().includes(search) || // Use billId unified
-          b.customer?.phone?.toString().includes(search)
+          b.customer?.phone?.toString().includes(search),
       );
     }
 
-    if (amountRange[0] > 0) data = data.filter((b: any) => Math.abs(b.total) >= amountRange[0]);
-    if (amountRange[1] < Infinity) data = data.filter((b: any) => Math.abs(b.total) <= amountRange[1]);
+    if (amountRange[0] > 0)
+      data = data.filter((b: any) => Math.abs(b.total) >= amountRange[0]);
+    if (amountRange[1] < Infinity)
+      data = data.filter((b: any) => Math.abs(b.total) <= amountRange[1]);
 
     return data; // Already sorted in effectiveBills or reversed if today (though store is usually sorted)
   }, [effectiveBills, search, amountRange, isToday]);
@@ -230,15 +369,23 @@ const BillPage = () => {
         totalBills: pagination.total,
         totalAmount: historicalSummary.totalBillAmount,
         totalPayment: historicalSummary.totalPaymentIn,
-        outstanding: historicalSummary.totalBillAmount - historicalSummary.totalPaymentIn, // Estimation
+        outstanding:
+          historicalSummary.totalBillAmount - historicalSummary.totalPaymentIn, // Estimation
       };
     }
 
+    const activeBills = filteredBills.filter(
+      (b: any) =>
+        !(
+          b.isReturn &&
+          (b.status === "REJECTED" || b.rawData?.status === "REJECTED")
+        ),
+    );
     return {
-      totalBills: filteredBills.length,
-      totalAmount: filteredBills.reduce((s, b: any) => s + (b.total || 0), 0),
-      totalPayment: filteredBills.reduce((s, b: any) => s + (b.payment || 0), 0),
-      outstanding: filteredBills.reduce((s, b: any) => s + getOutstanding(b), 0),
+      totalBills: activeBills.length,
+      totalAmount: activeBills.reduce((s, b: any) => s + (b.total || 0), 0),
+      totalPayment: activeBills.reduce((s, b: any) => s + (b.payment || 0), 0),
+      outstanding: activeBills.reduce((s, b: any) => s + getOutstanding(b), 0),
     };
   }, [filteredBills, isToday, historicalSummary, pagination.total]);
 
@@ -254,62 +401,181 @@ const BillPage = () => {
   // Table columns
   const columns = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
+          Date
+        </span>
+      ),
       dataIndex: "createdAt",
       key: "date",
-      render: (d: string) => (
-        <div className="flex flex-col">
-          <span className="font-bold text-gray-800">{dayjs(d).format("DD/MM/YYYY")}</span>
-          <span className="text-[10px] font-bold text-gray-400">{dayjs(d).format("hh:mm A")}</span>
-        </div>
-      ),
+      render: (d: string, record: any) => {
+        const isRejected =
+          record.isReturn &&
+          (record.status === "REJECTED" ||
+            record.rawData?.status === "REJECTED");
+        return (
+          <div className="flex flex-col">
+            <span
+              className={`font-bold ${isRejected ? "text-gray-400 line-through" : "text-gray-800"}`}
+            >
+              {dayjs(d).format("DD/MM/YYYY")}
+            </span>
+            <span
+              className={`text-[10px] font-bold ${isRejected ? "text-gray-300 line-through" : "text-gray-400"}`}
+            >
+              {dayjs(d).format("hh:mm A")}
+            </span>
+          </div>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          ID
+        </span>
+      ),
       dataIndex: "billId",
       key: "billId",
-      render: (id: string) => <span className="font-mono font-black text-indigo-500 text-xs">#{id}</span>,
+      render: (id: string, record: any) => {
+        const isRejected =
+          record.isReturn &&
+          (record.status === "REJECTED" ||
+            record.rawData?.status === "REJECTED");
+        const isPending =
+          !isRejected &&
+          record.isReturn &&
+          (record.status === "PENDING" || record.rawData?.status === "PENDING");
+        return (
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`font-mono font-black text-xs ${isRejected ? "text-gray-400 line-through" : "text-indigo-500"}`}
+            >
+              #{id}
+            </span>
+            {isPending && (
+              <Tag
+                color="orange"
+                className="text-[8px] font-black uppercase tracking-widest rounded-full border-0 m-0 px-1.5 py-0"
+              >
+                Pending
+              </Tag>
+            )}
+            {isRejected && (
+              <Tooltip
+                title={
+                  record.rejectionReason || record.rawData?.rejectionReason
+                    ? `Reason: ${record.rejectionReason || record.rawData?.rejectionReason}`
+                    : "Rejected by admin"
+                }
+              >
+                <Tag
+                  color="red"
+                  className="text-[8px] font-black uppercase tracking-widest rounded-full border-0 m-0 px-1.5 py-0 cursor-help"
+                >
+                  Rejected
+                </Tag>
+              </Tooltip>
+            )}
+          </div>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Customer</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Customer
+        </span>
+      ),
       dataIndex: "customer",
       key: "customer",
-      render: (c: BillCustomer) => (
-        <div className="flex flex-col cursor-pointer group/customer" onClick={(e) => {
-          e.stopPropagation();
-          c?._id && navigate(`/customers/${c._id}`);
-        }}>
-          <span className="font-black text-gray-700 capitalize group-hover/customer:text-indigo-600 transition-colors">{c?.name || "—"}</span>
-          {c?.phone && <span className="text-[10px] font-bold text-gray-400 group-hover/customer:text-indigo-400 transition-colors">{c.phone}</span>}
-        </div>
-      ),
+      render: (c: BillCustomer, record: any) => {
+        const isRejected =
+          record.isReturn &&
+          (record.status === "REJECTED" ||
+            record.rawData?.status === "REJECTED");
+        return (
+          <div
+            className="flex flex-col cursor-pointer group/customer"
+            onClick={(e) => {
+              e.stopPropagation();
+              c?._id && navigate(`/customers/${c._id}`);
+            }}
+          >
+            <span
+              className={`font-black capitalize group-hover/customer:text-indigo-600 transition-colors ${isRejected ? "text-gray-400 line-through" : "text-gray-700"}`}
+            >
+              {c?.name || "—"}
+            </span>
+            {c?.phone && (
+              <span
+                className={`text-[10px] font-bold group-hover/customer:text-indigo-400 transition-colors ${isRejected ? "text-gray-300 line-through" : "text-gray-400"}`}
+              >
+                {c.phone}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Products Total</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Products Total
+        </span>
+      ),
       dataIndex: "billTotal",
       key: "billTotal",
       align: "right" as const,
-      render: (t: number) => <span className={`font-black ${t < 0 ? "text-red-500" : "text-gray-800"}`}>₹{formatIndianNumber(t)}</span>,
+      render: (t: number, record: any) => {
+        const isRejected =
+          record.isReturn &&
+          (record.status === "REJECTED" ||
+            record.rawData?.status === "REJECTED");
+        return (
+          <span
+            className={`font-black ${isRejected ? "text-gray-400 line-through" : t < 0 ? "text-red-500" : "text-gray-800"}`}
+          >
+            ₹{formatIndianNumber(t)}
+          </span>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Total
+        </span>
+      ),
       dataIndex: "total",
       key: "total",
       align: "right" as const,
       render: (t: number, record: any) => {
+        const isRejected =
+          record.isReturn &&
+          (record.status === "REJECTED" ||
+            record.rawData?.status === "REJECTED");
         const prevOutstanding = record.isReturn
           ? Math.round((t || 0) + Math.abs(record.billTotal || 0))
           : Math.round((t || 0) - (record.billTotal || 0));
         return (
           <div className="flex flex-col items-end">
-            <span className={`font-black ${record.isReturn ? "text-red-500" : "text-gray-800"}`}>₹{formatIndianNumber(t)}</span>
+            <span
+              className={`font-black ${isRejected ? "text-gray-400 line-through" : record.isReturn ? "text-red-500" : "text-gray-800"}`}
+            >
+              ₹{formatIndianNumber(t)}
+            </span>
             {prevOutstanding > 0 && (
-              <span className="text-[10px] font-bold text-orange-400 mt-0.5">
+              <span
+                className={`text-[10px] font-bold mt-0.5 ${isRejected ? "text-gray-400 line-through" : "text-orange-400"}`}
+              >
                 +₹{formatIndianNumber(prevOutstanding)} Prv
               </span>
             )}
             {prevOutstanding < 0 && (
-              <span className="text-[10px] font-bold text-green-500 mt-0.5">
+              <span
+                className={`text-[10px] font-bold mt-0.5 ${isRejected ? "text-gray-400 line-through" : "text-green-500"}`}
+              >
                 -₹{formatIndianNumber(Math.abs(prevOutstanding))} Adv
               </span>
             )}
@@ -318,35 +584,79 @@ const BillPage = () => {
       },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Payment</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Payment
+        </span>
+      ),
       dataIndex: "payment",
       key: "payment",
       align: "right" as const,
-      render: (p: number) => <span className={`font-black ${p < 0 ? "text-red-500" : "text-green-600"}`}>₹{formatIndianNumber(p)}</span>,
+      render: (p: number, record: any) => {
+        const isRejected =
+          record.isReturn &&
+          (record.status === "REJECTED" ||
+            record.rawData?.status === "REJECTED");
+        return (
+          <span
+            className={`font-black ${isRejected ? "text-gray-400 line-through" : p < 0 ? "text-red-500" : "text-green-600"}`}
+          >
+            ₹{formatIndianNumber(p)}
+          </span>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Outstanding</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Outstanding
+        </span>
+      ),
       key: "outstanding",
       align: "right" as const,
       render: (_: unknown, record: any) => {
+        const isRejected =
+          record.isReturn &&
+          (record.status === "REJECTED" ||
+            record.rawData?.status === "REJECTED");
         const o = getOutstanding(record);
         return (
-          <span className={`font-black ${o > 0 ? "text-orange-500" : "text-gray-300"}`}>
+          <span
+            className={`font-black ${isRejected ? "text-gray-400 line-through" : o > 0 ? "text-orange-500" : "text-gray-300"}`}
+          >
             ₹{formatIndianNumber(o)}
           </span>
         );
       },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Created By</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Created By
+        </span>
+      ),
       dataIndex: "createdBy",
       key: "createdBy",
-      render: (u: BillCreatedBy) => (
-        <span className="text-xs font-bold text-gray-500 capitalize">{u?.name || "System"}</span>
-      ),
+      render: (u: BillCreatedBy, record: any) => {
+        const isRejected =
+          record.isReturn &&
+          (record.status === "REJECTED" ||
+            record.rawData?.status === "REJECTED");
+        return (
+          <span
+            className={`text-xs font-bold capitalize ${isRejected ? "text-gray-400 line-through" : "text-gray-500"}`}
+          >
+            {u?.name || "System"}
+          </span>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">View</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+          View
+        </span>
+      ),
       key: "view",
       align: "center" as const,
       render: (_: unknown, record: any) => (
@@ -356,7 +666,9 @@ const BillPage = () => {
           onClick={(e) => {
             e.stopPropagation();
             if (record.isReturn) {
-              navigate(`/return-bills/${record._id}`, { state: { from: "bill" } });
+              navigate(`/return-bills/${record._id}`, {
+                state: { from: "bill" },
+              });
             } else {
               navigate(`/bills/${record._id}`, { state: { from: "bill" } });
             }
@@ -369,81 +681,150 @@ const BillPage = () => {
 
   const productSearchColumns = [
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Date</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
+          Date
+        </span>
+      ),
       dataIndex: "createdAt",
       key: "date",
       render: (d: string) => (
         <div className="flex flex-col">
-          <span className="font-bold text-gray-800">{dayjs(d).format("DD/MM/YYYY")}</span>
-          <span className="text-[10px] font-bold text-gray-400">{dayjs(d).format("hh:mm A")}</span>
+          <span className="font-bold text-gray-800">
+            {dayjs(d).format("DD/MM/YYYY")}
+          </span>
+          <span className="text-[10px] font-bold text-gray-400">
+            {dayjs(d).format("hh:mm A")}
+          </span>
         </div>
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          ID
+        </span>
+      ),
       dataIndex: "_id",
       key: "billId",
-      render: (_id: string, record: any) => <span className="font-mono font-black text-indigo-500 text-xs">#{record.id || record._id.toString().slice(-6).toUpperCase()}</span>,
+      render: (_id: string, record: any) => (
+        <span className="font-mono font-black text-indigo-500 text-xs">
+          #{record.id || record._id.toString().slice(-6).toUpperCase()}
+        </span>
+      ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Customer</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          Customer
+        </span>
+      ),
       dataIndex: "customer",
       key: "customer",
       render: (c: BillCustomer) => (
-        <div className="flex flex-col cursor-pointer group/customer" onClick={(e) => {
-          e.stopPropagation();
-          c?._id && navigate(`/customers/${c._id}`);
-        }}>
-          <span className="font-black text-gray-700 capitalize group-hover/customer:text-indigo-600 transition-colors">{c?.name || "—"}</span>
-          {c?.phone && <span className="text-[10px] font-bold text-gray-400 group-hover/customer:text-indigo-400 transition-colors">{c.phone}</span>}
+        <div
+          className="flex flex-col cursor-pointer group/customer"
+          onClick={(e) => {
+            e.stopPropagation();
+            c?._id && navigate(`/customers/${c._id}`);
+          }}
+        >
+          <span className="font-black text-gray-700 capitalize group-hover/customer:text-indigo-600 transition-colors">
+            {c?.name || "—"}
+          </span>
+          {c?.phone && (
+            <span className="text-[10px] font-bold text-gray-400 group-hover/customer:text-indigo-400 transition-colors">
+              {c.phone}
+            </span>
+          )}
         </div>
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Qty Sold</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Qty Sold
+        </span>
+      ),
       key: "qty",
       align: "right" as const,
       render: (_: any, record: any) => {
-        const qty = record.items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+        const qty =
+          record.items?.reduce(
+            (sum: number, item: any) => sum + (item.quantity || 0),
+            0,
+          ) || 0;
         return <span className="font-black text-orange-500">{qty} Units</span>;
-      }
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Prev Qty</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Prev Qty
+        </span>
+      ),
       key: "prevQty",
       align: "right" as const,
       render: (_: any, record: any) => {
         const prev = record.items?.[0]?.previousQuantity ?? 0;
         return <span className="font-black text-gray-500">{prev} Units</span>;
-      }
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">New Qty</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          New Qty
+        </span>
+      ),
       key: "newQty",
       align: "right" as const,
       render: (_: any, record: any) => {
         const next = record.items?.[record.items.length - 1]?.newQuantity ?? 0;
         return <span className="font-black text-indigo-600">{next} Units</span>;
-      }
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Product Revenue</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Product Revenue
+        </span>
+      ),
       key: "productRevenue",
       align: "right" as const,
       render: (_: any, record: any) => {
-        const rev = record.items?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) || 0;
-        return <span className="font-black text-green-600">₹{formatIndianNumber(rev)}</span>;
-      }
+        const rev =
+          record.items?.reduce(
+            (sum: number, item: any) => sum + (item.total || 0),
+            0,
+          ) || 0;
+        return (
+          <span className="font-black text-green-600">
+            ₹{formatIndianNumber(rev)}
+          </span>
+        );
+      },
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total Bill Amount</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+          Total Bill Amount
+        </span>
+      ),
       dataIndex: "total",
       key: "total",
       align: "right" as const,
-      render: (t: number) => <span className={`font-black text-gray-800`}>₹{formatIndianNumber(t)}</span>,
+      render: (t: number) => (
+        <span className={`font-black text-gray-800`}>
+          ₹{formatIndianNumber(t)}
+        </span>
+      ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">View</span>,
+      title: (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center block">
+          View
+        </span>
+      ),
       key: "view",
       align: "center" as const,
       render: (_: unknown, record: any) => (
@@ -452,7 +833,9 @@ const BillPage = () => {
           icon={<EyeOutlined />}
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/bills/${record._id || record.id}`, { state: { from: "bill" } });
+            navigate(`/bills/${record._id || record.id}`, {
+              state: { from: "bill" },
+            });
           }}
           className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
         />
@@ -464,12 +847,16 @@ const BillPage = () => {
     if (record.isReturn) {
       navigate(`/return-bills/${record._id}`, { state: { from: "bill" } });
     } else {
-      navigate(`/bills/${record._id || record.id}`, { state: { from: "bill" } });
+      navigate(`/bills/${record._id || record.id}`, {
+        state: { from: "bill" },
+      });
     }
   };
 
-  const displayColumns = searchMode === "product" ? productSearchColumns : columns;
-  const displayData = searchMode === "product" ? productHistoricalBills : filteredBills;
+  const displayColumns =
+    searchMode === "product" ? productSearchColumns : columns;
+  const displayData =
+    searchMode === "product" ? productHistoricalBills : filteredBills;
 
   let tablePagination: any;
   if (searchMode === "product") {
@@ -491,7 +878,11 @@ const BillPage = () => {
       className: "px-6 py-4",
     };
   } else {
-    tablePagination = { pageSize: 12, showSizeChanger: false, className: "px-6 py-4" };
+    tablePagination = {
+      pageSize: 12,
+      showSizeChanger: false,
+      className: "px-6 py-4",
+    };
   }
 
   return (
@@ -501,21 +892,29 @@ const BillPage = () => {
         <div className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
           <div>
             <h1 className="text-3xl font-black text-gray-800 tracking-tighter leading-tight">
-              Ledger Archives
+              Bills & Invoices
             </h1>
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">
-              Authorized Revenue Documentation
+              View and search past customer bills
               {!isToday && searchMode === "general" && historicalBills && (
                 <span className="ml-3 bg-orange-50 text-orange-500 px-2 py-0.5 rounded-md text-[8px] tracking-normal">
-                  HISTORICAL MODE
+                  PAST DATES
                 </span>
               )}
             </p>
           </div>
           <Segmented
             options={[
-              { label: "Registry Search", value: "general", icon: <FileTextOutlined /> },
-              { label: "Product Analytics", value: "product", icon: <ShoppingOutlined /> }
+              {
+                label: "Search Bills",
+                value: "general",
+                icon: <FileTextOutlined />,
+              },
+              {
+                label: "Search by Product",
+                value: "product",
+                icon: <ShoppingOutlined />,
+              },
             ]}
             value={searchMode}
             onChange={(val) => {
@@ -536,8 +935,12 @@ const BillPage = () => {
                   </div>
                   {!user?.pin ? (
                     <div className="flex-1 text-center py-2">
-                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-tight">Terminal Locked</p>
-                      <p className="text-[8px] font-bold text-red-400">Ask admin to allow you a pin</p>
+                      <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-tight">
+                        Totals Protected
+                      </p>
+                      <p className="text-[8px] font-bold text-red-400">
+                        Ask admin to allow you a pin
+                      </p>
                     </div>
                   ) : (
                     <>
@@ -570,7 +973,7 @@ const BillPage = () => {
                     onClick={() => setShowAdmin(false)}
                     className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] hover:text-red-500 transition-all flex items-center gap-2"
                   >
-                    LOCK LEDGER FINANCIALS
+                    HIDE TOTALS
                   </Button>
                 </div>
 
@@ -578,7 +981,7 @@ const BillPage = () => {
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                     {[
                       {
-                        label: "Total Registry",
+                        label: "Total Bills",
                         value: summary.totalBills.toString(),
                         icon: <FileTextOutlined />,
                         color: "bg-indigo-600 shadow-indigo-100",
@@ -586,7 +989,7 @@ const BillPage = () => {
                         accent: "text-indigo-400",
                       },
                       {
-                        label: "Gross Invoiced",
+                        label: "Total Sales",
                         value: `₹${formatIndianNumber(summary.totalAmount)}`,
                         icon: <DollarOutlined />,
                         color: "bg-emerald-600 shadow-emerald-100",
@@ -594,7 +997,7 @@ const BillPage = () => {
                         accent: "text-emerald-400",
                       },
                       {
-                        label: "Settled Funds",
+                        label: "Total Received",
                         value: `₹${formatIndianNumber(summary.totalPayment)}`,
                         icon: <ArrowDownOutlined />,
                         color: "bg-blue-600 shadow-blue-100",
@@ -602,7 +1005,7 @@ const BillPage = () => {
                         accent: "text-blue-400",
                       },
                       {
-                        label: "Exposure",
+                        label: "Balance Due",
                         value: `₹${formatIndianNumber(summary.outstanding)}`,
                         icon: <WarningOutlined />,
                         color: "bg-orange-600 shadow-orange-100",
@@ -619,7 +1022,9 @@ const BillPage = () => {
                         >
                           {card.icon}
                         </div>
-                        <p className={`text-[10px] font-black ${card.accent} uppercase tracking-[0.2em] mb-1`}>
+                        <p
+                          className={`text-[10px] font-black ${card.accent} uppercase tracking-[0.2em] mb-1`}
+                        >
                           {card.label}
                         </p>
                         <p className="text-2xl font-black text-gray-800 tracking-tighter leading-none">
@@ -636,7 +1041,9 @@ const BillPage = () => {
                           <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-5 shadow-xl shadow-indigo-100 group-hover:scale-110 transition-transform duration-500">
                             <FileTextOutlined />
                           </div>
-                          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">Total Instances</p>
+                          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">
+                            Bills with Item
+                          </p>
                           <p className="text-2xl font-black text-gray-800 tracking-tighter leading-none">
                             {productHistoricalSummary.totalInstances} Bills
                           </p>
@@ -645,7 +1052,9 @@ const BillPage = () => {
                           <div className="w-11 h-11 rounded-2xl bg-orange-600 text-white flex items-center justify-center mb-5 shadow-xl shadow-orange-100 group-hover:scale-110 transition-transform duration-500">
                             <ShoppingOutlined />
                           </div>
-                          <p className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-1">Quantity Sold</p>
+                          <p className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-1">
+                            Quantity Sold
+                          </p>
                           <p className="text-2xl font-black text-gray-800 tracking-tighter leading-none">
                             {productHistoricalSummary.totalQuantity} Units
                           </p>
@@ -654,9 +1063,14 @@ const BillPage = () => {
                           <div className="w-11 h-11 rounded-2xl bg-green-600 text-white flex items-center justify-center mb-5 shadow-xl shadow-green-100 group-hover:scale-110 transition-transform duration-500">
                             <DollarOutlined />
                           </div>
-                          <p className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em] mb-1">Product Revenue</p>
+                          <p className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em] mb-1">
+                            Total Item Sales
+                          </p>
                           <p className="text-2xl font-black text-gray-800 tracking-tighter leading-none">
-                            ₹{formatIndianNumber(productHistoricalSummary.totalRevenue)}
+                            ₹
+                            {formatIndianNumber(
+                              productHistoricalSummary.totalRevenue,
+                            )}
                           </p>
                         </div>
                       </div>
@@ -698,8 +1112,12 @@ const BillPage = () => {
                   />
                   <InputNumber
                     min={0}
-                    value={amountRange[1] === Infinity ? undefined : amountRange[1]}
-                    onChange={(v) => setAmountRange([amountRange[0], v || Infinity])}
+                    value={
+                      amountRange[1] === Infinity ? undefined : amountRange[1]
+                    }
+                    onChange={(v) =>
+                      setAmountRange([amountRange[0], v || Infinity])
+                    }
                     placeholder="Max"
                     className="h-12 rounded-xl flex-1"
                   />
@@ -718,9 +1136,11 @@ const BillPage = () => {
                 value={selectedProductId}
                 onChange={(val) => setSelectedProductId(val)}
                 className="h-12 w-full premium-select"
-                options={products.map(p => ({ value: p._id, label: p.name }))}
+                options={products.map((p) => ({ value: p._id, label: p.name }))}
                 filterOption={(input, option) =>
-                  String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  String(option?.label ?? "")
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
                 }
               />
             </div>
@@ -728,7 +1148,7 @@ const BillPage = () => {
 
           <div className="flex flex-col flex-1 min-w-0">
             <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-1">
-              Report Span
+              Date Range
             </label>
             <div className="flex gap-2">
               <RangePicker
@@ -736,7 +1156,10 @@ const BillPage = () => {
                 value={dateRange}
                 onChange={(range) =>
                   setDateRange(
-                    (range as [dayjs.Dayjs | null, dayjs.Dayjs | null]) ?? [dayjs(), dayjs()]
+                    (range as [dayjs.Dayjs | null, dayjs.Dayjs | null]) ?? [
+                      dayjs(),
+                      dayjs(),
+                    ],
                   )
                 }
                 allowClear={false}
@@ -747,7 +1170,7 @@ const BillPage = () => {
                 loading={loading}
                 className="h-12 px-5 bg-indigo-600 hover:bg-indigo-700 border-none rounded-xl text-[9px] font-black tracking-widest shadow-md shadow-indigo-100 uppercase shrink-0"
               >
-                Fetch
+                Search
               </Button>
             </div>
           </div>
@@ -763,7 +1186,17 @@ const BillPage = () => {
             scroll={{ x: 1000 }}
             pagination={tablePagination}
             className="modern-table no-border-table"
-            rowClassName="group cursor-pointer hover:bg-indigo-50/30 transition-all duration-300"
+            rowClassName={(record: any) => {
+              const isRejected =
+                record.isReturn &&
+                (record.status === "REJECTED" ||
+                  record.rawData?.status === "REJECTED");
+              return `group cursor-pointer hover:bg-indigo-50/30 transition-all duration-300 ${
+                isRejected
+                  ? "rejected-return-row line-through text-gray-400 bg-red-50/20 hover:bg-red-50/40 opacity-60"
+                  : ""
+              }`;
+            }}
             onRow={(record) => ({
               onClick: () => handleRowClick(record),
             })}
@@ -794,6 +1227,19 @@ const BillPage = () => {
           padding: 1.25rem 1rem !important;
         }
         .no-border-table .ant-table-row:hover > td { background: #fdfdfd !important; }
+        .rejected-return-row td {
+          text-decoration: line-through !important;
+          color: #9ca3af !important;
+        }
+        .rejected-return-row td span:not(.ant-tag) {
+          text-decoration: line-through !important;
+        }
+        .rejected-return-row td .ant-tag {
+          text-decoration: none !important;
+        }
+        .rejected-return-row td button {
+          text-decoration: none !important;
+        }
       `}</style>
     </main>
   );

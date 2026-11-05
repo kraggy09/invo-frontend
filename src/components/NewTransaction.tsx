@@ -15,8 +15,11 @@ import {
   ArrowUpOutlined,
   SendOutlined,
   WalletOutlined,
+  ShopOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 import useCustomerStore from "../store/customer.store";
+import useSupplierStore, { ISupplier } from "../store/supplier.store";
 import apiCaller from "../utils/apiCaller";
 import useTransactionStore from "../store/transaction.store";
 import TransactionPrint from "./TransactionPrint";
@@ -26,7 +29,9 @@ import useUserStore from "../store/user.store";
 const NewTransaction: React.FC = () => {
   const [form] = Form.useForm();
   const [isPaymentIn, setIsPaymentIn] = useState(true);
+  const [cashOutType, setCashOutType] = useState<"EXPENSE" | "SUPPLIER">("EXPENSE");
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<ISupplier | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [printTransactionData, setPrintTransactionData] = useState<any>(null);
@@ -46,11 +51,13 @@ const NewTransaction: React.FC = () => {
   const transactionId = useTransactionStore((state) => state.transactionId);
 
   const { customers } = useCustomerStore();
+  const { suppliers } = useSupplierStore();
 
   const handleModeChange = (mode: string) => {
     setIsPaymentIn(mode === "in");
     form.resetFields(["purpose", "name", "amount", "paymentMode"]);
     setSelectedCustomer(null);
+    setSelectedSupplier(null);
   };
 
   const handleCustomerSelect = (customerId: string) => {
@@ -58,6 +65,17 @@ const NewTransaction: React.FC = () => {
     if (customer) {
       setSelectedCustomer(customer);
       form.setFieldsValue({ name: customer.name });
+    }
+  };
+
+  const handleSupplierSelect = (supplierId: string) => {
+    const supplier = suppliers.find((s) => s._id === supplierId);
+    if (supplier) {
+      setSelectedSupplier(supplier);
+      form.setFieldsValue({
+        name: supplier.name,
+        amount: supplier.outstanding > 0 ? supplier.outstanding : undefined,
+      });
     }
   };
 
@@ -92,13 +110,31 @@ const NewTransaction: React.FC = () => {
           idempotencyKey,
         });
       } else {
-        response = await apiCaller.post("/transactions", {
-          name: values.name,
-          amount: values.amount,
-          purpose: values.purpose,
-          transactionId: transactionId,
-          idempotencyKey,
-        });
+        if (cashOutType === "SUPPLIER") {
+          if (!selectedSupplier) {
+            toast.error("Please select a supplier");
+            setLoading(false);
+            return;
+          }
+          response = await apiCaller.post("/transactions", {
+            supplierId: selectedSupplier._id,
+            name: selectedSupplier.name,
+            amount: values.amount,
+            paymentMode: values.paymentMode || "CASH",
+            purpose: values.purpose || "Supplier Outstanding Payment",
+            transactionId: transactionId,
+            idempotencyKey,
+          });
+        } else {
+          response = await apiCaller.post("/transactions", {
+            name: values.name,
+            amount: values.amount,
+            purpose: values.purpose,
+            paymentMode: values.paymentMode || "CASH",
+            transactionId: transactionId,
+            idempotencyKey,
+          });
+        }
       }
       toast.success(
         `${isPaymentIn ? "Payment" : "Transaction"} created successfully!`
@@ -124,6 +160,7 @@ const NewTransaction: React.FC = () => {
 
       form.resetFields();
       setSelectedCustomer(null);
+      setSelectedSupplier(null);
       setIdempotencyKey(generateUUID());
     } catch (error: any) {
       toast.error(
@@ -169,7 +206,11 @@ const NewTransaction: React.FC = () => {
                   {isPaymentIn ? "Payment Inward" : "Cash Outward"}
                 </p>
                 <h2 className="text-xl font-black tracking-tight leading-none">
-                  {isPaymentIn ? "Receive Payment" : "Record Expense"}
+                  {isPaymentIn
+                    ? "Receive Payment"
+                    : cashOutType === "SUPPLIER"
+                    ? "Pay Supplier / Party"
+                    : "Record General Expense"}
                 </h2>
               </div>
             </div>
@@ -193,7 +234,7 @@ const NewTransaction: React.FC = () => {
               requiredMark={false}
               className="px-6 sm:p-10"
             >
-              {/* Mode Toggle */}
+              {/* Primary Mode Toggle: Payment In vs Cash Out */}
               <div className="mb-6">
                 <label className={labelCls}>Transaction Mode</label>
                 <div className="flex gap-2 mt-2">
@@ -220,7 +261,42 @@ const NewTransaction: React.FC = () => {
                 </div>
               </div>
 
-              {/* Customer / Name */}
+              {/* Sub-toggle for Cash Out: General Expense vs Supplier Payment */}
+              {!isPaymentIn && (
+                <div className="mb-6 bg-gray-50/80 p-1.5 rounded-2xl border border-gray-100 flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCashOutType("EXPENSE");
+                      setSelectedSupplier(null);
+                      form.resetFields(["name", "amount", "purpose"]);
+                    }}
+                    className={`flex-1 h-10 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 ${
+                      cashOutType === "EXPENSE"
+                        ? "bg-white text-gray-800 shadow-sm border border-gray-100 font-black"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    <FileTextOutlined /> General Expense
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCashOutType("SUPPLIER");
+                      form.resetFields(["name", "amount", "purpose"]);
+                    }}
+                    className={`flex-1 h-10 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 ${
+                      cashOutType === "SUPPLIER"
+                        ? "bg-white text-indigo-600 shadow-sm border border-indigo-100 font-black"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    <ShopOutlined /> Supplier / Party
+                  </button>
+                </div>
+              )}
+
+              {/* Inward Customer Select */}
               {isPaymentIn ? (
                 <>
                   <Form.Item
@@ -250,15 +326,16 @@ const NewTransaction: React.FC = () => {
                           (c) => c._id === option.value
                         );
                         return (
-                          <div className="flex justify-between items-center py-1">
-                            <span className="font-bold capitalize">
+                          <div className="flex items-center justify-between py-1">
+                            <span className="font-bold text-xs capitalize text-gray-700">
                               {customer?.name}
                             </span>
                             <span
-                              className={`text-[10px] font-black px-2 py-0.5 rounded-md ${(customer?.outstanding || 0) > 0
-                                ? "bg-orange-50 text-orange-600"
-                                : "bg-green-50 text-green-600"
-                                }`}
+                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                                (customer?.outstanding || 0) > 0
+                                  ? "bg-orange-50 text-orange-600"
+                                  : "bg-green-50 text-green-600"
+                              }`}
                             >
                               ₹{(customer?.outstanding || 0).toLocaleString()}
                             </span>
@@ -268,32 +345,35 @@ const NewTransaction: React.FC = () => {
                     />
                   </Form.Item>
 
-                  {/* Outstanding display */}
+                  {/* Customer Outstanding display */}
                   {selectedCustomer && (
                     <div
-                      className={`rounded-2xl p-4 mb-6 flex items-center justify-between border ${selectedCustomer.outstanding > 0
-                        ? "bg-orange-50/50 border-orange-100"
-                        : "bg-green-50/50 border-green-100"
-                        }`}
+                      className={`rounded-2xl p-4 mb-6 flex items-center justify-between border ${
+                        selectedCustomer.outstanding > 0
+                          ? "bg-orange-50/50 border-orange-100"
+                          : "bg-green-50/50 border-green-100"
+                      }`}
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center ${selectedCustomer.outstanding > 0
-                            ? "bg-orange-100 text-orange-600"
-                            : "bg-green-100 text-green-600"
-                            }`}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                            selectedCustomer.outstanding > 0
+                              ? "bg-orange-100 text-orange-600"
+                              : "bg-green-100 text-green-600"
+                          }`}
                         >
                           <DollarOutlined className="text-sm" />
                         </div>
                         <div>
                           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                            Outstanding
+                            Customer Outstanding
                           </p>
                           <p
-                            className={`text-lg font-black tracking-tight ${selectedCustomer.outstanding > 0
-                              ? "text-orange-600"
-                              : "text-green-600"
-                              }`}
+                            className={`text-lg font-black tracking-tight ${
+                              selectedCustomer.outstanding > 0
+                                ? "text-orange-600"
+                                : "text-green-600"
+                            }`}
                           >
                             ₹{selectedCustomer.outstanding.toLocaleString()}
                           </p>
@@ -305,16 +385,88 @@ const NewTransaction: React.FC = () => {
                     </div>
                   )}
                 </>
+              ) : cashOutType === "SUPPLIER" ? (
+                /* Outward Supplier Select */
+                <>
+                  <Form.Item
+                    label={<span className={labelCls}>Supplier / Party Name</span>}
+                    rules={[
+                      {
+                        validator: () =>
+                          selectedSupplier
+                            ? Promise.resolve()
+                            : Promise.reject("Please select a supplier"),
+                      },
+                    ]}
+                  >
+                    <Select
+                      showSearch
+                      placeholder="Search supplier by name or phone"
+                      className="txn-select"
+                      optionFilterProp="label"
+                      value={selectedSupplier?._id || undefined}
+                      onChange={handleSupplierSelect}
+                      options={suppliers.map((s) => ({
+                        value: s._id,
+                        label: `${s.name} (${s.phone})`,
+                      }))}
+                      optionRender={(option) => {
+                        const supplier = suppliers.find(
+                          (s) => s._id === option.value
+                        );
+                        return (
+                          <div className="flex items-center justify-between py-1">
+                            <span className="font-bold text-xs text-gray-700">
+                              {supplier?.name}
+                            </span>
+                            <span
+                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                                (supplier?.outstanding || 0) > 0
+                                  ? "bg-amber-50 text-amber-600"
+                                  : "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              ₹{(supplier?.outstanding || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        );
+                      }}
+                    />
+                  </Form.Item>
+
+                  {/* Supplier Pending Udhaar display */}
+                  {selectedSupplier && (
+                    <div className="rounded-2xl p-4 mb-6 flex items-center justify-between border bg-amber-50/60 border-amber-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-100 text-amber-700">
+                          <ShopOutlined className="text-sm" />
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest">
+                            Pending Market Udhaar (You Owe)
+                          </p>
+                          <p className="text-lg font-black tracking-tight text-amber-800 font-mono">
+                            ₹{(selectedSupplier.outstanding || 0).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        {selectedSupplier.phone}
+                      </p>
+                    </div>
+                  )}
+                </>
               ) : (
+                /* Outward General Expense Name */
                 <Form.Item
                   name="name"
-                  label={<span className={labelCls}>Party Name</span>}
+                  label={<span className={labelCls}>Expense Category / Beneficiary</span>}
                   rules={[
-                    { required: true, message: "Please enter party name" },
+                    { required: true, message: "Please enter beneficiary/expense name" },
                   ]}
                 >
                   <Input
-                    placeholder="e.g. Electricity Board"
+                    placeholder="e.g. Home Requirement, Electricity, Shop Rent"
                     className="txn-field"
                   />
                 </Form.Item>
@@ -346,11 +498,12 @@ const NewTransaction: React.FC = () => {
                 />
               </Form.Item>
 
-              {/* Purpose / Payment Mode */}
-              {isPaymentIn ? (
+              {/* Payment Mode or Purpose */}
+              {isPaymentIn || cashOutType === "SUPPLIER" ? (
                 <Form.Item
                   name="paymentMode"
                   label={<span className={labelCls}>Payment Mode</span>}
+                  initialValue="CASH"
                   rules={[
                     { required: true, message: "Please select payment mode" },
                   ]}
@@ -363,7 +516,7 @@ const NewTransaction: React.FC = () => {
                     </Select.Option>
                     <Select.Option value="ONLINE">
                       <div className="flex items-center gap-2">
-                        <SwapOutlined /> Online Transfer
+                        <SwapOutlined /> Online / UPI / Bank
                       </div>
                     </Select.Option>
                   </Select>
@@ -371,15 +524,17 @@ const NewTransaction: React.FC = () => {
               ) : (
                 <Form.Item
                   name="purpose"
-                  label={<span className={labelCls}>Purpose</span>}
+                  label={<span className={labelCls}>Expense Reason</span>}
                   rules={[
                     { required: true, message: "Please select purpose" },
                   ]}
                 >
                   <Select placeholder="Select purpose" className="txn-select">
-                    <Select.Option value="home">Home Purpose</Select.Option>
-                    <Select.Option value="party">Party Payment</Select.Option>
-                    <Select.Option value="cash">Cash Requirement</Select.Option>
+                    <Select.Option value="home">Home Requirement</Select.Option>
+                    <Select.Option value="rent">Shop Rent</Select.Option>
+                    <Select.Option value="electricity">Electricity / Utility</Select.Option>
+                    <Select.Option value="salary">Staff Salary / Advance</Select.Option>
+                    <Select.Option value="tea_snacks">Tea & Refreshments</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>
                 </Form.Item>
@@ -397,7 +552,11 @@ const NewTransaction: React.FC = () => {
                     : "bg-orange-600 hover:bg-orange-700 shadow-orange-100"
                     }`}
                 >
-                  {isPaymentIn ? "Receive Payment" : "Record Expense"}
+                  {isPaymentIn
+                    ? "Receive Payment"
+                    : cashOutType === "SUPPLIER"
+                    ? "Pay Supplier & Deduct Balance"
+                    : "Record Expense"}
                 </Button>
               </Form.Item>
             </Form>
@@ -488,11 +647,12 @@ const NewTransaction: React.FC = () => {
         }
       `}</style>
 
-      {showPrint && (
+      {/* Hidden print container */}
+      {showPrint && printTransactionData && (
         <TransactionPrint
           onClose={handleClosePrint}
-          handlePrint={handlePrintClick}
           contentRef={contentRef}
+          handlePrint={handlePrint}
           transactionData={printTransactionData}
           isPaymentIn={isPaymentIn}
         />

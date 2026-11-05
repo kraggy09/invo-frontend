@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useCustomerStore, { ICustomer } from "../store/customer.store";
 import { Table, Button, Select, Input } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined, EditOutlined, EnvironmentOutlined } from "@ant-design/icons";
+import EditCustomerModal from "../components/EditCustomerModal";
 import type { ColumnsType } from "antd/es/table";
 import useUserStore from "../store/user.store";
 
@@ -25,6 +26,7 @@ const CustomerPage = () => {
   const { customers, setCustomers } = useCustomerStore();
   const [sortType, setSortType] = useState<string>("name");
   const [search, setSearch] = useState("");
+  const [editingCustomer, setEditingCustomer] = useState<ICustomer | null>(null);
 
   const user = useUserStore((state) => state.user);
   const hasAccess = user?.roles?.some((role) =>
@@ -89,7 +91,7 @@ const CustomerPage = () => {
 
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-stretch sm:items-center">
           {hasAccess && <div className="bg-white px-6 lg:px-10 py-4 lg:py-6 rounded-[28px] border border-gray-100 shadow-sm flex flex-col items-start sm:items-end group transition-all hover:shadow-indigo-100/50 flex-1 lg:flex-none">
-            <p className="text-[9px] lg:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Cumulative Receivables</p>
+            <p className="text-[9px] lg:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Total Customer Due</p>
             <span className="text-2xl lg:text-3xl font-black text-indigo-600 tracking-tighter">
               ₹{customers.reduce((sum, c) => sum + (c.outstanding || 0), 0).toLocaleString()}
             </span>
@@ -111,7 +113,7 @@ const CustomerPage = () => {
           <div className="flex-1 w-full text-left">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2 block">Find your Customer</label>
             <Input
-              placeholder="Search by name, identity or contact handle..."
+              placeholder="Search by name or phone..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-14 lg:h-16 rounded-2xl lg:rounded-3xl border-2 border-gray-50 bg-gray-50/30 px-6 font-black focus:bg-white transition-all text-gray-700"
@@ -120,15 +122,15 @@ const CustomerPage = () => {
             />
           </div>
           <div className="w-full lg:w-80 text-left">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2 block">Sort Sequence</label>
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2 block">Sort By</label>
             <Select
               value={sortType}
               onChange={setSortType}
               className="w-full h-14 lg:h-16 rounded-2xl lg:rounded-3xl font-black custom-pos-select"
               options={[
-                { value: "name", label: "Alphabetical Order (A-Z)" },
-                { value: "outstanding", label: "Financial Exposure (High)" },
-                { value: "transaction", label: "High Volume Partners" },
+                { value: "name", label: "Name (A-Z)" },
+                { value: "outstanding", label: "Highest Due First" },
+                { value: "transaction", label: "Most Transactions" },
               ]}
             />
           </div>
@@ -223,6 +225,11 @@ const CustomerPage = () => {
           background: #f5f3ff !important;
         }
       `}</style>
+      <EditCustomerModal
+        visible={!!editingCustomer}
+        onClose={() => setEditingCustomer(null)}
+        customer={editingCustomer}
+      />
     </main>
   );
 };

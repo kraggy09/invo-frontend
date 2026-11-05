@@ -26,6 +26,7 @@ export type PurchasedProduct = {
   category: string;
   hi: string;
   stock: number;
+  hasCustomType?: boolean;
 };
 
 export class Product implements PurchasedProduct {
@@ -49,6 +50,7 @@ export class Product implements PurchasedProduct {
   category: string;
   hi: string;
   stock: number;
+  hasCustomType?: boolean;
 
   constructor(
     id: string,
@@ -70,7 +72,8 @@ export class Product implements PurchasedProduct {
     total: number,
     category: string,
     hi: string,
-    stock: number
+    stock: number,
+    hasCustomType: boolean = false
   ) {
     this.id = id;
     this.boxQuantity = boxQuantity;
@@ -92,6 +95,7 @@ export class Product implements PurchasedProduct {
     this.category = category;
     this.hi = hi;
     this.stock = stock;
+    this.hasCustomType = hasCustomType;
   }
 }
 
@@ -117,10 +121,10 @@ type BillingStore = {
   initialBills: (bills: Bill[]) => void;
   setCustomerForBill: (customer: Customer | null, id: string) => void;
   addProduct: (product: IProduct, id: string) => void;
-  removeProductFromBill: (productId: string, billId: number) => void;
+  removeProductFromBill: (productId: string, billId: number | string) => void;
   updateProductPrice: (
     productId: string,
-    billId: number,
+    billId: number | string,
     priceType: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL"
   ) => void;
   updateProductQuantities: (
@@ -148,10 +152,15 @@ type BillingStore = {
       newStock: number;
       previousStock: number;
       productId: string;
+      costPrice?: number;
+      retailPrice?: number;
+      wholesalePrice?: number;
+      superWholesalePrice?: number;
     }[]
   ) => void;
   afterProductUpdated: (product: IProduct) => void;
   afterProductDeleted: (productId: string) => void;
+  addCreatedAt: (billId: string, createdAt: string, customer: Customer) => void;
   reset: () => void;
 };
 
@@ -203,9 +212,11 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
     },
     addProduct: (product: IProduct, id: string) => {
       set((state) => {
-        // Find the bill index
-        const billIndex = Number(id) - 1;
-        if (billIndex < 0 || billIndex >= state.bills.length) return state;
+        // Find the bill index safely by id
+        const billIndex = state.bills.findIndex(
+          (bill) => bill.id === id.toString()
+        );
+        if (billIndex === -1) return state;
 
         // Copy the bill and its purchased array
         const bill = state.bills[billIndex];
@@ -225,21 +236,43 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
             currentProduct.box * currentProduct.boxQuantity +
             currentProduct.packet * currentProduct.packetQuantity;
 
-          // Calculate price tag based on total pieces
-          const priceTag = calculatePriceTag(
-            currentProduct,
-            totalPieces,
-            bill.billType || "RETAIL"
-          );
+          if (currentProduct.hasCustomType) {
+            // Respect user manual selection
+            const price =
+              currentProduct.type === "SUPERWHOLESALE"
+                ? (currentProduct.superWholesalePrice || currentProduct.retailPrice)
+                : currentProduct.type === "WHOLESALE"
+                  ? (currentProduct.wholesalePrice || currentProduct.retailPrice)
+                  : currentProduct.retailPrice;
+            currentProduct.price = price;
+            currentProduct.total =
+              totalPieces * price - (currentProduct.discount || 0);
+          } else {
+            // Calculate price tag based on total pieces and billType
+            const priceTag = calculatePriceTag(
+              currentProduct,
+              totalPieces,
+              bill.billType || "RETAIL"
+            );
 
-          // Update product details
-          currentProduct.type = priceTag.type;
-          currentProduct.price = priceTag.price;
-          currentProduct.total = totalPieces * priceTag.price;
+            // Update product details
+            currentProduct.type = priceTag.type;
+            currentProduct.price = priceTag.price;
+            currentProduct.total =
+              totalPieces * priceTag.price - (currentProduct.discount || 0);
+          }
 
           // Replace the updated product in the purchased copy
           purchased[existingProductIndex] = currentProduct;
         } else {
+          const isSuperWholesale = bill.billType === "SUPERWHOLESALE";
+          const startingType: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL" =
+            isSuperWholesale ? "SUPERWHOLESALE" : "RETAIL";
+          const startingPrice =
+            isSuperWholesale
+              ? (product.superWholesalePrice || product.retailPrice)
+              : product.retailPrice;
+
           // Create a new Product instance (immutable)
           const newProduct = new Product(
             product._id,
@@ -251,21 +284,26 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
             product.measuring,
             product.barcode,
             product.name,
-            product.retailPrice,
+            startingPrice,
             product.mrp,
-            "RETAIL",
+            startingType,
             1,
             0,
             0,
             0,
-            0,
+            startingPrice,
             product.category,
             product.hi,
-            product.stock
+            product.stock,
+            false
           );
 
           // Calculate price tag for the new product
-          const priceTag = calculatePriceTag(newProduct, 1, bill.billType || "RETAIL");
+          const priceTag = calculatePriceTag(
+            newProduct,
+            1,
+            bill.billType || "RETAIL"
+          );
           newProduct.type = priceTag.type;
           newProduct.price = priceTag.price;
           newProduct.total = newProduct.price;
@@ -290,7 +328,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
         return { bills };
       });
     },
-    removeProductFromBill: (productId: string, billId: number) => {
+    removeProductFromBill: (productId: string, billId: number | string) => {
       set((state) => {
         const idx = state.bills.findIndex(
           (bill) => bill.id === billId.toString()
@@ -317,13 +355,15 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
     },
     updateProductPrice: (
       productId: string,
-      billId: number,
+      billId: number | string,
       priceType: "SUPERWHOLESALE" | "WHOLESALE" | "RETAIL"
     ) => {
       set((state) => {
         const idx = state.bills.findIndex(
           (bill) => bill.id === billId.toString()
         );
+        if (idx === -1) return state;
+
         const productIdx = state.bills[idx].purchased.findIndex(
           (product) => product.id === productId
         );
@@ -331,20 +371,22 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
           const bill = state.bills[idx];
           const currentProduct = { ...bill.purchased[productIdx] };
           currentProduct.type = priceType;
+          currentProduct.hasCustomType = true;
           currentProduct.price =
             priceType === "SUPERWHOLESALE"
-              ? currentProduct.superWholesalePrice
+              ? (currentProduct.superWholesalePrice || currentProduct.retailPrice)
               : priceType === "WHOLESALE"
-                ? currentProduct.wholesalePrice
+                ? (currentProduct.wholesalePrice || currentProduct.retailPrice)
                 : currentProduct.retailPrice;
+
+          const totalPieces =
+            currentProduct.piece +
+            currentProduct.box * currentProduct.boxQuantity +
+            currentProduct.packet * currentProduct.packetQuantity;
+
           currentProduct.total =
-            currentProduct.piece * currentProduct.price +
-            currentProduct.box *
-            currentProduct.boxQuantity *
-            currentProduct.price +
-            currentProduct.packet *
-            currentProduct.packetQuantity *
-            currentProduct.price;
+            totalPieces * currentProduct.price -
+            (currentProduct.discount || 0);
 
           const updatedPurchased = [...bill.purchased];
           updatedPurchased[productIdx] = currentProduct;
@@ -412,21 +454,34 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
                 currentProduct.box * currentProduct.boxQuantity +
                 currentProduct.packet * currentProduct.packetQuantity;
 
-              // Get price tag based on total pieces
-              const priceTag = calculatePriceTag(
-                currentProduct,
-                totalPieces,
-                bill.billType || "RETAIL"
-              );
+              if (currentProduct.hasCustomType) {
+                // Keep user's manually chosen type and price
+                const price =
+                  currentProduct.type === "SUPERWHOLESALE"
+                    ? (currentProduct.superWholesalePrice || currentProduct.retailPrice)
+                    : currentProduct.type === "WHOLESALE"
+                      ? (currentProduct.wholesalePrice || currentProduct.retailPrice)
+                      : currentProduct.retailPrice;
+                currentProduct.price = price;
+                currentProduct.total =
+                  totalPieces * price - (currentProduct.discount || 0);
+              } else {
+                // Get price tag based on total pieces
+                const priceTag = calculatePriceTag(
+                  currentProduct,
+                  totalPieces,
+                  bill.billType || "RETAIL"
+                );
 
-              // Update product type and price
-              currentProduct.type = priceTag.type;
-              currentProduct.price = priceTag.price;
+                // Update product type and price
+                currentProduct.type = priceTag.type;
+                currentProduct.price = priceTag.price;
 
-              // Calculate total price including discount
-              currentProduct.total =
-                totalPieces * currentProduct.price -
-                (currentProduct.discount || 0);
+                // Calculate total price including discount
+                currentProduct.total =
+                  totalPieces * currentProduct.price -
+                  (currentProduct.discount || 0);
+              }
 
               const updatedPurchased = [...bill.purchased];
               updatedPurchased[productIndex] = currentProduct;
@@ -468,9 +523,9 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
         }
         let sellingPrice = 0;
         if (priceType === "SUPERWHOLESALE") {
-          sellingPrice = currentProduct.superWholesalePrice;
+          sellingPrice = currentProduct.superWholesalePrice || currentProduct.retailPrice;
         } else if (priceType === "WHOLESALE") {
-          sellingPrice = currentProduct.wholesalePrice;
+          sellingPrice = currentProduct.wholesalePrice || currentProduct.retailPrice;
         } else {
           sellingPrice = currentProduct.retailPrice;
         }
@@ -481,6 +536,7 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
           pieces * sellingPrice - (currentProduct.discount || 0);
         currentProduct.price = sellingPrice;
         currentProduct.type = priceType;
+        currentProduct.hasCustomType = true;
         currentProduct.box = 0;
         currentProduct.packet = 0;
 
@@ -551,9 +607,9 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
               billUpdated = true;
               const price =
                 item.type === "SUPERWHOLESALE"
-                  ? updatedProduct.superWholesalePrice
+                  ? (updatedProduct.superWholesalePrice || updatedProduct.retailPrice)
                   : item.type === "WHOLESALE"
-                    ? updatedProduct.wholesalePrice
+                    ? (updatedProduct.wholesalePrice || updatedProduct.retailPrice)
                     : updatedProduct.retailPrice;
 
               const totalPieces =
@@ -624,6 +680,9 @@ const useCurrentBillStore = create<BillingStore>((set, get) => {
               return {
                 ...product,
                 stock: updatedProd.newStock,
+                retailPrice: (updatedProd as any).retailPrice !== undefined ? (updatedProd as any).retailPrice : product.retailPrice,
+                wholesalePrice: (updatedProd as any).wholesalePrice !== undefined ? (updatedProd as any).wholesalePrice : product.wholesalePrice,
+                superWholesalePrice: (updatedProd as any).superWholesalePrice !== undefined ? (updatedProd as any).superWholesalePrice : product.superWholesalePrice,
               };
             }
           }

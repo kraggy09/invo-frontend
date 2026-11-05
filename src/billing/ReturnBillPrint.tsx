@@ -46,6 +46,16 @@ const ReturnBillPrint = ({
   const newOutstanding = returnBill.newOutstanding;
   const paymentMode = returnBill.paymentMode;
 
+  const prevBal = Number(previousOutstanding ?? 0);
+  const returnAmt = Number(returnBill.totalAmount ?? 0);
+  const finalBal = Number(
+    newOutstanding !== undefined
+      ? newOutstanding
+      : paymentMode === "CASH"
+      ? prevBal
+      : prevBal - returnAmt
+  );
+
   const printType =
     useUserStore((state) => state.user?.shopSettings?.printType) || "THERMAL";
   const isA4 = printType === "A4";
@@ -102,8 +112,8 @@ const ReturnBillPrint = ({
                   )}
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-black uppercase tracking-widest bg-red-800 text-white px-3 py-1 rounded">
-                    CREDIT NOTE / RETURN
+                  <span className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded ${returnBill.status === "REJECTED" ? "bg-red-600 text-white" : "bg-red-800 text-white"}`}>
+                    {returnBill.status === "REJECTED" ? "REJECTED (VOID)" : "CREDIT NOTE / RETURN"}
                   </span>
                   <p className="font-bold mt-2">
                     Return No:{" "}
@@ -207,46 +217,80 @@ const ReturnBillPrint = ({
                     <span>₹{formatNum(returnBill.totalAmount || 0)}</span>
                   </div>
 
-                  {paymentMode === "ADJUSTMENT" || previousOutstanding !== undefined ? (
+                  {paymentMode === "CASH" ? (
                     <>
-                      <div className="flex justify-between py-1 border-b border-gray-200 text-amber-800">
-                        <span>Previous Balance Due:</span>
-                        <span className="font-semibold">
-                          {(previousOutstanding || 0) < 0 ? "-" : "+"}₹{formatNum(Math.abs(Number(previousOutstanding || 0)))}
-                        </span>
+                      <div className="flex justify-between py-1 border-b border-gray-200 text-blue-700 font-semibold">
+                        <span>Cash Refund Paid:</span>
+                        <span>₹{formatNum(returnAmt)}</span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-gray-200 text-green-700 font-semibold">
-                        <span>Less Return Credit:</span>
-                        <span>-₹{formatNum(returnBill.totalAmount || 0)}</span>
-                      </div>
+                      {previousOutstanding !== undefined && (
+                        <div className="flex justify-between py-1 border-b border-gray-200 text-amber-800">
+                          <span>
+                            {prevBal > 0
+                              ? "Customer Outstanding (Unchanged):"
+                              : prevBal < 0
+                              ? "Customer Advance (Extra with us):"
+                              : "Customer Balance:"}
+                          </span>
+                          <span className="font-semibold">
+                            {prevBal > 0
+                              ? `+₹${formatNum(prevBal)}`
+                              : prevBal < 0
+                              ? `-₹${formatNum(Math.abs(prevBal))}`
+                              : "₹0"}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between py-1.5 text-sm font-black bg-gray-100 px-2 rounded border border-gray-200">
-                        <span>
-                          {(newOutstanding ?? ((previousOutstanding || 0) - (returnBill.totalAmount || 0))) > 0
-                            ? "Final Outstanding Due:"
-                            : (newOutstanding ?? ((previousOutstanding || 0) - (returnBill.totalAmount || 0))) < 0
-                            ? "Final Advance Credit:"
-                            : "Final Balance:"}
-                        </span>
-                        <span
-                          className={
-                            (newOutstanding ?? ((previousOutstanding || 0) - (returnBill.totalAmount || 0))) > 0
-                              ? "text-red-600"
-                              : "text-green-600"
-                          }
-                        >
-                          ₹{formatNum(Math.abs(Number(newOutstanding ?? ((previousOutstanding || 0) - (returnBill.totalAmount || 0)))))}
+                        <span>Net Balance {finalBal < 0 ? "(Advance)" : "Due"}:</span>
+                        <span className={finalBal > 0 ? "text-red-600" : finalBal < 0 ? "text-green-600" : "text-gray-900"}>
+                          {finalBal < 0 ? `-₹${formatNum(Math.abs(finalBal))}` : `₹${formatNum(finalBal)}`}
                         </span>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="flex justify-between py-1 border-b border-gray-200 text-blue-700 font-semibold">
-                        <span>Payment Refunded ({paymentMode}):</span>
-                        <span>-₹{formatNum(returnBill.totalAmount || 0)}</span>
+                      <div className="flex justify-between py-1 border-b border-gray-200 text-amber-800">
+                        <span>
+                          {prevBal > 0
+                            ? "Previous Outstanding:"
+                            : prevBal < 0
+                            ? "Previous Advance (Extra with us):"
+                            : "Previous Outstanding:"}
+                        </span>
+                        <span className="font-semibold">
+                          {prevBal > 0
+                            ? `+₹${formatNum(prevBal)}`
+                            : prevBal < 0
+                            ? `-₹${formatNum(Math.abs(prevBal))}`
+                            : "₹0"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-gray-200 text-green-700 font-semibold">
+                        <span>Less Return Amount:</span>
+                        <span>-₹{formatNum(returnAmt)}</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm font-black bg-gray-100 px-2 rounded border border-gray-200">
-                        <span>Final Amount:</span>
-                        <span className="text-gray-900">₹0</span>
+                        <span>
+                          {finalBal > 0
+                            ? "Final Outstanding Due:"
+                            : finalBal < 0
+                            ? "Final Advance (Extra with us):"
+                            : "Final Balance:"}
+                        </span>
+                        <span
+                          className={
+                            finalBal > 0
+                              ? "text-red-600"
+                              : finalBal < 0
+                              ? "text-green-600"
+                              : "text-gray-900"
+                          }
+                        >
+                          {finalBal < 0
+                            ? `-₹${formatNum(Math.abs(finalBal))}`
+                            : `₹${formatNum(finalBal)}`}
+                        </span>
                       </div>
                     </>
                   )}
@@ -300,8 +344,8 @@ const ReturnBillPrint = ({
                 Mob: {shopPhone}
               </p>
             )}
-            <div className="mt-1 px-3 py-0.5 border-2 border-black text-[11px] font-black uppercase tracking-widest inline-block">
-              Return Receipt
+            <div className={`mt-1 px-3 py-0.5 border-2 border-black text-[11px] font-black uppercase tracking-widest inline-block ${returnBill.status === "REJECTED" ? "bg-black text-white" : ""}`}>
+              {returnBill.status === "REJECTED" ? "RETURN REJECTED (VOID)" : "Return Receipt"}
             </div>
           </header>
 
@@ -418,47 +462,71 @@ const ReturnBillPrint = ({
                   <span>₹{formatNum(returnBill.totalAmount || 0)}</span>
                 </div>
 
-                {paymentMode === "ADJUSTMENT" || previousOutstanding !== undefined ? (
-                  <>
-                    <div className="border-b border-dashed border-black my-1 w-full" />
+              {paymentMode === "CASH" ? (
+                <>
+                  <div className="border-b border-dashed border-black my-1 w-full" />
+                  <div className="flex justify-between font-thermal-b font-bold text-xs">
+                    <span>Cash Refund Paid:</span>
+                    <span>₹{formatNum(returnAmt)}</span>
+                  </div>
+                  {previousOutstanding !== undefined && (
                     <div className="flex justify-between font-thermal-b font-bold text-xs">
-                      <span>Previous Due:</span>
+                      <span>{prevBal < 0 ? "Cust Adv (Extra):" : "Cust Due (Unchanged):"}</span>
                       <span className="font-black">
-                        {(previousOutstanding || 0) < 0 ? "-" : "+"}₹{formatNum(Math.abs(Number(previousOutstanding || 0)))}
+                        {prevBal > 0
+                          ? `+₹${formatNum(prevBal)}`
+                          : prevBal < 0
+                          ? `-₹${formatNum(Math.abs(prevBal))}`
+                          : "₹0"}
                       </span>
                     </div>
-                    <div className="flex justify-between font-thermal-b font-bold text-xs">
-                      <span>Less Return:</span>
-                      <span>-₹{formatNum(returnBill.totalAmount || 0)}</span>
-                    </div>
-                    <div className="border-b-2 border-dashed border-black my-1 w-full" />
-                    <div className="flex justify-between font-black text-sm">
-                      <span>
-                        {(newOutstanding ?? ((previousOutstanding || 0) - (returnBill.totalAmount || 0))) > 0
-                          ? "Final Outstanding:"
-                          : (newOutstanding ?? ((previousOutstanding || 0) - (returnBill.totalAmount || 0))) < 0
-                          ? "Final Credit:"
-                          : "Final Balance:"}
-                      </span>
-                      <span>
-                        ₹{formatNum(Math.abs(Number(newOutstanding ?? ((previousOutstanding || 0) - (returnBill.totalAmount || 0)))))}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="border-b border-dashed border-black my-1 w-full" />
-                    <div className="flex justify-between font-thermal-b font-bold text-xs">
-                      <span>Refund Paid ({paymentMode}):</span>
-                      <span>-₹{formatNum(returnBill.totalAmount || 0)}</span>
-                    </div>
-                    <div className="border-b-2 border-dashed border-black my-1 w-full" />
-                    <div className="flex justify-between font-black text-sm">
-                      <span>Final Balance:</span>
-                      <span>₹0</span>
-                    </div>
-                  </>
-                )}
+                  )}
+                  <div className="border-b-2 border-dashed border-black my-1 w-full" />
+                  <div className="flex justify-between font-black text-sm">
+                    <span>{finalBal < 0 ? "Final Adv:" : "Final Due:"}</span>
+                    <span>{finalBal < 0 ? `-₹${formatNum(Math.abs(finalBal))}` : `₹${formatNum(finalBal)}`}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="border-b border-dashed border-black my-1 w-full" />
+                  <div className="flex justify-between font-thermal-b font-bold text-xs">
+                    <span>
+                      {prevBal > 0
+                        ? "Prev Outstanding:"
+                        : prevBal < 0
+                        ? "Prev Adv (Extra):"
+                        : "Prev Outstanding:"}
+                    </span>
+                    <span className="font-black">
+                      {prevBal > 0
+                        ? `+₹${formatNum(prevBal)}`
+                        : prevBal < 0
+                        ? `-₹${formatNum(Math.abs(prevBal))}`
+                        : "₹0"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-thermal-b font-bold text-xs">
+                    <span>Less Return:</span>
+                    <span>-₹{formatNum(returnAmt)}</span>
+                  </div>
+                  <div className="border-b-2 border-dashed border-black my-1 w-full" />
+                  <div className="flex justify-between font-black text-sm">
+                    <span>
+                      {finalBal > 0
+                        ? "Final Outstanding:"
+                        : finalBal < 0
+                        ? "Final Adv (Extra):"
+                        : "Final Balance:"}
+                    </span>
+                    <span>
+                      {finalBal < 0
+                        ? `-₹${formatNum(Math.abs(finalBal))}`
+                        : `₹${formatNum(finalBal)}`}
+                    </span>
+                  </div>
+                </>
+              )}
               </div>
 
             {/* Receipt Footer */}

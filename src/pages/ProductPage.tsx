@@ -1,3 +1,4 @@
+import PriceHistoryModal from "../components/PriceHistoryModal";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useProductStore from "../store/product.store";
@@ -7,6 +8,7 @@ import {
   Table,
   Button,
   Input,
+  InputNumber,
   Select,
   Tag,
   Modal,
@@ -19,6 +21,8 @@ import {
   DeleteOutlined,
   BarcodeOutlined,
   ExclamationCircleOutlined,
+  RiseOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import apiCaller from "../utils/apiCaller";
 import { convertToGramorKG, formatIndianNumber } from "../utils";
@@ -40,11 +44,60 @@ const ProductPage = () => {
     product?: any;
   }>({ open: false });
   const [loading, setLoading] = useState(false);
-
+  const [priceHistoryModal, setPriceHistoryModal] = useState<{ open: boolean; product?: any }>({ open: false });
+  const [quickReconcileModal, setQuickReconcileModal] = useState<{
+    open: boolean;
+    product?: any;
+    actualStock: number;
+    reason: string;
+  }>({
+    open: false,
+    actualStock: 0,
+    reason: "Physical Stock Audit Count",
+  });
+  const [reconciling, setReconciling] = useState(false);
 
   const canSeeExtraData = user?.roles?.some((role) =>
     ["ADMIN", "SUPER_ADMIN", "CREATOR"].includes(role)
   );
+
+  const handleQuickReconcile = async () => {
+    if (!quickReconcileModal.product) return;
+    setReconciling(true);
+    try {
+      const res = await apiCaller.post("/stocks/reconcile", {
+        items: [
+          {
+            productId: quickReconcileModal.product._id,
+            actualStock: quickReconcileModal.actualStock,
+            reason: quickReconcileModal.reason,
+          },
+        ],
+      });
+      if (res.data?.success) {
+        message.success(
+          `Stock reconciled for ${quickReconcileModal.product.name} to ${quickReconcileModal.actualStock}`
+        );
+        setProducts(
+          products.map((p) =>
+            p._id === quickReconcileModal.product._id
+              ? { ...p, stock: quickReconcileModal.actualStock }
+              : p
+          )
+        );
+        setQuickReconcileModal({
+          open: false,
+          actualStock: 0,
+          reason: "Physical Stock Audit Count",
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      message.error(err?.response?.data?.message || "Failed to reconcile stock");
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   const filteredProducts = useMemo(() => {
     let arr = [...products];
@@ -156,7 +209,7 @@ const ProductPage = () => {
       ),
     },
     {
-      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Registry</span>,
+      title: <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Category</span>,
       dataIndex: "category",
       key: "category",
       render: (cat: string) => <span className="px-2 py-1 bg-gray-50 border border-gray-100 rounded-lg text-[9px] font-black text-gray-400 uppercase tracking-widest">{cat}</span>,
@@ -172,9 +225,34 @@ const ProductPage = () => {
           ),
           key: "actions",
           // align: "right",
-          width: 100,
+          width: 140,
           render: (_: any, record: any) => (
             <div className="flex justify-end gap-1">
+              <Tooltip title="Reconcile Product Stock">
+                <Button
+                  type="text"
+                  className="text-amber-600 hover:text-amber-800"
+                  icon={<SafetyCertificateOutlined />}
+                  onClick={() =>
+                    setQuickReconcileModal({
+                      open: true,
+                      product: record,
+                      actualStock: record.stock < 0 ? 0 : record.stock,
+                      reason: "Physical Stock Audit Count",
+                    })
+                  }
+                />
+              </Tooltip>
+              <Tooltip title="Price Fluctuation History">
+                <Button
+                  type="text"
+                  className="text-indigo-600 hover:text-indigo-800"
+                  icon={<RiseOutlined />}
+                  onClick={() =>
+                    setPriceHistoryModal({ open: true, product: record })
+                  }
+                />
+              </Tooltip>
               <Button
                 type="text"
                 icon={<EditOutlined />}
@@ -202,12 +280,12 @@ const ProductPage = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
           <div>
-            <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Registry Catalog</h1>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Enterprise Inventory Management</p>
+            <h1 className="text-2xl font-black text-gray-800 tracking-tight leading-tight">Products & Stock</h1>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Manage shop products and stock</p>
           </div>
 
           {canSeeExtraData && <div className="bg-white px-8 py-5 rounded-[24px] border border-gray-100 shadow-sm flex flex-col items-end group transition-all hover:shadow-indigo-100">
-            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Cumulative Market Value</p>
+            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Total Stock Value</p>
             <span className="text-2xl font-black text-indigo-600 tracking-tighter">₹{formatIndianNumber(totalStockValue)}</span>
           </div>}
         </div>
@@ -223,7 +301,7 @@ const ProductPage = () => {
                   className={`px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all duration-300 border ${category === "all" ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100" : "bg-gray-50 text-gray-500 border-gray-50 hover:bg-gray-100"
                     }`}
                 >
-                  Global View
+                  All Products
                 </div>
                 {(categories || [])
                   .filter((c) => c && c.name && c.name !== "null")
@@ -244,7 +322,7 @@ const ProductPage = () => {
             <div className="flex flex-col lg:flex-row gap-6 items-end justify-between">
               <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
                 <div className="flex-1 sm:w-80">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1 block">Catalog Index Search</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1 block">Search Products</label>
                   <Input.Search
                     placeholder="Reference name or barcode..."
                     value={search}
@@ -254,19 +332,28 @@ const ProductPage = () => {
                   />
                 </div>
                 <div className="w-full sm:w-52">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1 block">Sequence Order</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1 block">Sort By</label>
                   <Select
                     value={sort}
                     onChange={setSort}
                     className="w-full h-12 rounded-2xl"
                     options={[
-                      { value: "name", label: "ALPHABETICAL" },
-                      { value: "stock", label: "LOW STOCK PRIORITY" },
+                      { value: "name", label: "Name (A-Z)" },
+                      { value: "stock", label: "Low Stock First" },
                     ]}
                   />
                 </div>
               </div>
-              <div className="flex gap-3 w-full lg:w-auto">
+              <div className="flex flex-wrap gap-3 w-full lg:w-auto">
+                {canSeeExtraData && (
+                  <Button
+                    icon={<SafetyCertificateOutlined />}
+                    onClick={() => navigate("/products/reconcile")}
+                    className="flex-1 sm:flex-none h-12 px-6 rounded-2xl border-2 border-indigo-100 bg-indigo-50/50 text-[10px] font-black tracking-widest text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900 transition-all uppercase"
+                  >
+                    Reconcile Stock
+                  </Button>
+                )}
                 <Button
                   onClick={() => navigate("/products/updateStock")}
                   className="flex-1 sm:flex-none h-12 px-6 rounded-2xl border-2 border-gray-50 text-[10px] font-black tracking-widest text-gray-500 hover:border-indigo-100 hover:text-indigo-600 transition-all uppercase"
@@ -309,20 +396,20 @@ const ProductPage = () => {
         open={deleteModal.open}
         onCancel={() => setDeleteModal({ open: false })}
         onOk={() => handleDelete(deleteModal.product)}
-        okText="CONFIRM DELETE"
+        okText="Delete"
         okType="danger"
-        cancelText="CANCEL"
+        cancelText="Cancel"
         centered
         className="premium-modal"
-        title={<span className="text-sm font-black text-gray-800 uppercase tracking-widest">Security Authorization</span>}
+        title={<span className="text-sm font-black text-gray-800 uppercase tracking-widest">Delete Product</span>}
       >
         <div className="py-4">
           <p className="text-gray-500 font-medium mb-4">
-            Are you sure you want to permanently remove <b className="text-gray-800">{deleteModal.product?.name}</b> from the central catalog?
+            Are you sure you want to permanently delete <b className="text-gray-800">{deleteModal.product?.name}</b>?
           </p>
           <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">Active Stock</span>
+              <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">Current Stock</span>
               <span className="text-sm font-black text-red-700">{deleteModal.product?.stock} {deleteModal.product?.measuring}</span>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -347,6 +434,177 @@ const ProductPage = () => {
         .modern-table .ant-table-row:hover > td { background: #f8fafc !important; }
         .no-border-table .ant-table { background: transparent !important; }
       `}</style>
+      <PriceHistoryModal
+        open={priceHistoryModal.open}
+        productId={priceHistoryModal.product?._id || null}
+        productName={priceHistoryModal.product?.name}
+        onClose={() => setPriceHistoryModal({ open: false })}
+      />
+
+      {/* Quick Reconcile Modal for individual product */}
+      <Modal
+        open={quickReconcileModal.open}
+        onCancel={() =>
+          setQuickReconcileModal({
+            open: false,
+            actualStock: 0,
+            reason: "Physical Stock Audit Count",
+          })
+        }
+        title={
+          <div className="flex items-center gap-2 font-black text-base text-gray-900">
+            <SafetyCertificateOutlined className="text-amber-500" />
+            <span>Reconcile Stock • {quickReconcileModal.product?.name}</span>
+          </div>
+        }
+        footer={null}
+        centered
+        width={480}
+      >
+        {quickReconcileModal.product && (
+          <div className="py-4 space-y-4">
+            <div className="grid grid-cols-3 gap-3 bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-xs">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                  Current Stock
+                </span>
+                <span
+                  className={`font-mono font-black text-sm ${
+                    quickReconcileModal.product.stock < 0
+                      ? "text-red-600"
+                      : "text-gray-800"
+                  }`}
+                >
+                  {quickReconcileModal.product.stock}{" "}
+                  {quickReconcileModal.product.measuring}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                  Cost Price
+                </span>
+                <span className="font-mono font-black text-xs text-gray-800">
+                  ₹{quickReconcileModal.product.costPrice || 0}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                  Retail Price
+                </span>
+                <span className="font-mono font-black text-xs text-gray-800">
+                  ₹{quickReconcileModal.product.retailPrice || 0}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-black text-gray-600 uppercase tracking-wider block mb-1.5">
+                Actual Physical Stock Count:
+              </label>
+              <InputNumber
+                min={0}
+                step={quickReconcileModal.product.measuring === "kg" ? 0.05 : 1}
+                value={quickReconcileModal.actualStock}
+                onChange={(val) =>
+                  setQuickReconcileModal((prev) => ({
+                    ...prev,
+                    actualStock: val !== null ? val : 0,
+                  }))
+                }
+                className="w-full h-11 text-base font-mono font-black rounded-xl"
+              />
+            </div>
+
+            {/* Live calculation info */}
+            {(() => {
+              const diff =
+                quickReconcileModal.actualStock -
+                quickReconcileModal.product.stock;
+              const valueImpact =
+                diff * (quickReconcileModal.product.costPrice || 0);
+
+              return (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 border border-indigo-100 text-xs font-bold">
+                  <div>
+                    <span className="text-[10px] text-gray-400 uppercase block">
+                      Discrepancy (Variance)
+                    </span>
+                    <span
+                      className={`font-mono text-sm ${
+                        diff < 0 ? "text-red-600" : diff > 0 ? "text-emerald-600" : "text-gray-600"
+                      }`}
+                    >
+                      {diff > 0 ? `+${diff}` : diff} {quickReconcileModal.product.measuring}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-400 uppercase block">
+                      Cost Impact
+                    </span>
+                    <span
+                      className={`font-mono text-sm ${
+                        valueImpact < 0
+                          ? "text-red-600"
+                          : valueImpact > 0
+                          ? "text-emerald-600"
+                          : "text-gray-600"
+                      }`}
+                    >
+                      {valueImpact > 0
+                        ? `+₹${valueImpact.toLocaleString()}`
+                        : `-₹${Math.abs(valueImpact).toLocaleString()}`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div>
+              <label className="text-[11px] font-black text-gray-600 uppercase tracking-wider block mb-1.5">
+                Audit Reason:
+              </label>
+              <Select
+                value={quickReconcileModal.reason}
+                onChange={(val) =>
+                  setQuickReconcileModal((prev) => ({ ...prev, reason: val }))
+                }
+                className="w-full h-10 text-xs font-semibold"
+                options={[
+                  { value: "Physical Stock Audit Count", label: "Physical Stock Audit Count" },
+                  { value: "Damaged / Broken Items", label: "Damaged / Broken Items" },
+                  { value: "Shrinkage / Unrecorded Loss", label: "Shrinkage / Unrecorded Loss" },
+                  { value: "Negative Stock Correction", label: "Negative Stock Correction" },
+                  { value: "Counting Discrepancy Correction", label: "Counting Discrepancy Correction" },
+                  { value: "Found Unrecorded Stock", label: "Found Unrecorded Stock" },
+                ]}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+              <Button
+                onClick={() =>
+                  setQuickReconcileModal({
+                    open: false,
+                    actualStock: 0,
+                    reason: "Physical Stock Audit Count",
+                  })
+                }
+                className="rounded-xl font-bold"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                loading={reconciling}
+                onClick={handleQuickReconcile}
+                className="h-10 px-6 bg-green-600 hover:bg-green-700 border-none rounded-xl font-black text-xs uppercase tracking-wider"
+              >
+                Apply Reconciliation
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </main>
   );
 };

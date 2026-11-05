@@ -9,6 +9,8 @@ import useReturnBillStore from "../store/returnBill.store";
 import useTabsStore from "../store/tabs.store";
 import useTransactionStore from "../store/transaction.store";
 import useUserStore from "../store/user.store";
+import useSupplierStore from "../store/supplier.store";
+import useSupplierPurchaseStore from "../store/supplierPurchase.store";
 
 /**
  * Resets all domain stores that hold shop-specific data.
@@ -26,6 +28,8 @@ export const resetShopScopedStores = () => {
     useInventoryRequestStore.getState().reset();
     useReturnBillStore.getState().reset();
     useJourneyStore.getState().reset();
+    useSupplierStore.getState().reset();
+    useSupplierPurchaseStore.getState().reset();
     console.log("[resetShopScopedStores] All shop-scoped stores have been successfully reset.");
   } catch (error) {
     console.error("[resetShopScopedStores] Error resetting shop stores:", error);
