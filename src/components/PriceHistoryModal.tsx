@@ -58,6 +58,12 @@ const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [total, setTotal] = useState(0);
+  const [visibleSeries, setVisibleSeries] = useState({
+    costPrice: true,
+    retailPrice: true,
+    wholesalePrice: true,
+    superWholesalePrice: true,
+  });
 
   // Reset to page 1 when modal is opened or product changes
   useEffect(() => {
@@ -169,32 +175,46 @@ const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
     {
       title: "Cost Price (CP)",
       key: "costPrice",
-      render: (_: any, record: IPriceHistoryItem) =>
-        renderPriceChange(record.previousCostPrice, record.newCostPrice),
+      render: (_: any, record: IPriceHistoryItem, index: number) => {
+        const prevCp =
+          record.previousCostPrice === record.newCostPrice && history[index + 1]
+            ? history[index + 1].newCostPrice
+            : record.previousCostPrice;
+        return renderPriceChange(prevCp, record.newCostPrice);
+      },
     },
     {
       title: "Retail Price",
       key: "retailPrice",
-      render: (_: any, record: IPriceHistoryItem) =>
-        renderPriceChange(record.previousRetailPrice, record.newRetailPrice),
+      render: (_: any, record: IPriceHistoryItem, index: number) => {
+        const prevRetail =
+          record.previousRetailPrice === record.newRetailPrice && history[index + 1]
+            ? history[index + 1].newRetailPrice
+            : record.previousRetailPrice;
+        return renderPriceChange(prevRetail, record.newRetailPrice);
+      },
     },
     {
       title: "Wholesale",
       key: "wholesalePrice",
-      render: (_: any, record: IPriceHistoryItem) =>
-        renderPriceChange(
-          record.previousWholesalePrice,
-          record.newWholesalePrice,
-        ),
+      render: (_: any, record: IPriceHistoryItem, index: number) => {
+        const prevWholesale =
+          record.previousWholesalePrice === record.newWholesalePrice && history[index + 1]
+            ? history[index + 1].newWholesalePrice
+            : record.previousWholesalePrice;
+        return renderPriceChange(prevWholesale, record.newWholesalePrice);
+      },
     },
     {
       title: "Super Wholesale",
       key: "superWholesalePrice",
-      render: (_: any, record: IPriceHistoryItem) =>
-        renderPriceChange(
-          record.previousSuperWholesalePrice,
-          record.newSuperWholesalePrice,
-        ),
+      render: (_: any, record: IPriceHistoryItem, index: number) => {
+        const prevSuper =
+          record.previousSuperWholesalePrice === record.newSuperWholesalePrice && history[index + 1]
+            ? history[index + 1].newSuperWholesalePrice
+            : record.previousSuperWholesalePrice;
+        return renderPriceChange(prevSuper, record.newSuperWholesalePrice);
+      },
     },
     {
       title: "Updated By",
@@ -236,7 +256,7 @@ const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
             <>
               {/* Chart section */}
               <div className="bg-gray-50/70 p-5 rounded-3xl border border-gray-100 mb-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
                   <div>
                     <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 m-0">
                       Price Trend Timeline
@@ -256,94 +276,242 @@ const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                     />
                   )}
                 </div>
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={chartData}
-                      margin={{ top: 10, right: 30, left: 10, bottom: 5 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="#e2e8f0"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="date"
-                        stroke="#94a3b8"
-                        fontSize={11}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        stroke="#94a3b8"
-                        fontSize={11}
-                        tickLine={false}
-                        tickFormatter={(v) => `₹${v.toFixed(2)}`}
-                        domain={([dataMin, dataMax]: [number, number]) => {
-                          const range = dataMax - dataMin;
-                          const padding = Math.max(
-                            range * 0.2,
-                            dataMax * 0.005,
-                          );
 
-                          return [
-                            Math.max(0, dataMin - padding),
-                            dataMax + padding,
-                          ];
-                        }}
-                        allowDataOverflow={false}
-                      />{" "}
-                      <ChartTooltip
-                        contentStyle={{
-                          backgroundColor: "#ffffff",
-                          borderRadius: "16px",
-                          border: "1px solid #e2e8f0",
-                          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
-                        }}
+                {/* Curve filter checkboxes */}
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-white/90 p-2.5 rounded-2xl border border-gray-200/70 mb-4 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 mr-1">
+                      Curves:
+                    </span>
+                    <label className={`flex items-center gap-1.5 cursor-pointer select-none text-xs font-bold px-2.5 py-1 rounded-xl transition-all border ${
+                      visibleSeries.costPrice
+                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                        : "bg-gray-50 text-gray-400 border-gray-200 opacity-60"
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={visibleSeries.costPrice}
+                        onChange={(e) =>
+                          setVisibleSeries((prev) => ({
+                            ...prev,
+                            costPrice: e.target.checked,
+                          }))
+                        }
+                        className="accent-indigo-600 rounded cursor-pointer"
                       />
-                      <Legend
-                        verticalAlign="top"
-                        height={36}
-                        formatter={(val) => (
-                          <span className="text-xs font-bold text-gray-700">
-                            {val}
-                          </span>
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                      Cost Price (CP)
+                    </label>
+
+                    <label className={`flex items-center gap-1.5 cursor-pointer select-none text-xs font-bold px-2.5 py-1 rounded-xl transition-all border ${
+                      visibleSeries.retailPrice
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-gray-50 text-gray-400 border-gray-200 opacity-60"
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={visibleSeries.retailPrice}
+                        onChange={(e) =>
+                          setVisibleSeries((prev) => ({
+                            ...prev,
+                            retailPrice: e.target.checked,
+                          }))
+                        }
+                        className="accent-emerald-600 rounded cursor-pointer"
+                      />
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                      Retail Price (RP)
+                    </label>
+
+                    <label className={`flex items-center gap-1.5 cursor-pointer select-none text-xs font-bold px-2.5 py-1 rounded-xl transition-all border ${
+                      visibleSeries.wholesalePrice
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-gray-50 text-gray-400 border-gray-200 opacity-60"
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={visibleSeries.wholesalePrice}
+                        onChange={(e) =>
+                          setVisibleSeries((prev) => ({
+                            ...prev,
+                            wholesalePrice: e.target.checked,
+                          }))
+                        }
+                        className="accent-amber-600 rounded cursor-pointer"
+                      />
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                      Wholesale Price
+                    </label>
+
+                    <label className={`flex items-center gap-1.5 cursor-pointer select-none text-xs font-bold px-2.5 py-1 rounded-xl transition-all border ${
+                      visibleSeries.superWholesalePrice
+                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                        : "bg-gray-50 text-gray-400 border-gray-200 opacity-60"
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={visibleSeries.superWholesalePrice}
+                        onChange={(e) =>
+                          setVisibleSeries((prev) => ({
+                            ...prev,
+                            superWholesalePrice: e.target.checked,
+                          }))
+                        }
+                        className="accent-purple-600 rounded cursor-pointer"
+                      />
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                      Super Wholesale
+                    </label>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allActive =
+                        visibleSeries.costPrice &&
+                        visibleSeries.retailPrice &&
+                        visibleSeries.wholesalePrice &&
+                        visibleSeries.superWholesalePrice;
+                      setVisibleSeries({
+                        costPrice: !allActive,
+                        retailPrice: !allActive,
+                        wholesalePrice: !allActive,
+                        superWholesalePrice: !allActive,
+                      });
+                    }}
+                    className="text-[11px] font-bold text-gray-400 hover:text-gray-700 underline px-1 transition-colors"
+                  >
+                    {visibleSeries.costPrice &&
+                    visibleSeries.retailPrice &&
+                    visibleSeries.wholesalePrice &&
+                    visibleSeries.superWholesalePrice
+                      ? "Deselect All"
+                      : "Select All"}
+                  </button>
+                </div>
+
+                <div className="h-72 w-full">
+                  {visibleSeries.costPrice ||
+                  visibleSeries.retailPrice ||
+                  visibleSeries.wholesalePrice ||
+                  visibleSeries.superWholesalePrice ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={chartData}
+                        margin={{ top: 10, right: 30, left: 10, bottom: 5 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="#e2e8f0"
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="date"
+                          stroke="#94a3b8"
+                          fontSize={11}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          stroke="#94a3b8"
+                          fontSize={11}
+                          tickLine={false}
+                          tickFormatter={(v) => `₹${v.toFixed(2)}`}
+                          domain={([dataMin, dataMax]: [number, number]) => {
+                            const range = dataMax - dataMin;
+                            const padding = Math.max(
+                              range * 0.2,
+                              dataMax * 0.005,
+                            );
+
+                            return [
+                              Math.max(0, dataMin - padding),
+                              dataMax + padding,
+                            ];
+                          }}
+                          allowDataOverflow={false}
+                        />
+                        <ChartTooltip
+                          contentStyle={{
+                            backgroundColor: "#ffffff",
+                            borderRadius: "16px",
+                            border: "1px solid #e2e8f0",
+                            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
+                          }}
+                        />
+                        <Legend
+                          verticalAlign="top"
+                          height={36}
+                          onClick={(e) => {
+                            if (e && e.dataKey) {
+                              const key = String(e.dataKey) as keyof typeof visibleSeries;
+                              setVisibleSeries((prev) => ({
+                                ...prev,
+                                [key]: !prev[key],
+                              }));
+                            }
+                          }}
+                          formatter={(val) => (
+                            <span className="text-xs font-bold text-gray-700 cursor-pointer select-none">
+                              {val}
+                            </span>
+                          )}
+                        />
+                        {visibleSeries.costPrice && (
+                          <Line
+                            type="monotone"
+                            dataKey="costPrice"
+                            name="Cost Price (CP)"
+                            stroke="#6366f1"
+                            strokeWidth={2.5}
+                            dot={{ r: 4 }}
+                            activeDot={{ r: 6 }}
+                          />
                         )}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="costPrice"
-                        name="Cost Price (CP)"
-                        stroke="#6366f1"
-                        strokeWidth={2.5}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="retailPrice"
-                        name="Retail Price"
-                        stroke="#10b981"
-                        strokeWidth={2.5}
-                        dot={{ r: 4 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="wholesalePrice"
-                        name="Wholesale Price"
-                        stroke="#f59e0b"
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="superWholesalePrice"
-                        name="Super Wholesale"
-                        stroke="#8b5cf6"
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                        {visibleSeries.retailPrice && (
+                          <Line
+                            type="monotone"
+                            dataKey="retailPrice"
+                            name="Retail Price (RP)"
+                            stroke="#10b981"
+                            strokeWidth={2.5}
+                            dot={{ r: 4 }}
+                            activeDot={{ r: 6 }}
+                          />
+                        )}
+                        {visibleSeries.wholesalePrice && (
+                          <Line
+                            type="monotone"
+                            dataKey="wholesalePrice"
+                            name="Wholesale Price"
+                            stroke="#f59e0b"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                        )}
+                        {visibleSeries.superWholesalePrice && (
+                          <Line
+                            type="monotone"
+                            dataKey="superWholesalePrice"
+                            name="Super Wholesale"
+                            stroke="#8b5cf6"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                        )}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full w-full flex flex-col items-center justify-center text-gray-400 bg-white/50 rounded-2xl border border-dashed border-gray-200">
+                      <span className="text-sm font-bold text-gray-500">
+                        No curves selected
+                      </span>
+                      <span className="text-xs text-gray-400 mt-1">
+                        Check at least one price metric above to view its graph timeline.
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
