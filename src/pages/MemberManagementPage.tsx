@@ -17,6 +17,7 @@ import {
 import { UserAddOutlined, TeamOutlined, LockOutlined, UserOutlined, SettingOutlined, DeleteOutlined } from "@ant-design/icons";
 import { message } from "../utils/antdStatic";
 import apiCaller from "../utils/apiCaller";
+import useUserStore from "../store/user.store";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -35,6 +36,7 @@ interface ACLRole {
 }
 
 const MemberManagementPage = () => {
+    const { user: currentUser } = useUserStore();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<ACLRole[]>([]);
     const [usersLoading, setUsersLoading] = useState(false);
@@ -55,8 +57,8 @@ const MemberManagementPage = () => {
                 apiCaller.get("/admin/acls")
             ]);
 
-            if (usersRes.data) setUsers(usersRes.data.data.users);
-            if (rolesRes.data) setRoles(rolesRes.data.data.acls);
+            if (usersRes.data?.data?.users) setUsers(usersRes.data.data.users);
+            if (rolesRes.data?.data?.acls) setRoles(rolesRes.data.data.acls);
 
         } catch (error: any) {
             console.error(error);
@@ -74,7 +76,12 @@ const MemberManagementPage = () => {
     const onFinish = async (values: any) => {
         setCreateLoading(true);
         try {
-            const response = await apiCaller.post("/admin/users", values);
+            const selectedAcl = roles.find((r) => r._id === values.aclId);
+            const payload = {
+                ...values,
+                roles: selectedAcl ? [selectedAcl.name] : ["WORKER"],
+            };
+            const response = await apiCaller.post("/admin/users", payload);
 
             if (response.data) {
                 message.success("Member created successfully");
@@ -96,9 +103,11 @@ const MemberManagementPage = () => {
 
         setAssignLoading(true);
         try {
+            const selectedAcl = roles.find((r) => r._id === selectedRole);
             const response = await apiCaller.post("/admin/assign-role", {
                 userId: selectedUser._id,
-                aclId: selectedRole
+                aclId: selectedRole,
+                roles: selectedAcl ? [selectedAcl.name] : undefined,
             });
 
             if (response.data) {
@@ -117,6 +126,8 @@ const MemberManagementPage = () => {
 
     const openAssignModal = (user: User) => {
         setSelectedUser(user);
+        const matchingRole = roles.find((r) => user.roles?.includes(r.name));
+        setSelectedRole(matchingRole ? matchingRole._id : null);
         setIsModalVisible(true);
     };
 
@@ -175,7 +186,12 @@ const MemberManagementPage = () => {
             title: "Action",
             key: "action",
             render: (_: any, record: User) => {
-                const isProtected = record.roles?.includes("SUPER_ADMIN") || record.roles?.includes("CREATOR");
+                const isCurrentUser = currentUser?._id === record._id;
+                const isSuperOrCreator = record.roles?.includes("SUPER_ADMIN") || record.roles?.includes("CREATOR");
+                const isProtected = isSuperOrCreator || isCurrentUser;
+                const deleteTooltip = isCurrentUser
+                    ? "Cannot delete your own account"
+                    : "Protected Role (Cannot Delete)";
                 return (
                     <Space split={<Divider type="vertical" />}>
                         <Tooltip title="Manage roles">
@@ -187,7 +203,7 @@ const MemberManagementPage = () => {
                             />
                         </Tooltip>
                         {isProtected ? (
-                            <Tooltip title="Protected Role (Cannot Delete)">
+                            <Tooltip title={deleteTooltip}>
                                 <Button
                                     type="link"
                                     danger

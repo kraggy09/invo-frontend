@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Button,
@@ -22,15 +22,19 @@ import {
   HistoryOutlined,
   FileTextOutlined,
   CreditCardOutlined,
+  PrinterOutlined,
 } from "@ant-design/icons";
 import { message } from "../utils/antdStatic";
 import dayjs from "dayjs";
+import { useReactToPrint } from "react-to-print";
 import apiCaller from "../utils/apiCaller";
 import { ISupplier } from "../store/supplier.store";
 import { ISupplierPurchase } from "../store/supplierPurchase.store";
-import { formatIndianNumber } from "../utils";
+import { formatIndianNumber, generateUUID } from "../utils";
 import { useSocket } from "../contexts/SocketContext";
 import { SocketEvents } from "../types/socket";
+import TransactionPrint from "../components/TransactionPrint";
+import useUserStore from "../store/user.store";
 
 const SupplierDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -47,6 +51,23 @@ const SupplierDetailPage: React.FC = () => {
   const [payAmount, setPayAmount] = useState<number>(0);
   const [payMode, setPayMode] = useState<"CASH" | "ONLINE">("CASH");
   const [paying, setPaying] = useState(false);
+
+  // Print state
+  const [showPrint, setShowPrint] = useState(false);
+  const [printTransactionData, setPrintTransactionData] = useState<any>(null);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+  const printType =
+    useUserStore((state) => state.user?.shopSettings?.printType) || "THERMAL";
+  const pageStyle =
+    printType === "A4"
+      ? "@page { size: A4 portrait; margin: 10mm; } @media print { body { -webkit-print-color-adjust: exact; } }"
+      : "@page { size: 80mm auto; margin: 2mm 2mm; } @media print { body { -webkit-print-color-adjust: exact; } }";
+
+  const handlePrint = useReactToPrint({
+    contentRef: contentRef as React.RefObject<HTMLDivElement>,
+    pageStyle,
+  });
 
   // View Bill / Manifest Modal state
   const [viewingPurchase, setViewingPurchase] =
@@ -107,7 +128,7 @@ const SupplierDetailPage: React.FC = () => {
           tx.newOutstanding !== undefined
             ? tx.newOutstanding
             : data?.supplier?.outstanding;
-        if (newOut !== undefined) {
+        if (tx.approved && newOut !== undefined) {
           setSupplier((prev) =>
             prev ? { ...prev, outstanding: newOut } : prev
           );
@@ -173,14 +194,24 @@ const SupplierDetailPage: React.FC = () => {
       const txIdRes = await apiCaller.get("/transactions/latest-id");
       const transactionId = txIdRes.data?.data?.transactionId ?? 0;
 
-      await apiCaller.post("/transactions", {
+      const res = await apiCaller.post("/transactions", {
         supplierId: supplier._id,
         name: supplier.name,
         amount: payAmount,
         paymentMode: payMode,
         purpose: "Supplier Outstanding Payment",
         transactionId,
+        idempotencyKey: generateUUID(),
       });
+
+      let txData = res.data?.data;
+      if (txData?.transaction?.newTransaction) {
+        txData = txData.transaction.newTransaction;
+      } else if (txData?.transaction) {
+        txData = txData.transaction;
+      } else if (txData?.newTransaction) {
+        txData = txData.newTransaction;
+      }
 
       message.success(
         `Payment of ₹${formatIndianNumber(payAmount)} to ${supplier.name} recorded!`,
@@ -188,6 +219,11 @@ const SupplierDetailPage: React.FC = () => {
       setShowPayModal(false);
       setPayAmount(0);
       fetchSupplierData();
+
+      if (txData) {
+        setPrintTransactionData(txData);
+        setShowPrint(true);
+      }
     } catch (err: any) {
       console.error(err);
       message.error(
@@ -557,6 +593,27 @@ const SupplierDetailPage: React.FC = () => {
                                 </span>
                               ),
                             },
+                            {
+                              title: "Action",
+                              key: "action",
+                              render: (_: any, tx: any) => (
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<PrinterOutlined />}
+                                  onClick={() => {
+                                    setPrintTransactionData({
+                                      ...tx,
+                                      supplier: supplier,
+                                    });
+                                    setShowPrint(true);
+                                  }}
+                                  className="text-gray-600 hover:text-indigo-600 font-bold text-xs"
+                                >
+                                  Print
+                                </Button>
+                              ),
+                            },
                           ]}
                         />
                       ),
@@ -824,6 +881,20 @@ const SupplierDetailPage: React.FC = () => {
               </div>
             </div>
           </Modal>
+
+          {/* Hidden thermal print container */}
+          {showPrint && printTransactionData && (
+            <TransactionPrint
+              onClose={() => {
+                setShowPrint(false);
+                setPrintTransactionData(null);
+              }}
+              contentRef={contentRef}
+              handlePrint={handlePrint}
+              transactionData={printTransactionData}
+              isPaymentIn={false}
+            />
+          )}
         </Spin>
       </div>
     </main>

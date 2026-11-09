@@ -1,10 +1,11 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Form,
   Input,
   InputNumber,
   Select,
   Button,
+  Spin,
 } from "antd";
 import toast from "react-hot-toast";
 import { useReactToPrint } from "react-to-print";
@@ -17,6 +18,8 @@ import {
   WalletOutlined,
   ShopOutlined,
   FileTextOutlined,
+  ReloadOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import useCustomerStore from "../store/customer.store";
 import useSupplierStore, { ISupplier } from "../store/supplier.store";
@@ -33,6 +36,8 @@ const NewTransaction: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<ISupplier | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fetchingSuppliers, setFetchingSuppliers] = useState(false);
+  const [fetchingSupplierDetails, setFetchingSupplierDetails] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [printTransactionData, setPrintTransactionData] = useState<any>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(generateUUID());
@@ -53,6 +58,27 @@ const NewTransaction: React.FC = () => {
   const { customers } = useCustomerStore();
   const { suppliers } = useSupplierStore();
 
+  // Fetch all suppliers from API on mount or when switching to supplier cash out
+  const fetchSuppliersFromApi = async () => {
+    setFetchingSuppliers(true);
+    try {
+      const res = await apiCaller.get("/suppliers");
+      if (res.data?.success && res.data.data?.suppliers) {
+        useSupplierStore.getState().setSuppliers(res.data.data.suppliers);
+      }
+    } catch (err) {
+      console.error("Failed to load suppliers from API:", err);
+    } finally {
+      setFetchingSuppliers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isPaymentIn && cashOutType === "SUPPLIER") {
+      fetchSuppliersFromApi();
+    }
+  }, [isPaymentIn, cashOutType]);
+
   const handleModeChange = (mode: string) => {
     setIsPaymentIn(mode === "in");
     form.resetFields(["purpose", "name", "amount", "paymentMode"]);
@@ -68,13 +94,34 @@ const NewTransaction: React.FC = () => {
     }
   };
 
-  const handleSupplierSelect = (supplierId: string) => {
-    const supplier = suppliers.find((s) => s._id === supplierId);
-    if (supplier) {
-      setSelectedSupplier(supplier);
+  // Fetch fresh supplier details & live outstanding directly from API
+  const handleSupplierSelect = async (supplierId: string) => {
+    setFetchingSupplierDetails(true);
+    try {
+      const res = await apiCaller.get(`/suppliers/${supplierId}`);
+      if (res.data?.success && res.data.data?.supplier) {
+        const liveSupplier: ISupplier = res.data.data.supplier;
+        setSelectedSupplier(liveSupplier);
+        useSupplierStore.getState().updateSupplier(liveSupplier);
+        form.setFieldsValue({
+          name: liveSupplier.name,
+          amount: liveSupplier.outstanding > 0 ? liveSupplier.outstanding : undefined,
+        });
+        return;
+      }
+    } catch (err) {
+      console.error("Failed to fetch fresh supplier details from API:", err);
+    } finally {
+      setFetchingSupplierDetails(false);
+    }
+
+    // Fallback to local store if API call fails
+    const local = suppliers.find((s) => s._id === supplierId);
+    if (local) {
+      setSelectedSupplier(local);
       form.setFieldsValue({
-        name: supplier.name,
-        amount: supplier.outstanding > 0 ? supplier.outstanding : undefined,
+        name: local.name,
+        amount: local.outstanding > 0 ? local.outstanding : undefined,
       });
     }
   };
@@ -151,6 +198,17 @@ const NewTransaction: React.FC = () => {
         transactionData = transactionData.payment;
       } else if (transactionData?.newTransaction) {
         transactionData = transactionData.newTransaction;
+      }
+
+      // Update supplier's outstanding locally if applicable
+      if (cashOutType === "SUPPLIER" && selectedSupplier && transactionData) {
+        const remainingOut =
+          transactionData.newOutstanding !== undefined
+            ? transactionData.newOutstanding
+            : selectedSupplier.outstanding - Number(values.amount);
+        useSupplierStore
+          .getState()
+          .updateOutstanding(selectedSupplier._id, remainingOut);
       }
 
       if (transactionData) {
@@ -388,8 +446,19 @@ const NewTransaction: React.FC = () => {
               ) : cashOutType === "SUPPLIER" ? (
                 /* Outward Supplier Select */
                 <>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={labelCls}>Supplier / Party Name</span>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<ReloadOutlined spin={fetchingSuppliers} />}
+                      onClick={fetchSuppliersFromApi}
+                      className="text-[10px] font-bold text-gray-400 hover:text-indigo-600 p-0 h-auto"
+                    >
+                      Sync Suppliers
+                    </Button>
+                  </div>
                   <Form.Item
-                    label={<span className={labelCls}>Supplier / Party Name</span>}
                     rules={[
                       {
                         validator: () =>
@@ -401,6 +470,7 @@ const NewTransaction: React.FC = () => {
                   >
                     <Select
                       showSearch
+                      loading={fetchingSuppliers || fetchingSupplierDetails}
                       placeholder="Search supplier by name or phone"
                       className="txn-select"
                       optionFilterProp="label"
@@ -434,25 +504,58 @@ const NewTransaction: React.FC = () => {
                     />
                   </Form.Item>
 
-                  {/* Supplier Pending Udhaar display */}
+                  {/* Supplier Pending Udhaar & Live Details display */}
                   {selectedSupplier && (
-                    <div className="rounded-2xl p-4 mb-6 flex items-center justify-between border bg-amber-50/60 border-amber-100">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-100 text-amber-700">
-                          <ShopOutlined className="text-sm" />
+                    <div className="rounded-2xl p-4 mb-6 border bg-amber-50/60 border-amber-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-100 text-amber-700">
+                            <ShopOutlined className="text-sm" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest">
+                                Pending Market Udhaar (You Owe)
+                              </p>
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                <CheckCircleOutlined className="text-[9px]" /> API Live
+                              </span>
+                            </div>
+                            <p className="text-lg font-black tracking-tight text-amber-800 font-mono">
+                              ₹{(selectedSupplier.outstanding || 0).toLocaleString()}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest">
-                            Pending Market Udhaar (You Owe)
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                            {selectedSupplier.phone}
                           </p>
-                          <p className="text-lg font-black tracking-tight text-amber-800 font-mono">
-                            ₹{(selectedSupplier.outstanding || 0).toLocaleString()}
-                          </p>
+                          {selectedSupplier.address && (
+                            <p className="text-[10px] text-gray-400 truncate max-w-[140px]">
+                              {selectedSupplier.address}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        {selectedSupplier.phone}
-                      </p>
+
+                      {selectedSupplier.outstanding > 0 && (
+                        <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between">
+                          <span className="text-[10px] text-amber-800 font-semibold">
+                            Settle entire pending market balance:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              form.setFieldsValue({
+                                amount: selectedSupplier.outstanding,
+                              })
+                            }
+                            className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-wider bg-white px-2 py-1 rounded-md border border-amber-200 shadow-xs cursor-pointer"
+                          >
+                            Fill ₹{selectedSupplier.outstanding.toLocaleString()}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>

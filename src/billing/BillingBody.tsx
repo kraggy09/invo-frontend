@@ -108,7 +108,7 @@ const BillingBody = () => {
   const pageStyle =
     printType === "A4"
       ? "@page { size: A4 portrait; margin: 10mm; } @media print { body { -webkit-print-color-adjust: exact; } }"
-      : "@page { size: 80mm auto; margin: 2mm; } @media print { body { -webkit-print-color-adjust: exact; } }";
+      : "@page { size: 80mm auto; margin: 0; } @media print { body { -webkit-print-color-adjust: exact; } thead { display: table-row-group !important; } tfoot { display: table-row-group !important; } }";
 
   const handlePrint = useReactToPrint({
     contentRef: contentRef as React.RefObject<HTMLDivElement>,

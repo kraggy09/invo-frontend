@@ -45,6 +45,25 @@ const TransactionPrint = ({
 
     // Try to use the transaction.taken field if available, otherwise use isPaymentIn
     const isDebit = transactionData.taken !== undefined ? transactionData.taken : !isPaymentIn;
+    const isSupplier = Boolean(
+        transactionData.supplier ||
+        transactionData.purpose === "Supplier Outstanding Payment" ||
+        (typeof transactionData.purpose === "string" &&
+            transactionData.purpose.toLowerCase().includes("supplier"))
+    );
+    const supplierInfo =
+        typeof transactionData.supplier === "object"
+            ? transactionData.supplier
+            : null;
+    const partyName =
+        supplierInfo?.name ||
+        transactionData.customer?.name ||
+        transactionData.name ||
+        "N/A";
+    const partyPhone =
+        supplierInfo?.phone ||
+        transactionData.customer?.phone ||
+        transactionData.phone;
     const creatorName = transactionData?.approvedBy?.name || user?.username || "System";
     const printType = user?.shopSettings?.printType || "THERMAL";
     const isA4 = printType === "A4";
@@ -59,9 +78,13 @@ const TransactionPrint = ({
                 <div className="flex justify-between items-center mb-4">
                     <Title level={4}>
                         {isA4
-                            ? isDebit
+                            ? isSupplier
+                                ? "Print A4 Supplier Payment Voucher"
+                                : isDebit
                                 ? "Print A4 Cash Out Voucher"
                                 : "Print A4 Payment Receipt"
+                            : isSupplier
+                            ? "Print Supplier Payment Voucher"
                             : isDebit
                             ? "Print Cash Out Voucher"
                             : "Print Payment Receipt"}
@@ -109,10 +132,18 @@ const TransactionPrint = ({
                                 <div className="text-right">
                                     <span
                                         className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded text-white ${
-                                            isDebit ? "bg-red-700" : "bg-green-700"
+                                            isSupplier
+                                                ? "bg-amber-700"
+                                                : isDebit
+                                                ? "bg-red-700"
+                                                : "bg-green-700"
                                         }`}
                                     >
-                                        {isDebit ? "CASH PAYMENT VOUCHER" : "PAYMENT RECEIPT"}
+                                        {isSupplier
+                                            ? "SUPPLIER PAYMENT VOUCHER"
+                                            : isDebit
+                                            ? "CASH PAYMENT VOUCHER"
+                                            : "PAYMENT RECEIPT"}
                                     </span>
                                     <p className="font-bold mt-2">
                                         Receipt No:{" "}
@@ -139,11 +170,21 @@ const TransactionPrint = ({
                             <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
                                 <div>
                                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 block">
-                                        Party Information
+                                        {isSupplier ? "Supplier / Party Information" : "Party Information"}
                                     </span>
                                     <p className="font-bold text-base text-gray-900 capitalize mt-0.5">
-                                        {transactionData.name || "N/A"}
+                                        {partyName}
                                     </p>
+                                    {partyPhone && (
+                                        <p className="text-xs text-gray-600 font-mono mt-0.5">
+                                            <span className="font-semibold">Phone: </span>{partyPhone}
+                                        </p>
+                                    )}
+                                    {supplierInfo?.address && (
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            {supplierInfo.address}
+                                        </p>
+                                    )}
                                     {transactionData.purpose && (
                                         <p className="text-xs text-gray-600 mt-1">
                                             <span className="font-semibold">Purpose: </span>
@@ -156,7 +197,11 @@ const TransactionPrint = ({
                                         Transaction Type
                                     </span>
                                     <p className="font-bold text-gray-900 mt-0.5">
-                                        {isDebit ? "Debit (Cash Out / Paid)" : "Credit (Payment In / Received)"}
+                                        {isSupplier
+                                            ? "Supplier Payment (Debit)"
+                                            : isDebit
+                                            ? "Debit (Cash Out / Paid)"
+                                            : "Credit (Payment In / Received)"}
                                     </p>
                                     <p className="text-xs text-gray-600 mt-1">
                                         <span className="font-semibold">Processed By: </span>
@@ -183,10 +228,12 @@ const TransactionPrint = ({
 
                             {/* Balance Breakdown Table in Indian Billing Format */}
                             <div className="flex justify-end mb-8">
-                                <div className="w-72 space-y-2 text-xs border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                <div className="w-80 space-y-2 text-xs border border-gray-200 rounded-lg p-3 bg-gray-50">
                                     <div className="flex justify-between py-1 border-b border-gray-200 text-gray-600">
                                         <span>
-                                            {transactionData.previousOutstanding !== undefined
+                                            {isSupplier
+                                                ? "Previous Market Udhaar:"
+                                                : transactionData.previousOutstanding !== undefined
                                                 ? "Previous Balance:"
                                                 : "Total Amount:"}
                                         </span>
@@ -200,7 +247,13 @@ const TransactionPrint = ({
                                     </div>
                                     <div className="flex justify-between py-1 text-sm font-bold">
                                         <span>
-                                            {transactionData.previousOutstanding !== undefined
+                                            {isSupplier
+                                                ? (transactionData.newOutstanding ?? 0) > 0
+                                                    ? "Remaining Market Udhaar:"
+                                                    : (transactionData.newOutstanding ?? 0) < 0
+                                                    ? "Advance Paid to Party:"
+                                                    : "Market Udhaar Settled:"
+                                                : transactionData.previousOutstanding !== undefined
                                                 ? (transactionData.newOutstanding ?? 0) > 0
                                                     ? "Final Balance Due:"
                                                     : (transactionData.newOutstanding ?? 0) < 0
@@ -210,10 +263,9 @@ const TransactionPrint = ({
                                         </span>
                                         <span
                                             className={
-                                                transactionData.previousOutstanding !== undefined &&
                                                 (transactionData.newOutstanding ?? 0) > 0
-                                                    ? "text-red-600"
-                                                    : "text-green-600"
+                                                    ? "text-amber-700 font-black"
+                                                    : "text-green-600 font-black"
                                             }
                                         >
                                             ₹{formatNum(Math.abs(Number(transactionData.newOutstanding ?? 0)))}
@@ -248,7 +300,7 @@ const TransactionPrint = ({
                     <style>{`
                         @page {
                             size: 80mm auto;
-                            margin: 2mm 2mm 3mm 2mm;
+                            margin: 0;
                         }
                         @media print {
                             html, body {
@@ -262,10 +314,20 @@ const TransactionPrint = ({
                             }
                             .thermal-receipt {
                                 width: 100% !important;
-                                max-width: 71mm !important;
+                                max-width: 72mm !important;
                                 margin: 0 auto !important;
-                                padding: 0 1.5mm !important;
+                                padding: 1.5mm 1mm !important;
                                 color: #000 !important;
+                            }
+                            thead {
+                                display: table-row-group !important;
+                            }
+                            tfoot {
+                                display: table-row-group !important;
+                            }
+                            tr {
+                                page-break-inside: avoid !important;
+                                break-inside: avoid !important;
                             }
                         }
                     `}</style>
@@ -286,7 +348,11 @@ const TransactionPrint = ({
                             </p>
                         )}
                         <div className="mt-1 px-3 py-0.5 border-2 border-black text-[11px] font-black uppercase tracking-widest inline-block">
-                            {isDebit ? "Cash Out Voucher" : "Payment Receipt"}
+                            {isSupplier
+                                ? "Supplier Payment Voucher"
+                                : isDebit
+                                ? "Cash Out Voucher"
+                                : "Payment Receipt"}
                         </div>
                     </header>
 
@@ -310,9 +376,11 @@ const TransactionPrint = ({
                         </div>
                         <div className="flex justify-between">
                             <span className="truncate max-w-[160px]">
-                                <span className="font-black">Party: </span>
+                                <span className="font-black">
+                                    {isSupplier ? "Supplier: " : "Party: "}
+                                </span>
                                 <span className="capitalize font-bold">
-                                    {transactionData.name || "N/A"}
+                                    {partyName}
                                 </span>
                             </span>
                             <span>
@@ -322,10 +390,20 @@ const TransactionPrint = ({
                                     : calculateTime(new Date())}
                             </span>
                         </div>
+                        {partyPhone && (
+                            <div className="flex justify-between">
+                                <span className="font-black">Phone: </span>
+                                <span className="font-mono">{partyPhone}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between">
                             <span>
                                 <span className="font-black">Type: </span>
-                                {isDebit ? "Cash Out" : "Payment In"}
+                                {isSupplier
+                                    ? "Supplier Payment"
+                                    : isDebit
+                                    ? "Cash Out"
+                                    : "Payment In"}
                             </span>
                             <span className="truncate max-w-[140px]">
                                 <span className="font-black">By: </span>
@@ -370,7 +448,9 @@ const TransactionPrint = ({
                         <div className="w-full text-xs font-thermal-a space-y-1 pt-1 font-bold">
                             <div className="flex justify-between font-thermal-b text-xs font-bold">
                                 <span>
-                                    {transactionData.previousOutstanding !== undefined
+                                    {isSupplier
+                                        ? "Prev Market Udhaar:"
+                                        : transactionData.previousOutstanding !== undefined
                                         ? "Previous Balance:"
                                         : "Total Amount:"}
                                 </span>
@@ -383,7 +463,13 @@ const TransactionPrint = ({
                             <div className="border-b-2 border-dashed border-black my-1 w-full" />
                             <div className="flex justify-between font-black text-sm">
                                 <span>
-                                    {transactionData.previousOutstanding !== undefined
+                                    {isSupplier
+                                        ? (transactionData.newOutstanding ?? 0) > 0
+                                            ? "Remaining Udhaar:"
+                                            : (transactionData.newOutstanding ?? 0) < 0
+                                            ? "Advance Paid:"
+                                            : "Udhaar Settled (NIL):"
+                                        : transactionData.previousOutstanding !== undefined
                                         ? (transactionData.newOutstanding ?? 0) > 0
                                             ? "Final Outstanding:"
                                             : (transactionData.newOutstanding ?? 0) < 0

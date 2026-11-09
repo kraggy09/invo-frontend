@@ -12,6 +12,8 @@ import {
   InfoCircleOutlined,
   ReloadOutlined,
   UndoOutlined,
+  DeleteOutlined,
+  LockOutlined,
 } from "@ant-design/icons";
 import {
   Button,
@@ -58,10 +60,27 @@ interface ItemEditState {
 
 const InventoryRequest: React.FC<IProps> = () => {
   const { user } = useUserStore();
-  const isAdmin =
-    user?.roles?.some((role) =>
+
+  // Normalize user roles (case-insensitive and support both roles array and singular role)
+  const userRoles = useMemo(() => {
+    const roles: string[] = [];
+    if (Array.isArray(user?.roles)) {
+      roles.push(...user.roles);
+    }
+    if ((user as any)?.role) {
+      roles.push((user as any).role);
+    }
+    return roles.map((r) => String(r).trim().toUpperCase());
+  }, [user]);
+
+  // Only SUPER_ADMIN, ADMIN, or CREATOR can open review modal and manage rates
+  const canOpenModal = useMemo(() => {
+    return userRoles.some((role) =>
       ["SUPER_ADMIN", "ADMIN", "CREATOR"].includes(role)
-    ) || false;
+    );
+  }, [userRoles]);
+
+  const isAdmin = canOpenModal;
 
   const purchases = useSupplierPurchaseStore((state) => state.purchases);
   const pendingPurchases = useMemo(() => {
@@ -91,6 +110,9 @@ const InventoryRequest: React.FC<IProps> = () => {
   const [cashPaid, setCashPaid] = useState<number>(0);
   const [processing, setProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [discardingProductId, setDiscardingProductId] = useState<string | null>(
+    null
+  );
 
   const setPurchases = useSupplierPurchaseStore((state) => state.setPurchases);
   const setSuppliers = useSupplierStore((state) => state.setSuppliers);
@@ -122,6 +144,13 @@ const InventoryRequest: React.FC<IProps> = () => {
 
   // Open the review modal and initialize item rates
   const handleOpenReview = (purchase: ISupplierPurchase) => {
+    if (!canOpenModal) {
+      message.warning(
+        "Access restricted: Inward review modal can only be opened by Super Admin, Admin, or Creator."
+      );
+      return;
+    }
+
     setActivePurchase(purchase);
     const initialEdits: Record<string, ItemEditState> = {};
     const initialModes: Record<string, "PIECE" | "BOX" | "PACKET"> = {};
@@ -185,6 +214,7 @@ const InventoryRequest: React.FC<IProps> = () => {
     setActivePurchase(null);
     setItemEdits({});
     setRateModes({});
+    setDiscardingProductId(null);
   };
 
   // Helper for per-pc cost price change
@@ -532,6 +562,72 @@ const InventoryRequest: React.FC<IProps> = () => {
     }
   };
 
+  // Handle Discarding a single item
+  const handleDiscardItem = async (productId: string, productName: string) => {
+    if (!activePurchase) return;
+    setDiscardingProductId(productId);
+    try {
+      const res = await apiCaller.delete(
+        `/supplier-purchases/${activePurchase._id}/items/${productId}`
+      );
+
+      if (res.data?.success) {
+        const data = res.data.data;
+        if (data?.purchaseRejected) {
+          message.warning(
+            `"${productName}" was the only item. Party inward request has been rejected.`
+          );
+          if (data.purchase) {
+            useSupplierPurchaseStore.getState().updatePurchase(data.purchase);
+          } else {
+            useSupplierPurchaseStore
+              .getState()
+              .rejectPurchase(activePurchase._id);
+          }
+          handleCloseModal();
+        } else {
+          message.success(`"${productName}" discarded from inward request`);
+          const updatedPurchase = data?.purchase;
+          if (updatedPurchase) {
+            setActivePurchase(updatedPurchase);
+            useSupplierPurchaseStore.getState().updatePurchase(updatedPurchase);
+          } else {
+            setActivePurchase((prev) => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                items: prev.items.filter(
+                  (item) =>
+                    (item.product?._id || item.product).toString() !== productId
+                ),
+              };
+            });
+          }
+
+          // Clean up local edit states for discarded item
+          setItemEdits((prev) => {
+            const next = { ...prev };
+            delete next[productId];
+            return next;
+          });
+          setRateModes((prev) => {
+            const next = { ...prev };
+            delete next[productId];
+            return next;
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      message.error(
+        err?.response?.data?.message ||
+          "Failed to discard item from inward request"
+      );
+    } finally {
+      setDiscardingProductId(null);
+    }
+  };
+
   // Handle Reject
   const handleRejectPurchase = async () => {
     if (!activePurchase) return;
@@ -652,7 +748,13 @@ const InventoryRequest: React.FC<IProps> = () => {
                       </div>
 
                       <div className="w-9 h-9 rounded-xl bg-gray-100 group-hover:bg-indigo-50 text-gray-500 group-hover:text-indigo-600 flex items-center justify-center text-sm transition-colors">
-                        <RightOutlined />
+                        {canOpenModal ? (
+                          <RightOutlined />
+                        ) : (
+                          <Tooltip title="Review restricted to Super Admin, Admin, or Creator">
+                            <LockOutlined className="text-gray-400" />
+                          </Tooltip>
+                        )}
                       </div>
                     </div>
 
@@ -709,7 +811,9 @@ const InventoryRequest: React.FC<IProps> = () => {
                       >
                         {estValue > 0
                           ? `₹${formatIndianNumber(estValue)}`
-                          : "Review Rates"}
+                          : canOpenModal
+                          ? "Review Rates"
+                          : "Awaiting Admin"}
                       </span>
                     </div>
                   </div>
@@ -722,7 +826,7 @@ const InventoryRequest: React.FC<IProps> = () => {
 
       {/* Review Dialog Box (Modal) */}
       <Modal
-        open={modalOpen}
+        open={modalOpen && canOpenModal}
         onCancel={handleCloseModal}
         width={1260}
         footer={null}
@@ -816,6 +920,11 @@ const InventoryRequest: React.FC<IProps> = () => {
                         [-1] Edit [+1]
                       </span>
                     </th>
+                    {isAdmin && (
+                      <th className="py-3.5 px-3 text-center w-16 min-w-[60px]">
+                        Action
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
@@ -1319,6 +1428,50 @@ const InventoryRequest: React.FC<IProps> = () => {
                             )}
                           </div>
                         </td>
+
+                        {/* Discard Item Action */}
+                        {isAdmin && (
+                          <td className="py-4 px-3 text-center align-top w-16 min-w-[60px]">
+                            <Popconfirm
+                              title="Discard Item"
+                              description={
+                                activePurchase.items.length === 1
+                                  ? `⚠️ "${item.product?.name}" is the only item. Discarding it will reject the entire inward request. Continue?`
+                                  : `Discard "${item.product?.name}" from this inward request?`
+                              }
+                              okText="Yes, Discard"
+                              cancelText="No"
+                              okButtonProps={{
+                                danger: true,
+                                loading: discardingProductId === pid,
+                              }}
+                              onConfirm={() =>
+                                handleDiscardItem(
+                                  pid,
+                                  item.product?.name || "Product"
+                                )
+                              }
+                              disabled={
+                                processing || discardingProductId !== null
+                              }
+                            >
+                              <Tooltip title="Discard this item if entry is wrong">
+                                <Button
+                                  type="text"
+                                  danger
+                                  icon={<DeleteOutlined />}
+                                  loading={discardingProductId === pid}
+                                  disabled={
+                                    processing ||
+                                    (discardingProductId !== null &&
+                                      discardingProductId !== pid)
+                                  }
+                                  className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 transition-colors shadow-none"
+                                />
+                              </Tooltip>
+                            </Popconfirm>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

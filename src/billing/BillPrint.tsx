@@ -159,7 +159,7 @@ const BillPrint = ({
           <div
             ref={contentRef}
             className={`text-sm text-black ${
-              isA4 ? "p-6 bg-white w-full" : "w-[300px] max-w-[300px] mx-auto p-1 font-thermal-a"
+              isA4 ? "p-6 bg-white w-full" : "w-[300px] max-w-[300px] mx-auto p-1 font-thermal-a thermal-print-wrapper"
             }`}
             style={{
               fontFamily: isA4
@@ -380,7 +380,7 @@ const BillPrint = ({
                 <style>{`
                   @page {
                     size: 80mm auto;
-                    margin: 2mm 2mm 3mm 2mm;
+                    margin: 0;
                   }
                   @media print {
                     html, body {
@@ -392,12 +392,28 @@ const BillPrint = ({
                       -webkit-print-color-adjust: exact !important;
                       print-color-adjust: exact !important;
                     }
+                    .thermal-print-wrapper {
+                      width: 100% !important;
+                      max-width: 80mm !important;
+                      margin: 0 !important;
+                      padding: 0 !important;
+                    }
                     .thermal-receipt {
                       width: 100% !important;
-                      max-width: 71mm !important;
+                      max-width: 72mm !important;
                       margin: 0 auto !important;
-                      padding: 0 1.5mm !important;
+                      padding: 1.5mm 1mm !important;
                       color: #000 !important;
+                    }
+                    thead {
+                      display: table-row-group !important;
+                    }
+                    tfoot {
+                      display: table-row-group !important;
+                    }
+                    tr {
+                      page-break-inside: avoid !important;
+                      break-inside: avoid !important;
                     }
                   }
                 `}</style>
@@ -476,15 +492,14 @@ const BillPrint = ({
 
                 <div className="border-b-2 border-dashed border-black my-2 w-full" />
 
-                {/* 4-Column Items Table */}
+                {/* 3-Column Items Table (Item, Qty, Total) */}
                 <main className="w-full">
                   <table className="w-full text-xs font-thermal-a border-collapse">
                     <thead>
                       <tr className="border-b-2 border-dashed border-black text-xs font-black">
-                        <th className="text-left pb-1 font-black w-[46%]">ITEM</th>
-                        <th className="text-center pb-1 font-black w-[16%]">QTY</th>
-                        <th className="text-right pb-1 font-black w-[18%]">RATE</th>
-                        <th className="text-right pb-1 font-black w-[20%]">TOTAL</th>
+                        <th className="text-left pb-1 font-black w-[58%]">ITEM</th>
+                        <th className="text-center pb-1 font-black w-[18%]">QTY</th>
+                        <th className="text-right pb-1 font-black w-[24%]">TOTAL</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -517,9 +532,6 @@ const BillPrint = ({
                                   : totalQty % 1 !== 0
                                   ? totalQty.toFixed(3)
                                   : totalQty}
-                              </td>
-                              <td className="py-1 text-right align-top whitespace-nowrap font-thermal-b font-medium">
-                                {formatNum(price)}
                               </td>
                               <td className="py-1 text-right align-top font-bold whitespace-nowrap">
                                 {formatNum(Math.ceil(rowTotal || 0))}

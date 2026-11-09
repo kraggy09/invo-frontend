@@ -14,6 +14,7 @@ import useUserStore from "../store/user.store";
 import useSupplierStore from "../store/supplier.store";
 import apiCaller from "../utils/apiCaller";
 import { formatIndianNumber } from "../utils";
+import { message } from "../utils/antdStatic";
 
 export type ProductFormValues = {
   name: string;
@@ -32,6 +33,7 @@ export type ProductFormValues = {
   supplierId?: string | null;
   paymentMode?: "CASH" | "CREDIT";
   cashPaid?: number;
+  isAutoBarcode?: boolean;
 };
 
 interface ProductFormProps {
@@ -72,10 +74,85 @@ const ProductForm = ({
   const [barcodes, setBarcodes] = useState<string[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
 
+  const { user } = useUserStore();
+  const isAdmin =
+    user?.roles?.some((role) =>
+      ["SUPER_ADMIN", "ADMIN", "CREATOR"].includes(role),
+    ) || false;
+
   const { suppliers } = useSupplierStore();
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [newSupplierForm] = Form.useForm();
   const [creatingSupplier, setCreatingSupplier] = useState(false);
+
+  const userShopBarcode = useUserStore((state) => state.user?.shopSettings?.currentBarcode);
+  const [currentAutoBarcode, setCurrentAutoBarcode] = useState<number | null>(userShopBarcode || null);
+  const [fetchingBarcode, setFetchingBarcode] = useState(false);
+  const [isAutoBarcodeUsed, setIsAutoBarcodeUsed] = useState(false);
+  const [showConfigBarcodeModal, setShowConfigBarcodeModal] = useState(false);
+  const [newBarcodeVal, setNewBarcodeVal] = useState<number | null>(null);
+  const [updatingBarcodeSetting, setUpdatingBarcodeSetting] = useState(false);
+
+  useEffect(() => {
+    if (mode === "create") {
+      setFetchingBarcode(true);
+      apiCaller
+        .get("/products/next-barcode")
+        .then((res) => {
+          if (res.data?.success && res.data?.data?.currentBarcode) {
+            setCurrentAutoBarcode(res.data.data.currentBarcode);
+          }
+        })
+        .catch(() => {
+          if (userShopBarcode) setCurrentAutoBarcode(userShopBarcode);
+        })
+        .finally(() => setFetchingBarcode(false));
+    }
+  }, [mode, userShopBarcode]);
+
+  const handleUseAutoBarcode = () => {
+    const bc = currentAutoBarcode || 1000;
+    const bcStr = String(bc);
+    if (!barcodes.includes(bcStr)) {
+      const next = [...barcodes, bcStr];
+      setBarcodes(next);
+      form.setFieldsValue({ barcode: next });
+      setIsAutoBarcodeUsed(true);
+      message.success(`Assigned auto barcode #${bc}`);
+    }
+  };
+
+  const handleUpdateCurrentBarcodeSetting = async () => {
+    if (!newBarcodeVal || newBarcodeVal <= 0) {
+      message.warning("Please enter a valid barcode number");
+      return;
+    }
+    setUpdatingBarcodeSetting(true);
+    try {
+      const res = await apiCaller.put("/shop/settings", {
+        settings: { currentBarcode: newBarcodeVal },
+      });
+      if (res.data?.success) {
+        setCurrentAutoBarcode(newBarcodeVal);
+        const currentUser = useUserStore.getState().user;
+        if (currentUser) {
+          useUserStore.getState().setUser({
+            ...currentUser,
+            shopSettings: {
+              ...currentUser.shopSettings,
+              currentBarcode: newBarcodeVal,
+            },
+          });
+        }
+        setShowConfigBarcodeModal(false);
+        message.success(`Shop auto barcode sequence updated to #${newBarcodeVal}`);
+      }
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || "Failed to update barcode setting");
+    } finally {
+      setUpdatingBarcodeSetting(false);
+    }
+  };
 
   const watchedStock = Form.useWatch("stock", form);
   const watchedCostPrice = Form.useWatch("costPrice", form);
@@ -119,9 +196,15 @@ const ProductForm = ({
     (pricingMode as string)?.toUpperCase() === "RETAIL";
 
   const handleFinish = (values: any) => {
+    const isAutoUsed = Boolean(
+      isAutoBarcodeUsed ||
+      (currentAutoBarcode && barcodes.includes(String(currentAutoBarcode)))
+    );
+
     const finalValues: ProductFormValues = {
       ...values,
       barcode: barcodes,
+      isAutoBarcode: isAutoUsed,
       category:
         values.category && values.category.trim() !== "" && values.category !== "null"
           ? values.category
@@ -266,7 +349,32 @@ const ProductForm = ({
                 <div className="sm:col-span-2">
                   <Form.Item
                     name="barcode"
-                    label={<span className={labelCls}>Barcodes</span>}
+                    label={
+                      <div className="flex items-center justify-between w-full">
+                        <span className={labelCls}>Barcodes</span>
+                        {mode === "create" && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                              <span>Shop Auto Barcode:</span>
+                              <span className="font-mono text-indigo-700">#{currentAutoBarcode ?? (fetchingBarcode ? "..." : 1000)}</span>
+                            </span>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewBarcodeVal(currentAutoBarcode ?? 1000);
+                                  setShowConfigBarcodeModal(true);
+                                }}
+                                title="Configure shop starting barcode sequence"
+                                className="text-gray-400 hover:text-indigo-600 cursor-pointer bg-transparent border-none p-0 flex items-center transition-colors"
+                              >
+                                <EditOutlined className="text-xs" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    }
                     rules={[{
                       validator: () =>
                         barcodes.length > 0
@@ -275,41 +383,75 @@ const ProductForm = ({
                     }]}
                   >
                     <div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <Input
                           value={barcodeInput}
                           onChange={(e) => setBarcodeInput(e.target.value)}
                           onKeyDown={handleBarcodeKeyDown}
-                          placeholder="Type barcode & press Enter"
+                          placeholder="Type or scan product barcode & press Enter"
                           className="product-field flex-1"
                           prefix={<BarcodeOutlined className="text-gray-300 mr-1" />}
                         />
-                        <button
-                          type="button"
-                          onClick={addBarcode}
-                          className="h-[52px] px-5 rounded-[14px] bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 cursor-pointer border-none flex items-center gap-2"
-                        >
-                          <PlusOutlined /> Add
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={addBarcode}
+                            className="h-[52px] px-5 rounded-[14px] bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 cursor-pointer border-none flex items-center gap-2 shadow-sm"
+                          >
+                            <PlusOutlined /> Add
+                          </button>
+                          {mode === "create" && (
+                            <button
+                              type="button"
+                              onClick={handleUseAutoBarcode}
+                              disabled={fetchingBarcode || barcodes.includes(String(currentAutoBarcode ?? 1000))}
+                              className={`h-[52px] px-4 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 cursor-pointer flex items-center gap-2 border ${
+                                barcodes.includes(String(currentAutoBarcode ?? 1000))
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 opacity-80 cursor-default"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent shadow-lg shadow-emerald-100"
+                              }`}
+                              title="Assign next shop-wide auto barcode sequence"
+                            >
+                              <BarcodeOutlined />
+                              {barcodes.includes(String(currentAutoBarcode ?? 1000))
+                                ? `Auto #${currentAutoBarcode ?? 1000} Added`
+                                : `Auto Barcode (#${currentAutoBarcode ?? (fetchingBarcode ? "..." : 1000)})`}
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {barcodes.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-3">
-                          {barcodes.map((bc, idx) => (
-                            <div
-                              key={idx}
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl group/chip hover:bg-indigo-100 transition-all"
-                            >
-                              <BarcodeOutlined className="text-indigo-400 text-xs" />
-                              <span className="text-xs font-black text-indigo-700 tracking-tight font-mono">{bc}</span>
-                              <button
-                                type="button"
-                                onClick={() => removeBarcode(idx)}
-                                className="w-5 h-5 rounded-md bg-indigo-200/50 hover:bg-red-100 flex items-center justify-center transition-all cursor-pointer border-none group-hover/chip:bg-red-100"
+                          {barcodes.map((bc, idx) => {
+                            const isAuto = Boolean(currentAutoBarcode && String(currentAutoBarcode) === bc);
+                            return (
+                              <div
+                                key={idx}
+                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl group/chip transition-all ${
+                                  isAuto
+                                    ? "bg-emerald-50 border border-emerald-200"
+                                    : "bg-indigo-50 border border-indigo-100 hover:bg-indigo-100"
+                                }`}
                               >
-                                <CloseOutlined className="text-[8px] text-indigo-400 group-hover/chip:text-red-500" />
-                              </button>
-                            </div>
-                          ))}
+                                <BarcodeOutlined className={isAuto ? "text-emerald-500 text-xs" : "text-indigo-400 text-xs"} />
+                                <span className={`text-xs font-black tracking-tight font-mono ${isAuto ? "text-emerald-700" : "text-indigo-700"}`}>
+                                  {bc}
+                                </span>
+                                {isAuto && (
+                                  <span className="text-[9px] font-black px-1.5 py-0.5 bg-emerald-200/60 text-emerald-800 rounded uppercase tracking-wider">
+                                    Shop Auto
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeBarcode(idx)}
+                                  className="w-5 h-5 rounded-md bg-indigo-200/50 hover:bg-red-100 flex items-center justify-center transition-all cursor-pointer border-none group-hover/chip:bg-red-100"
+                                >
+                                  <CloseOutlined className="text-[8px] text-indigo-400 group-hover/chip:text-red-500" />
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -508,18 +650,45 @@ const ProductForm = ({
                 </div>
 
                 {watchedSupplierId && totalInwardValue > 0 && (
-                  <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-black text-emerald-800 uppercase tracking-wider">
-                        Initial Stock Inward Value
+                  <div className="space-y-2">
+                    <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-black text-emerald-800 uppercase tracking-wider">
+                          Initial Stock Inward Value
+                        </div>
+                        <div className="text-[11px] font-medium text-emerald-600">
+                          {Number(watchedStock)} items × ₹{Number(watchedCostPrice)} cost price
+                        </div>
                       </div>
-                      <div className="text-[11px] font-medium text-emerald-600">
-                        {Number(watchedStock)} items × ₹{Number(watchedCostPrice)} cost price
+                      <div className="text-xl font-black text-emerald-700 font-mono">
+                        ₹{formatIndianNumber(totalInwardValue)}
                       </div>
                     </div>
-                    <div className="text-xl font-black text-emerald-700 font-mono">
-                      ₹{formatIndianNumber(totalInwardValue)}
-                    </div>
+
+                    {!isAdmin ? (
+                      <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-bold flex items-center gap-2">
+                        <span>ℹ️</span>
+                        <span>
+                          As a staff member, submitting will create an <b>accepted supplier purchase request</b> awaiting Admin approval. Product stock will be 0 until approved.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-[11px] font-bold flex items-center gap-2">
+                        <span>✓</span>
+                        <span>
+                          As an admin, this will create an <b>approved purchase</b> and immediately update product stock and supplier ledger.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!watchedSupplierId && Number(watchedStock) > 0 && !isAdmin && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-bold flex items-center gap-2">
+                    <span>ℹ️</span>
+                    <span>
+                      Stock entered without a supplier will be submitted as an <b>inventory request</b> awaiting Admin approval. Product stock will be 0 until approved.
+                    </span>
                   </div>
                 )}
               </div>
@@ -675,6 +844,51 @@ const ProductForm = ({
             </Button>
           </div>
         </Form>
+      </Modal>
+
+      {/* Modal for Configuring Shop Starting Auto Barcode */}
+      <Modal
+        open={showConfigBarcodeModal}
+        onCancel={() => setShowConfigBarcodeModal(false)}
+        onOk={handleUpdateCurrentBarcodeSetting}
+        confirmLoading={updatingBarcodeSetting}
+        okText="SAVE BARCODE SEQUENCE"
+        cancelText="CANCEL"
+        centered
+        width={420}
+        title={
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-100">
+              <BarcodeOutlined className="text-indigo-600 text-xl" />
+            </div>
+            <div>
+              <span className="text-sm font-black text-gray-800 uppercase tracking-widest block">Shop Auto Barcode</span>
+              <span className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em]">Sequence Configuration</span>
+            </div>
+          </div>
+        }
+        okButtonProps={{
+          className: "bg-indigo-600 border-none font-black rounded-xl h-12 hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all uppercase px-6"
+        }}
+        cancelButtonProps={{
+          className: "rounded-xl font-black h-12 border-gray-100 text-gray-400 uppercase"
+        }}
+      >
+        <div className="py-6 space-y-4">
+          <p className="text-xs text-gray-500">
+            Set the next auto-incrementing barcode sequence number for your shop. When creating new products without packaging barcodes, this number will be assigned and automatically incremented by 1.
+          </p>
+          <div>
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Next Barcode Number</label>
+            <InputNumber
+              min={1}
+              value={newBarcodeVal}
+              onChange={(v) => setNewBarcodeVal(v ? Number(v) : null)}
+              className="w-full rounded-2xl h-12 flex items-center font-black border-2 border-gray-100 px-2"
+              placeholder="e.g. 1000"
+            />
+          </div>
+        </div>
       </Modal>
     </main>
   );

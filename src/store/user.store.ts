@@ -7,6 +7,7 @@ export type ShopSettings = {
   discordWebhookUrl?: string;
   pricingMode?: "RETAIL_ONLY" | "MULTI_TIER";
   printType?: "A4" | "THERMAL";
+  currentBarcode?: number;
 };
 
 export type User = {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Input, Button, Spin, Select, AutoComplete, Tag, Segmented, Empty, Tooltip } from "antd";
+import { Input, Button, Spin, Select, AutoComplete, Tag, Segmented, Empty, Tooltip, Pagination } from "antd";
 import { message } from "../utils/antdStatic";
 import {
     SearchOutlined,
@@ -60,6 +60,11 @@ const ReturnBillPage: React.FC = () => {
     const [targetProductId, setTargetProductId] = useState<string | undefined>(undefined);
     const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
 
+    // Pagination state (default 20 items per page)
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [totalBills, setTotalBills] = useState(0);
+
     // Last created return bill for post-return confirmation
     const [lastCreatedReturn, setLastCreatedReturn] = useState<any>(null);
 
@@ -79,6 +84,9 @@ const ReturnBillPage: React.FC = () => {
                 }
             }).catch(() => {});
         }
+
+        // Load initial page of 20 recent bills
+        fetchBills(1, 20, false);
     }, []);
 
     // Autocomplete customer options
@@ -146,6 +154,87 @@ const ReturnBillPage: React.FC = () => {
             }));
     }, [products, productSearchText]);
 
+    // Check if user has active filters
+    const hasFilterApplied = useMemo(() => {
+        return Boolean(selectedCustomerId || customerSearchText.trim() || selectedProductId || productSearchText.trim());
+    }, [selectedCustomerId, customerSearchText, selectedProductId, productSearchText]);
+
+    // Fetch bills with pagination (20 items per page by default)
+    const fetchBills = async (
+        page: number = 1,
+        limit: number = pageSize,
+        isSearchTrigger: boolean = false,
+        overrideCustomerId?: string | null,
+        overrideCustomerQuery?: string,
+        overrideProductId?: string | null,
+        overrideProductQuery?: string
+    ) => {
+        setLoading(true);
+        if (isSearchTrigger) {
+            setSelectedBill(null);
+            setHasSearched(true);
+        }
+
+        try {
+            const params: any = {
+                page,
+                limit,
+            };
+
+            const custId = overrideCustomerId !== undefined ? overrideCustomerId : selectedCustomerId;
+            const custQuery = overrideCustomerQuery !== undefined ? overrideCustomerQuery : customerSearchText.trim();
+            const prodId = overrideProductId !== undefined ? overrideProductId : selectedProductId;
+            const prodQuery = overrideProductQuery !== undefined ? overrideProductQuery : productSearchText.trim();
+
+            const hasCustomer = Boolean(custId || custQuery);
+            const hasProduct = Boolean(prodId || prodQuery);
+
+            if (custId) {
+                params.customerId = custId;
+            } else if (custQuery) {
+                params.customerQuery = custQuery;
+            }
+
+            if (prodId) {
+                params.productId = prodId;
+            }
+            if (prodQuery) {
+                params.productQuery = prodQuery;
+            }
+
+            const res = await apiCaller.get("/bills/search-for-return", { params });
+
+            if (res.data?.success && res.data?.data) {
+                const bills: BillSearchItem[] = res.data.data.bills || [];
+                const total: number = res.data.data.total ?? bills.length;
+                setMatchingBills(bills);
+                setTotalBills(total);
+                setCurrentPage(page);
+
+                // If explicit manual search with filter matched exactly one bill and has available items, select it directly
+                if (isSearchTrigger && (hasCustomer || hasProduct) && total === 1 && bills.length === 1 && !bills[0].isFullyReturned) {
+                    setSelectedBill(bills[0]);
+                    setTargetProductId(prodId || undefined);
+                } else if (bills.length === 0 && (hasCustomer || hasProduct)) {
+                    message.info("No matching purchase bills found for this customer/product.");
+                }
+            } else {
+                setMatchingBills([]);
+                setTotalBills(0);
+                if (hasCustomer || hasProduct) {
+                    message.warning("No purchase records found.");
+                }
+            }
+        } catch (error: any) {
+            console.error("Search error:", error);
+            message.error(error.response?.data?.message || "Failed to search customer purchase records");
+            setMatchingBills([]);
+            setTotalBills(0);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Handle Quick Search by Invoice ID
     const handleInvoiceSearch = async (invId?: string) => {
         const idToSearch = (invId || searchId).trim();
@@ -157,6 +246,7 @@ const ReturnBillPage: React.FC = () => {
         setLoading(true);
         setSelectedBill(null);
         setMatchingBills([]);
+        setTotalBills(0);
         setHasSearched(true);
 
         try {
@@ -179,74 +269,23 @@ const ReturnBillPage: React.FC = () => {
     };
 
     // Handle Multi-field Search (Customer and/or Product and/or Invoice)
-    const handleAdvancedSearch = async () => {
-        const hasCustomer = Boolean(selectedCustomerId || customerSearchText.trim());
-        const hasProduct = Boolean(selectedProductId || productSearchText.trim());
-
-        if (!hasCustomer && !hasProduct) {
-            message.warning("Please select a customer or enter a product name (e.g. Gold Small)");
-            return;
-        }
-
-        setLoading(true);
-        setSelectedBill(null);
-        setMatchingBills([]);
-        setHasSearched(true);
-
-        try {
-            const params: any = {
-                page: 1,
-                limit: 50,
-            };
-
-            if (selectedCustomerId) {
-                params.customerId = selectedCustomerId;
-            } else if (customerSearchText.trim()) {
-                params.customerQuery = customerSearchText.trim();
-            }
-
-            if (selectedProductId) {
-                params.productId = selectedProductId;
-            }
-            if (productSearchText.trim()) {
-                params.productQuery = productSearchText.trim();
-            }
-
-            const res = await apiCaller.get("/bills/search-for-return", { params });
-
-            if (res.data?.success && res.data?.data?.bills) {
-                const bills: BillSearchItem[] = res.data.data.bills;
-                setMatchingBills(bills);
-
-                // If exactly one bill matched and has available items, select it directly
-                if (bills.length === 1 && !bills[0].isFullyReturned) {
-                    setSelectedBill(bills[0]);
-                    setTargetProductId(selectedProductId || undefined);
-                } else if (bills.length === 0) {
-                    message.info("No matching purchase bills found for this customer/product.");
-                }
-            } else {
-                message.warning("No purchase records found.");
-            }
-        } catch (error: any) {
-            console.error("Search error:", error);
-            message.error(error.response?.data?.message || "Failed to search customer purchase records");
-        } finally {
-            setLoading(false);
-        }
+    const handleAdvancedSearch = () => {
+        fetchBills(1, pageSize, true);
     };
 
-    // Reset filters
+    // Reset filters and reload default 20 recent bills
     const handleReset = () => {
         setSelectedCustomerId(null);
         setCustomerSearchText("");
         setSelectedProductId(null);
         setProductSearchText("");
         setSearchId("");
-        setMatchingBills([]);
         setSelectedBill(null);
         setHasSearched(false);
         setTargetProductId(undefined);
+        setCurrentPage(1);
+
+        fetchBills(1, pageSize, false, null, "", null, "");
     };
 
     // Select a bill from results list to initiate return
@@ -304,8 +343,14 @@ const ReturnBillPage: React.FC = () => {
                         onChange={(val: any) => {
                             setSearchMode(val);
                             setSelectedBill(null);
-                            setMatchingBills([]);
-                            setHasSearched(false);
+                            if (val === "invoice") {
+                                setMatchingBills([]);
+                                setHasSearched(false);
+                            } else {
+                                if (matchingBills.length === 0) {
+                                    fetchBills(1, pageSize, false);
+                                }
+                            }
                         }}
                         options={[
                             {
@@ -493,15 +538,36 @@ const ReturnBillPage: React.FC = () => {
                 {/* Matching Bills Results List (from Customer/Product search) */}
                 {!loading && matchingBills.length > 0 && !selectedBill && (
                     <div className="space-y-6 mb-8">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div>
                                 <h2 className="text-xl font-black text-gray-800 m-0">
-                                    Found {matchingBills.length} Purchase {matchingBills.length === 1 ? "Bill" : "Bills"}
+                                    {hasFilterApplied
+                                        ? `Found ${totalBills} Matching ${totalBills === 1 ? "Bill" : "Bills"}`
+                                        : `Recent Purchase Bills (${totalBills} Total)`}
                                 </h2>
                                 <span className="text-xs font-bold text-gray-400">
-                                    Select the invoice to record customer return
+                                    Showing page {currentPage} of {Math.ceil(totalBills / pageSize) || 1} · Select invoice to record return
                                 </span>
                             </div>
+
+                            {totalBills > pageSize && (
+                                <Pagination
+                                    size="small"
+                                    current={currentPage}
+                                    pageSize={pageSize}
+                                    total={totalBills}
+                                    onChange={(page, newPageSize) => {
+                                        setCurrentPage(page);
+                                        if (newPageSize && newPageSize !== pageSize) {
+                                            setPageSize(newPageSize);
+                                            fetchBills(1, newPageSize, false);
+                                        } else {
+                                            fetchBills(page, pageSize, false);
+                                        }
+                                    }}
+                                    showSizeChanger={false}
+                                />
+                            )}
                         </div>
 
                         <div className="grid grid-cols-1 gap-4">
@@ -631,18 +697,43 @@ const ReturnBillPage: React.FC = () => {
                                 );
                             })}
                         </div>
+
+                        {/* Bottom Pagination */}
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-3xl border border-gray-100 shadow-sm mt-6">
+                            <span className="text-xs font-bold text-gray-400">
+                                Showing {Math.min((currentPage - 1) * pageSize + 1, totalBills)} - {Math.min(currentPage * pageSize, totalBills)} of {totalBills} bills
+                            </span>
+                            <Pagination
+                                current={currentPage}
+                                pageSize={pageSize}
+                                total={totalBills}
+                                onChange={(page, newPageSize) => {
+                                    setCurrentPage(page);
+                                    if (newPageSize && newPageSize !== pageSize) {
+                                        setPageSize(newPageSize);
+                                        fetchBills(1, newPageSize, false);
+                                    } else {
+                                        fetchBills(page, pageSize, false);
+                                    }
+                                }}
+                                showSizeChanger
+                                pageSizeOptions={["10", "20", "50"]}
+                            />
+                        </div>
                     </div>
                 )}
 
                 {/* Empty State when Search returns 0 bills */}
-                {!loading && hasSearched && matchingBills.length === 0 && !selectedBill && (
+                {!loading && matchingBills.length === 0 && !selectedBill && (
                     <div className="bg-white rounded-[32px] p-12 text-center border border-gray-100">
                         <Empty
                             description={
                                 <div className="mt-2">
                                     <p className="text-base font-bold text-gray-700 m-0">No Purchase Bills Found</p>
                                     <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
-                                        We could not find any bills matching the selected customer or product name. Try checking the invoice number directly.
+                                        {hasSearched
+                                            ? "We could not find any bills matching the selected customer or product name. Try checking the invoice number directly."
+                                            : "No recent purchase bills found in the system."}
                                     </p>
                                 </div>
                             }
@@ -653,10 +744,10 @@ const ReturnBillPage: React.FC = () => {
                 {/* Result Card (Single Selected Bill) */}
                 {selectedBill && !loading && (
                     <div className="space-y-6 animate-in fade-in duration-500">
-                        {matchingBills.length > 1 && (
+                        {matchingBills.length > 0 && (
                             <div className="flex items-center justify-between bg-white px-6 py-3 rounded-2xl border border-gray-100">
                                 <span className="text-xs font-bold text-gray-500">
-                                    Viewing Bill #{selectedBill?.id} of {matchingBills.length} search results
+                                    Viewing Bill #{selectedBill?.id} · Total {totalBills} bills found
                                 </span>
                                 <Button
                                     type="link"
@@ -838,9 +929,9 @@ const ReturnBillPage: React.FC = () => {
                                 setLastCreatedReturn(createdReturn || { id: "Success", customer: selectedBill?.customer });
                                 setSelectedBill(null);
                                 setSearchId("");
-                                // Refresh search if in customer_product mode
-                                if (searchMode === "customer_product" && (selectedCustomerId || customerSearchText || productSearchText)) {
-                                    handleAdvancedSearch();
+                                // Refresh current page of bills if in customer_product mode
+                                if (searchMode === "customer_product") {
+                                    fetchBills(currentPage, pageSize, false);
                                 }
                             }}
                         />

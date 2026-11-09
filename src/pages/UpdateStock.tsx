@@ -65,6 +65,7 @@ type RequestItem = {
   piece: number;
   packet: number;
   box: number;
+  mrp?: number;
 };
 
 const UpdateStock = () => {
@@ -101,13 +102,36 @@ const UpdateStock = () => {
   const selectedSupplier = suppliers.find((s) => s._id === selectedSupplierId);
 
   const suggestions = useMemo(() => {
-    if (!search) return [];
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.barcode.some((b: any) => String(b).includes(search)),
-    );
+    if (!search.trim()) return [];
+    const lower = search.trim().toLowerCase();
+    const matches = [];
+    for (const p of products) {
+      if (
+        p.name.toLowerCase().includes(lower) ||
+        (Array.isArray(p.barcode) &&
+          p.barcode.some((b: any) => String(b).toLowerCase().includes(lower)))
+      ) {
+        matches.push(p);
+        if (matches.length >= 50) break;
+      }
+    }
+    return matches;
   }, [search, products]);
+
+  const uniqueProductsCount = useMemo(() => {
+    return new Set(requestList.map((item) => item._id)).size;
+  }, [requestList]);
+
+  const totalUnitsCount = useMemo(() => {
+    return requestList.reduce((acc, item) => {
+      return (
+        acc +
+        (item.piece || 0) +
+        (item.packet || 0) * (item.packetSize || 0) +
+        (item.box || 0) * (item.boxSize || 0)
+      );
+    }, 0);
+  }, [requestList]);
 
   const addProduct = useCallback(
     (product: any) => {
@@ -126,6 +150,7 @@ const UpdateStock = () => {
         piece: 1,
         packet: 0,
         box: 0,
+        mrp: product.mrp,
       };
 
       setRequestList((prev) => [newItem, ...prev]);
@@ -308,7 +333,7 @@ const UpdateStock = () => {
           <div className="font-black text-gray-800 capitalize leading-tight mb-1">
             {record.name}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-black text-gray-400 tracking-wider uppercase">
               Current:
             </span>
@@ -322,6 +347,11 @@ const UpdateStock = () => {
                 record.packetSize,
               )}
             </Tag>
+            {record.mrp !== undefined && record.mrp !== null && (
+              <span className="text-[10px] font-bold text-gray-600 font-mono">
+                MRP: ₹{Number(record.mrp).toLocaleString()}
+              </span>
+            )}
           </div>
         </div>
       ),
@@ -517,32 +547,87 @@ const UpdateStock = () => {
                 options={suggestions.map((p) => ({
                   value: p._id,
                   label: (
-                    <div className="flex justify-between items-center py-2 px-1">
-                      <div className="flex flex-col">
-                        <span className="font-black text-gray-800 capitalize leading-tight">
+                    <div className="flex justify-between items-center py-2 px-1 gap-3">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-black text-gray-800 capitalize leading-tight truncate">
                           {p.name}
                         </span>
-                        <div className="flex items-center gap-3 mt-1.5 font-mono text-[9px] font-black">
-                          <span className="text-indigo-400 uppercase tracking-widest">
-                            {p.barcode?.[0]}
-                          </span>
-                          <span className="text-gray-300">|</span>
+                        <div className="flex items-center gap-2 mt-1.5 font-mono text-[9px] font-black flex-wrap">
+                          {p.barcode?.[0] && (
+                            <>
+                              <span className="text-indigo-500 uppercase tracking-widest">
+                                {p.barcode[0]}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                            </>
+                          )}
                           <span className="text-gray-400">
                             STOCK: {p.stock} {p.measuring}
                           </span>
+                          {p.mrp !== undefined && p.mrp !== null && (
+                            <>
+                              <span className="text-gray-300">|</span>
+                              <span className="text-gray-700 font-bold">
+                                MRP: ₹{Number(p.mrp).toLocaleString()}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <Tag
-                        color="blue"
-                        className="text-[10px] font-bold rounded-lg border-0 m-0"
-                      >
-                        {p.measuring}
-                      </Tag>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {p.mrp !== undefined && p.mrp !== null ? (
+                          <div className="flex flex-col items-end leading-tight">
+                            <span className="font-mono font-black text-xs text-gray-800">
+                              ₹{Number(p.mrp).toLocaleString()}
+                              <span className="text-[12px] font-bold text-gray-400 ml-0.5 uppercase">
+                                MRP
+                              </span>
+                            </span>
+                          </div>
+                        ) : null}
+                        <Tag
+                          color="blue"
+                          className="text-[10px] font-bold rounded-lg border-0 m-0 px-1.5 py-0.5"
+                        >
+                          {p.measuring}
+                        </Tag>
+                      </div>
                     </div>
                   ),
                 }))}
               />
             </div>
+          </div>
+
+          {/* Unique products & total count status bar */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 px-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black uppercase tracking-wider text-gray-700">
+                Products in Inward List:
+              </span>
+              <Tag
+                color="indigo"
+                className="text-xs font-black rounded-lg border-0 bg-indigo-50 text-indigo-700 px-3 py-1 m-0 shadow-sm"
+              >
+                {uniqueProductsCount} Unique{" "}
+                {uniqueProductsCount === 1 ? "Product" : "Products"}
+              </Tag>
+              {totalUnitsCount > 0 && (
+                <Tag
+                  color="cyan"
+                  className="text-xs font-black rounded-lg border-0 bg-cyan-50 text-cyan-700 px-3 py-1 m-0 shadow-sm"
+                >
+                  {totalUnitsCount} Total Units
+                </Tag>
+              )}
+            </div>
+
+            {requestList.length > 0 && (
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                Breakdown: Piece / Packet / Box
+              </span>
+            )}
           </div>
 
           <div className="bg-white rounded-[24px] border border-gray-100 overflow-hidden shadow-sm">
@@ -567,15 +652,30 @@ const UpdateStock = () => {
             />
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-between items-center mt-10 gap-4 pt-4 border-t border-gray-50">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-              {requestList.length} items added
-            </span>
-            <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center mt-10 gap-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 bg-indigo-50/80 px-3.5 py-2 rounded-2xl border border-indigo-100">
+                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500">
+                  Total Unique Products:
+                </span>
+                <span className="font-mono font-black text-sm text-indigo-700">
+                  {uniqueProductsCount}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 bg-gray-50 px-3.5 py-2 rounded-2xl border border-gray-100">
+                <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                  Total Quantity:
+                </span>
+                <span className="font-mono font-black text-sm text-gray-700">
+                  {totalUnitsCount} Units
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-4 w-full sm:w-auto">
               <Button
                 onClick={() => setRequestList([])}
                 disabled={requestList.length === 0 || submitting}
-                className="h-14 font-black px-8 rounded-2xl border-2 border-gray-50 text-[10px] font-black tracking-widest text-gray-400 hover:border-red-100 hover:text-red-500 transition-all uppercase"
+                className="h-14 font-black px-8 rounded-2xl border-2 border-gray-100 text-[10px] font-black tracking-widest text-gray-400 hover:border-red-100 hover:text-red-500 transition-all uppercase flex-1 sm:flex-initial"
               >
                 Clear List
               </Button>
@@ -584,9 +684,9 @@ const UpdateStock = () => {
                 loading={submitting}
                 onClick={handleSubmit}
                 disabled={requestList.length === 0 || !selectedSupplierId}
-                className="h-14 bg-indigo-600 border-none font-black px-12 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 text-[10px] tracking-widest uppercase"
+                className="h-14 bg-indigo-600 border-none font-black px-12 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 text-[10px] tracking-widest uppercase flex-1 sm:flex-initial"
               >
-                RAISE INWARD REQUEST
+                RAISE INWARD REQUEST ({uniqueProductsCount})
               </Button>
             </div>
           </div>

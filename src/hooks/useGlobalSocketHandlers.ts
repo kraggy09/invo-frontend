@@ -582,51 +582,59 @@ export const useGlobalSocketHandlers = () => {
         setTransactionId(transactionId);
       }
 
-      // Handle supplier update if supplier payment
+      // Extract supplier and customer data
       const supplierData =
         supplier ||
         (typeof transaction.supplier === "object"
           ? transaction.supplier
           : null);
 
-      if (supplierData && supplierData._id) {
-        updateSupplier(supplierData);
-      } else if (
-        transaction.supplier &&
-        transaction.newOutstanding !== undefined
-      ) {
-        useSupplierStore
-          .getState()
-          .updateOutstanding(
-            transaction.supplier.toString(),
-            transaction.newOutstanding,
-          );
-      }
-
-      // Handle customer update if customer payment
       const customerData =
         customer ||
         (typeof transaction.customer === "object"
           ? transaction.customer
           : null);
 
-      if (customerData && customerData._id) {
-        updateOutstanding(customerData._id, customerData.outstanding);
-      } else if (
-        transaction.customer &&
-        transaction.newOutstanding !== undefined
-      ) {
-        updateOutstanding(
-          transaction.customer.toString(),
-          transaction.newOutstanding,
-        );
+      // Outstanding balance must ONLY be updated if the transaction is already approved
+      if (transaction.approved) {
+        if (supplierData && supplierData._id) {
+          updateSupplier(supplierData);
+        } else if (
+          transaction.supplier &&
+          transaction.newOutstanding !== undefined
+        ) {
+          useSupplierStore
+            .getState()
+            .updateOutstanding(
+              transaction.supplier.toString(),
+              transaction.newOutstanding,
+            );
+        }
+
+        if (customerData && customerData._id) {
+          updateOutstanding(customerData._id, customerData.outstanding);
+        } else if (
+          transaction.customer &&
+          transaction.newOutstanding !== undefined
+        ) {
+          const customerId =
+            typeof transaction.customer === "string"
+              ? transaction.customer
+              : transaction.customer._id;
+          if (customerId) {
+            updateOutstanding(
+              customerId.toString(),
+              transaction.newOutstanding,
+            );
+          }
+        }
       }
 
       const party =
         supplierData?.name || customerData?.name || transaction.name || "Party";
       const isPaymentIn = transaction.paymentIn ?? !transaction.taken;
       message.info(
-        `Payment of ₹${transaction.amount} ${isPaymentIn ? "received from" : "paid to"} ${party}`,
+        `Payment of ₹${transaction.amount} ${isPaymentIn ? "received from" : "paid to"} ${party}${transaction.approved ? "" : " (Pending Approval)"}`,
       );
     },
     [addTransaction, setTransactionId, updateSupplier, updateOutstanding],
@@ -649,9 +657,42 @@ export const useGlobalSocketHandlers = () => {
             customer.outstanding,
           );
           afterBillCreated(updatedCustomer || customer);
+        } else if (
+          transaction?.customer &&
+          transaction?.newOutstanding !== undefined
+        ) {
+          const customerId =
+            typeof transaction.customer === "string"
+              ? transaction.customer
+              : transaction.customer._id;
+          if (customerId) {
+            const updatedCustomer = updateOutstanding(
+              customerId.toString(),
+              transaction.newOutstanding,
+            );
+            if (updatedCustomer) {
+              afterBillCreated(updatedCustomer);
+            }
+          }
         }
         if (supplier) {
           updateSupplier(supplier);
+        } else if (
+          transaction?.supplier &&
+          transaction?.newOutstanding !== undefined
+        ) {
+          const supplierId =
+            typeof transaction.supplier === "string"
+              ? transaction.supplier
+              : transaction.supplier._id;
+          if (supplierId) {
+            useSupplierStore
+              .getState()
+              .updateOutstanding(
+                supplierId.toString(),
+                transaction.newOutstanding,
+              );
+          }
         }
       } else if (purpose === "REJECT") {
         rejectTransaction(transaction);
@@ -770,6 +811,14 @@ export const useGlobalSocketHandlers = () => {
     (purchase: any) => {
       updateSupplierPurchase(purchase);
       message.info("Purchase request accepted and prices updated");
+    },
+    [updateSupplierPurchase],
+  );
+
+  const handleSupplierPurchaseUpdated = useCallback(
+    (purchase: any) => {
+      if (!purchase) return;
+      updateSupplierPurchase(purchase);
     },
     [updateSupplierPurchase],
   );
@@ -1111,12 +1160,28 @@ export const useGlobalSocketHandlers = () => {
     setPendingReturnBills,
   ]);
 
+  const handleShopSettingsUpdated = useCallback((data: any) => {
+    console.log("Shop settings updated globally:", data);
+    const currentUser = useUserStore.getState().user;
+    if (currentUser) {
+      useUserStore.getState().setUser({
+        ...currentUser,
+        shopSettings: {
+          ...currentUser.shopSettings,
+          ...(data?.settings || {}),
+          ...(data?.currentBarcode !== undefined ? { currentBarcode: data.currentBarcode } : {}),
+        },
+      });
+    }
+  }, []);
+
   const modalVisibleRef = useRef(false);
 
   useEffect(() => {
     if (!socket || !isConnected) return;
     socket.on(SocketEvents.NOTIFICATION, handleNotification);
     socket.on("welcome", handleWelcomeMessage);
+    socket.on(SocketEvents.SHOP.SETTINGS_UPDATED, handleShopSettingsUpdated);
     socket.on(SocketEvents.INVENTORY.UPDATED, handleStockUpdated);
     socket.on(SocketEvents.INVENTORY.STOCK_UPDATED, handleStockUpdated);
     socket.on(
@@ -1149,6 +1214,10 @@ export const useGlobalSocketHandlers = () => {
     socket.on(
       SocketEvents.SUPPLIER_PURCHASE.ACCEPTED,
       handleSupplierPurchaseAccepted,
+    );
+    socket.on(
+      SocketEvents.SUPPLIER_PURCHASE.UPDATED,
+      handleSupplierPurchaseUpdated,
     );
     socket.on(
       SocketEvents.SUPPLIER_PURCHASE.APPROVED,
@@ -1217,8 +1286,10 @@ export const useGlobalSocketHandlers = () => {
       socket.off(SocketEvents.SUPPLIER.UPDATED);
       socket.off(SocketEvents.SUPPLIER_PURCHASE.CREATED);
       socket.off(SocketEvents.SUPPLIER_PURCHASE.ACCEPTED);
+      socket.off(SocketEvents.SUPPLIER_PURCHASE.UPDATED);
       socket.off(SocketEvents.SUPPLIER_PURCHASE.APPROVED);
       socket.off(SocketEvents.SUPPLIER_PURCHASE.REJECTED);
+      socket.off(SocketEvents.SHOP.SETTINGS_UPDATED);
       socket.off("SESSION_ALREADY_ACTIVE");
       socket.off("SESSION_TERMINATED");
     };
@@ -1227,6 +1298,7 @@ export const useGlobalSocketHandlers = () => {
     isConnected,
     handleWelcomeMessage,
     handleNotification,
+    handleShopSettingsUpdated,
     handleBillCreated,
     handleInventoryUpdateRequest,
     handleStockUpdated,
